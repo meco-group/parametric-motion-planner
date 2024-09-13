@@ -58,11 +58,6 @@ void Environment::GetCorridorSequence(const Point2D<double> &start,
     CorridorSequence corridor_sequence = CorridorSequence();
     corridor_sequence.InitializeFromCellPath(path, cell_width_, cell_height_);
 
-
-    // Cell space
-        // Compute a path in the cell environment from start to dest
-
-        // Add cells to ensure initial footprint of the vehicle is included
     
     // World coordinates
         // Use the path to determine the corridors of minimal width
