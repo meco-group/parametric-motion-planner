@@ -21,45 +21,17 @@ class Parameters{
             margin_ = margin;
         };
 
-        double get_v_max(){
-            return v_max_;
-        };
+        double GetVmax(){ return v_max_;};
+        double GetAmax(){ return a_max_;};
+        double GetVehWidth(){ return veh_width_;};
+        double GetVehHeight(){ return veh_height_;};
+        double GetMargin(){ return margin_;};
 
-        double get_a_max(){
-            return a_max_;
-        };
-
-        double get_veh_width(){
-            return veh_width_;
-        };
-
-        double get_veh_height(){
-            return veh_height_;
-        };
-
-        double get_margin(){
-            return margin_;
-        };
-
-        void set_v_max(double v_max){
-            v_max_ = v_max;
-        };
-
-        void set_a_max(double a_max){
-            a_max_ = a_max;
-        };
-
-        void set_veh_width(double veh_width){
-            veh_width_ = veh_width;
-        };
-
-        void set_veh_height(double veh_height){
-            veh_height_ = veh_height;
-        };
-
-        void set_margin(double margin){
-            margin_ = margin;
-        };
+        void SetVmax(double v_max){ v_max_ = v_max;};
+        void SetAmax(double a_max){ a_max_ = a_max;};
+        void SetVehHeight(double veh_height){ veh_height_ = veh_height;};
+        void SetVehWidth(double veh_width){ veh_width_ = veh_width;};
+        void SetMargin(double margin){ margin_ = margin;};
 
     private:
         double v_max_;       // Maximum (horizontal or vertical) velocity

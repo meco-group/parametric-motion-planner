@@ -45,10 +45,12 @@ class MotionPlanner{
 
         
         // Basic getters
-        Environment* environment(){ return &environment_;};
-        Point2D<double> start(){ return start_;};
-        Point2D<double> dest(){ return dest_;};
-        Point2D<double> start_vel(){ return start_vel_;};
+        Environment* GetEnvironment(){ return &environment_;};
+        Point2D<double> GetStart(){ return start_;};
+        Point2D<double> GetDest(){ return dest_;};
+        Point2D<double> GetStart_vel(){ return start_vel_;};
+        double GetVehWidth(){ return params_->GetVehWidth();};
+        double GetVehHeight(){ return params_->GetVehHeight();};
 
     private:
         Environment environment_;
