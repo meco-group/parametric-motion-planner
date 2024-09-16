@@ -5,6 +5,7 @@
 
 #include "helper_types.hpp"
 #include "exceptions.hpp"
+#include "corridor.hpp"
 
 // Class representing the environment
 class Environment{
@@ -31,6 +32,11 @@ class Environment{
                    pos.y() >= 0 && pos.y() < nb_cell_rows_ * cell_height_;
         }
 
+
+        bool isFreePosition(Point2D<double> pos){
+            Point2D<int> cell = pos.ConvertWorldToCell(cell_width_, cell_height_);
+            return IsFree(cell);
+        }
 
         // Environment operations
         void DeleteCell(Point2D<int> cell){
@@ -67,7 +73,8 @@ class Environment{
         void GetCorridorSequence(const Point2D<double> &start, 
                                  const Point2D<double> &dest, 
                                  const double &vehicle_width,
-                                 const double &vehicle_height);
+                                 const double &vehicle_height,
+                                 CorridorSequence &corridor_sequence);
 
 
         // Function to print the occupancy grid

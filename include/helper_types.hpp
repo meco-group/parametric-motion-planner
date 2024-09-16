@@ -38,11 +38,21 @@ class Point2D {
         // setters
         void SetX(T x){ x_ = x;};
         void SetY(T y){ y_ = y;};
+        void SetValues(T x, T y){ x_ = x; y_ = y;};
+        
+        void CopyValues(const Point2D<T> &other){
+            x_ = other.x(); y_ = other.y();
+        }
 
         // printing overloading
         friend std::ostream& operator<<(std::ostream &out, Point2D &v) {
             out << "(" << v.x() << ", " << v.y() << ")";
             return out;
+        }
+
+        // equality overloading
+        bool operator==(const Point2D<T> &other) const {
+            return x_ == other.x() && y_ == other.y();
         }
 
         // Convert a cell to world coordinates

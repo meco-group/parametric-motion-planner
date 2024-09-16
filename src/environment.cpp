@@ -42,7 +42,8 @@ Environment::Environment(int nb_cell_rows, int nb_cell_cols, double cell_width,
 void Environment::GetCorridorSequence(const Point2D<double> &start, 
                                       const Point2D<double> &dest,
                                       const double &vehicle_width,
-                                      const double &vehicle_height){
+                                      const double &vehicle_height,
+                                      CorridorSequence &corridor_sequence){
     // Convert start and destination to cell points
     Point2D<int> start_cell = start.ConvertWorldToCell(cell_width_, cell_height_);
     Point2D<int> dest_cell = dest.ConvertWorldToCell(cell_width_, cell_height_);
@@ -55,9 +56,7 @@ void Environment::GetCorridorSequence(const Point2D<double> &start,
         GetOccupiedStartingCells(start_cell, vehicle_width, vehicle_height);
 
     // Initialize the corridor sequence
-    CorridorSequence corridor_sequence = CorridorSequence();
     corridor_sequence.InitializeFromCellPath(path, cell_width_, cell_height_);
-
     
     // World coordinates
         // Use the path to determine the corridors of minimal width
