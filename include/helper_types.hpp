@@ -32,17 +32,21 @@ class Point2D {
         };
         
         // getters
-        double x() const { return x_;};
-        double y() const { return y_;};
-        
-        // setters
-        void SetX(T x){ x_ = x;};
-        void SetY(T y){ y_ = y;};
-        void SetValues(T x, T y){ x_ = x; y_ = y;};
+        T x() const { return x_;};
+        T y() const { return y_;};
         
         void CopyValues(const Point2D<T> &other){
             x_ = other.x(); y_ = other.y();
         }
+
+        double Distance(const Point2D<T> &other) const {
+            return sqrt(pow(x_ - other.x(), 2) + pow(y_ - other.y(), 2));
+        }
+
+        // setters
+        void SetX(T x){ x_ = x;};
+        void SetY(T y){ y_ = y;};
+        void SetValues(T x, T y){ x_ = x; y_ = y;};
 
         // printing overloading
         friend std::ostream& operator<<(std::ostream &out, Point2D &v) {

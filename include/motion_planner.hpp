@@ -1,10 +1,16 @@
 #ifndef __MOTION_PLANNER__
 #define __MOTION_PLANNER__
 
+#include <casadi/casadi.hpp>
+
 #include "parameters.hpp"
 #include "helper_types.hpp"
 #include "environment.hpp"
 #include "corridor.hpp"
+#include "helper_methods.hpp"
+#include "trajectory.hpp"
+
+using namespace casadi;
 
 class MotionPlanner{
     public:
@@ -62,23 +68,41 @@ class MotionPlanner{
         double GetVehWidth(){ return params_->GetVehWidth();};
         double GetVehHeight(){ return params_->GetVehHeight();};
 
+        // Basic setters
+        void SetPrintLevel(int print_level) { opts_solver_["print_level"] = print_level;};
+
+        // Printing
         void PrintCorridorSequence(){
             std::cout << corridor_sequence_ << std::endl;
         };
 
+
     private:
+        void SampleSolution();
+
         // Plan a simple trajectory, moving from corridor to corridor in 
         // straight lines
         void PlanP2P();
+        // Sample the P2P solution
+        void SampleP2PSolution();
 
         // Plan a trajectory by solving an Optimal Control Problem
         void PlanOCP();
+        // Sample the OCP solution
+        void SampleOCPSolution(DM &xx_sol, DM &uu_sol, DM &tt_sol);
 
         // Plan a trajectory using the ARENA method
         void PlanARENA();
+        // Sample ARENA solution
+        void SampleARENASolution();
+
+        // Initialize the rk4 integrator
+        void InitializeRK4();
+
         
         Environment environment_;
         CorridorSequence corridor_sequence_;
+        Helper helper_;
 
         Parameters* params_;
         PlannerMethod method_;
@@ -87,6 +111,7 @@ class MotionPlanner{
         Point2D<double> dest_;
         Point2D<double> start_vel_;
 
+        Trajectory last_solution_;
 
         // P2P method attributes
 
@@ -96,6 +121,10 @@ class MotionPlanner{
         std::vector<MX> rk4_outputs_ = std::vector<MX>(1);
 
         // ARENA method attributes
+
+        // other attributes
+        Dict opts_casadi_;
+        Dict opts_solver_;
 
 
 };

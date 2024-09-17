@@ -43,7 +43,7 @@ class Corridor{
         }
 
         // Copy function
-        Corridor Copy(){ return Corridor(x_min_, x_max_, y_min_, y_max_);};
+        Corridor Copy() const { return Corridor(x_min_, x_max_, y_min_, y_max_);};
 
     private:
         double x_min_;
@@ -77,8 +77,8 @@ class CorridorSequence{
         void RemoveCorridor(int idx);
 
         // Getters
-        Corridor GetCorridor(int idx){ return sequence_[idx].Copy();};
-        int NbCorridors(){ return last_corridor_idx_;};
+        Corridor GetCorridor(int idx) const { return sequence_[idx].Copy();};
+        int NbCorridors() const { return last_corridor_idx_;};
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, CorridorSequence &sequence) {
@@ -89,6 +89,8 @@ class CorridorSequence{
         }
 
     private:
+        void ClearAll(){ last_corridor_idx_ = 0;};
+
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors
 

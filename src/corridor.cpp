@@ -27,6 +27,7 @@ bool Corridor::GetOverlap(Corridor &other, Corridor &overlap){
 void CorridorSequence::InitializeFromCellPath(std::vector<Point2D<int>> &path, 
                                               const double &cell_width, 
                                               const double &cell_height){
+    ClearAll();
     Point2D<int> curr_start_cell = path[0];
     Point2D<int> curr_end_cell = path[1];
     Point2D<int> curr_direction = 
