@@ -198,7 +198,7 @@ void MotionPlanner::PlanOCP(){
     std::cout << "t: " << t << std::endl;
 
     // Construct trajectory
-    last_solution_ = Trajectory(0.01, xx_sol, uu_sol, t);
+    last_solution_.Update(xx_sol, uu_sol, t);
 
     std::cout << "Solution obtained:" << std::endl;
     std::cout << last_solution_ << std::endl;

@@ -6,30 +6,38 @@
 
 using namespace casadi;
 
+const double DT_DEFAULT = 0.01;
+const double MAX_TRAJECTORY_TIME_DEFAULT = 60;
+
+
 class Trajectory{
     public:
-        Trajectory(){};
+        Trajectory();
 
-        Trajectory(double dt, DM &xx_ocp, DM &uu_ocp, 
-                   std::vector<double> &tt_ocp);
+        void Update(DM &xx_ocp, DM &uu_ocp, 
+                    std::vector<double> &tt_ocp);
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, Trajectory &trajectory);
 
         // Basic getters
-        double Tf(){ return t_[t_.size() - 1];};
-        std::vector<double> T(){ return t_;};
-        std::vector<double> Px(){ return px_;};
-        std::vector<double> Py(){ return py_;};
-        std::vector<double> Vx(){ return vx_;};
-        std::vector<double> Vy(){ return vy_;};
-        std::vector<double> Ax(){ return ax_;};
-        std::vector<double> Ay(){ return ay_;};
+        double Tf() const { return t_[t_.size() - 1];};
+        int NbSamples() const { return curr_nb_samples_;};
+        std::vector<double> T() const { return t_;};
+        std::vector<double> Px() const { return px_;};
+        std::vector<double> Py() const { return py_;};
+        std::vector<double> Vx() const { return vx_;};
+        std::vector<double> Vy() const { return vy_;};
+        std::vector<double> Ax() const { return ax_;};
+        std::vector<double> Ay() const { return ay_;};
 
 
 
     private:
-        double dt_;
+        const double dt_;
+        const double max_trajectory_time_;
+        const int max_nb_samples_;
+        int curr_nb_samples_ = 0;
 
         std::vector<double> t_;
         std::vector<double> px_;

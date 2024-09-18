@@ -21,6 +21,116 @@ bool Corridor::GetOverlap(Corridor &other, Corridor &overlap){
     return true;
 }
 
+bool Corridor::IsCompletelyWithin(Corridor* const &other) const {
+    return x_min_ >= other->Xmin() && x_max_ <= other->Xmax() && 
+           y_min_ >= other->Ymin() && y_max_ <= other->Ymax();
+}
+
+bool Corridor::IsCompletelyWithin(Corridor* const &other1,
+                                  Corridor* const &other2) const {
+    Corridor possible_parent;
+    
+    // Check if this corridor fits inside an enlarged version of other1
+    // ('enlarged' meaning that the overlap region is maximized)
+    // First check if other1 can be enlarged vertically
+    if (other1->Xmin() >= other2->Xmin() && other1->Xmax() <= other2->Xmax()){
+        if (other1->Ymin() <= other2->Ymax()){
+            possible_parent.SetYmin(std::min(other1->Ymin(), other2->Ymin()));
+        } else {
+            possible_parent.SetYmin(other1->Ymin());
+        }
+        if (other1->Ymax() >= other2->Ymin()){
+            possible_parent.SetYmax(std::max(other1->Ymax(), other2->Ymax()));
+        } else {
+            possible_parent.SetYmax(other1->Ymax());
+        }
+        possible_parent.SetXmin(other1->Xmin());
+        possible_parent.SetXmax(other1->Xmax());
+        if (IsCompletelyWithin(&possible_parent)){
+            return true;
+        }
+    }
+
+    // then check if other1 can be enlarged horizontally
+    if (other1->Ymin() >= other2->Ymin() && other1->Ymax() <= other2->Ymax()){
+        if (other1->Xmin() <= other2->Xmax()){
+            possible_parent.SetXmin(std::min(other1->Xmin(), other2->Xmin()));
+        } else {
+            possible_parent.SetXmin(other1->Xmin());
+        }
+        if (other1->Xmax() >= other2->Xmin()){
+            possible_parent.SetXmax(std::max(other1->Xmax(), other2->Xmax()));
+        } else {
+            possible_parent.SetXmax(other1->Xmax());
+        }
+        possible_parent.SetYmin(other1->Ymin());
+        possible_parent.SetYmax(other1->Ymax());
+        if (IsCompletelyWithin(&possible_parent)){
+            return true;
+        }
+    }
+
+    // Check if this corridor fits inside an enlarged version of other2
+    // ('enlarged' meaning that the overlap region is maximized)
+    // First check if other2 can be enlarged vertically
+    if (other2->Xmin() >= other1->Xmin() && other2->Xmax() <= other1->Xmax()){
+        if (other2->Ymin() <= other1->Ymax()){
+            possible_parent.SetYmin(std::min(other2->Ymin(), other1->Ymin()));
+        } else {
+            possible_parent.SetYmin(other2->Ymin());
+        }
+        if (other2->Ymax() >= other1->Ymin()){
+            possible_parent.SetYmax(std::max(other2->Ymax(), other1->Ymax()));
+        } else {
+            possible_parent.SetYmax(other2->Ymax());
+        }
+        possible_parent.SetXmin(other2->Xmin());
+        possible_parent.SetXmax(other2->Xmax());
+        if (IsCompletelyWithin(&possible_parent)){
+            return true;
+        }
+    }
+
+    // then check if other2 can be enlarged horizontally
+    if (other2->Ymin() >= other1->Ymin() && other2->Ymax() <= other1->Ymax()){
+        if (other2->Xmin() <= other1->Xmax()){
+            possible_parent.SetXmin(std::min(other2->Xmin(), other1->Xmin()));
+        } else {
+            possible_parent.SetXmin(other2->Xmin());
+        }
+        if (other2->Xmax() >= other1->Xmin()){
+            possible_parent.SetXmax(std::max(other2->Xmax(), other1->Xmax()));
+        } else {
+            possible_parent.SetXmax(other2->Xmax());
+        }
+        possible_parent.SetYmin(other2->Ymin());
+        possible_parent.SetYmax(other2->Ymax());
+        if (IsCompletelyWithin(&possible_parent)){
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void Corridor::UpdateDirection(){
+    if (std::abs(x_max_ - x_min_) > std::abs(y_max_ - y_min_)){
+        if (x_max_ - x_min_ > 0){
+            direction_ = Point2D<int>(1, 0);
+        } else {
+            direction_ = Point2D<int>(-1, 0);
+        }
+    } else {
+        if (y_max_ - y_min_ > 0){
+            direction_ = Point2D<int>(0, 1);
+        } else {
+            direction_ = Point2D<int>(0, -1);
+        }
+    }
+}
+
+
+
 
 // CorridorSequence class
 
@@ -48,6 +158,30 @@ void CorridorSequence::InitializeFromCellPath(std::vector<Point2D<int>> &path,
     }
 
     AddCorridorFromCells(curr_start_cell, curr_end_cell, cell_width, cell_height);
+};
+
+void CorridorSequence::InflateCorridors(Environment &environment){
+    bool made_change = true;
+    int grow_counter = 0;
+    int max_nb_grow_iterations = 3;
+
+    while (made_change && grow_counter < max_nb_grow_iterations){
+        made_change = false;
+        
+        // grow
+        for (int i = 0; i < last_corridor_idx_; i++){
+            made_change = GrowCorridorSideways(i, environment);
+        }
+
+        // merge
+        if (made_change){
+            made_change = made_change || MergeCorridors();
+        }
+        grow_counter++;
+    }
+
+    // remove irrelevant corridors
+    RemoveIrrelevantCorridors();
 };
 
 void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min, 
@@ -85,4 +219,250 @@ void CorridorSequence::RemoveCorridor(int idx){
     // If so, remove the corridor
     sequence_.erase(sequence_.begin() + idx);
     last_corridor_idx_--;
+};
+
+bool CorridorSequence::GrowCorridorSideways(int idx, Environment &environment){
+    bool growing_left_possible = CheckCellsOnLeftSide(idx, environment);
+    bool growing_right_possible = CheckCellsOnrightSide(idx, environment);
+
+    // if not able to grow, stop
+    if (!growing_left_possible && !growing_right_possible){
+        return false;
+    }
+
+    // else, grow the corridor
+    // if vertical corridor
+    if (sequence_[idx].Direction().x() == 0){
+        // upward corridor
+        if (sequence_[idx].Direction().y() > 0){
+            if (growing_left_possible){
+                sequence_[idx].SetXmin(sequence_[idx].Xmin() - 
+                                       environment.CellWidth());
+            }
+            if (growing_right_possible){
+                sequence_[idx].SetXmax(sequence_[idx].Xmax() + 
+                                       environment.CellWidth());
+            }
+        // downward corridor
+        } else {
+            if (growing_left_possible){
+                sequence_[idx].SetXmax(sequence_[idx].Xmax() + 
+                                       environment.CellWidth());
+            }
+            if (growing_right_possible){
+                sequence_[idx].SetXmin(sequence_[idx].Xmin() - 
+                                       environment.CellWidth());
+            }
+        }
+
+    // if horizontal corridor
+    } else {
+        // rightward corridor
+        if (sequence_[idx].Direction().x() > 0){
+            if (growing_left_possible){
+                sequence_[idx].SetYmax(sequence_[idx].Ymax() + 
+                                       environment.CellHeight());
+            }
+            if (growing_right_possible){
+                sequence_[idx].SetYmin(sequence_[idx].Ymin() - 
+                                       environment.CellHeight());
+            }
+        // leftward corridor
+        } else {
+            if (growing_left_possible){
+                sequence_[idx].SetYmin(sequence_[idx].Ymin() - 
+                                       environment.CellHeight());
+            }
+            if (growing_right_possible){
+                sequence_[idx].SetYmax(sequence_[idx].Ymax() + 
+                                       environment.CellHeight());
+            }
+        }
+    }
+
+    return true;
+};
+
+int CorridorSequence::GetCellsOnLeftSide(int corridor_idx, 
+                                         Environment &environment){
+
+    // Get the direction of the corridor
+    Corridor* corridor = &sequence_[corridor_idx];
+    Point2D<int> direction = corridor->Direction();
+
+    int corridor_cell_length = 
+        corridor->GetCellLength(environment.CellWidth(), 
+                                environment.CellHeight());
+
+    // if vertical corridor
+    if (direction.x() == 0){
+
+        // loop over all cells along the corridor
+        for (int i = 0; i < corridor_cell_length; i++){
+            cells_along_corridor_[i].SetY(corridor->Ymin() + 
+                                            environment.CellHeight()/2 +
+                                            i*environment.CellHeight());
+            if (direction.y() > 0){
+                cells_along_corridor_[i].SetX(corridor->Xmin() - 
+                                            environment.CellWidth()/2);
+            } else {
+                cells_along_corridor_[i].SetX(corridor->Xmax() + 
+                                            environment.CellWidth()/2);
+            }
+        }
+    // if horizontal corridor
+    } else {
+
+        // loop over all cells along the corridor
+        for (int i = 0; i < corridor_cell_length; i++){
+            cells_along_corridor_[i].SetX(corridor->Xmin() + 
+                                            environment.CellWidth()/2 + 
+                                            i*environment.CellWidth());
+            if (direction.x() > 0){
+                cells_along_corridor_[i].SetY(corridor->Ymax() + 
+                                            environment.CellHeight()/2);
+            } else {
+                cells_along_corridor_[i].SetY(corridor->Ymin() - 
+                                            environment.CellHeight()/2);
+            }
+        }
+    }
+
+    return corridor_cell_length;
+};
+
+int CorridorSequence::GetCellsOnRightSide(int corridor_idx, 
+                                          Environment &environment){
+
+    // Get the direction of the corridor
+    Corridor* corridor = &sequence_[corridor_idx];
+    Point2D<int> direction = corridor->Direction();
+
+    int corridor_cell_length = 
+        corridor->GetCellLength(environment.CellWidth(), 
+                                environment.CellHeight());
+
+    // if vertical corridor
+    if (direction.x() == 0){
+
+        // loop over all cells along the corridor
+        for (int i = 0; i < corridor_cell_length; i++){
+            cells_along_corridor_[i].SetY(corridor->Ymin() + 
+                                            environment.CellHeight()/2 +
+                                            i*environment.CellHeight());
+            if (direction.y() > 0){
+                cells_along_corridor_[i].SetX(corridor->Xmax() + 
+                                            environment.CellWidth()/2);
+            } else {
+                cells_along_corridor_[i].SetX(corridor->Xmin() - 
+                                            environment.CellWidth()/2);
+            }
+        }
+    // if horizontal corridor
+    } else {
+
+        // loop over all cells along the corridor
+        for (int i = 0; i < corridor_cell_length; i++){
+            cells_along_corridor_[i].SetX(corridor->Xmin() + 
+                                            environment.CellWidth()/2 + 
+                                            i*environment.CellWidth());
+            if (direction.x() > 0){
+                cells_along_corridor_[i].SetY(corridor->Ymin() - 
+                                            environment.CellHeight()/2);
+            } else {
+                cells_along_corridor_[i].SetY(corridor->Ymax() + 
+                                            environment.CellHeight()/2);
+            }
+        }
+    }
+
+    return corridor_cell_length;
+};
+
+bool CorridorSequence::CheckCellsOnLeftSide(int corridor_idx, 
+                                            Environment &environment){
+    int corridor_cell_length = GetCellsOnLeftSide(corridor_idx, environment);
+
+    for (int i = 0; i < corridor_cell_length; i++){
+        if (!environment.IsFree(cells_along_corridor_[i])){
+            return false;
+        }
+    }
+
+    return true;
+};
+
+bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx, 
+                                            Environment &environment){
+    int corridor_cell_length = GetCellsOnRightSide(corridor_idx, environment);
+
+    for (int i = 0; i < corridor_cell_length; i++){
+        if (!environment.IsFree(cells_along_corridor_[i])){
+            return false;
+        }
+    }
+
+    return true;
+};
+
+bool CorridorSequence::RemoveIrrelevantCorridors(){
+    bool made_change = false;
+
+    Corridor* previous_corridor;
+    Corridor* current_corridor;
+    Corridor* next_corridor;
+    Corridor overlap;
+    for (int i = last_corridor_idx_ - 2; i >= 1; i--){
+        previous_corridor = &sequence_[i-1];
+        current_corridor = &sequence_[i];
+        next_corridor = &sequence_[i+1];
+
+        // The current corridor has to be removed if
+        // - it is completely within the previous corridor
+        // - it is completely within the next corridor
+        // - it is completely within a union of the previous and next corridor
+        // - it overlaps both with the previous and the next corridor
+        if (current_corridor->IsCompletelyWithin(previous_corridor) ||
+                current_corridor->IsCompletelyWithin(next_corridor) ||
+                current_corridor->IsCompletelyWithin(previous_corridor, 
+                                                    next_corridor) ||
+                previous_corridor->GetOverlap(*next_corridor, overlap)){
+            RemoveCorridor(i);
+            made_change = true;
+            continue; // move on to the next corridor
+        }
+    }
+    return made_change;
+};
+
+bool CorridorSequence::MergeCorridors(){
+    double tolerance = 1e-10;
+    
+    Corridor* current_corridor;
+    Corridor* next_corridor;
+    for (int i = last_corridor_idx_ - 2; i >= 0; i--){
+        current_corridor = &sequence_[i];
+        next_corridor = &sequence_[i+1];
+
+        if (std::abs(current_corridor->Xmin() - next_corridor->Xmin()) &&
+                std::abs(current_corridor->Xmax() - next_corridor->Xmax())){
+            current_corridor->SetYmin(std::min(current_corridor->Ymin(), 
+                                               next_corridor->Ymin()));
+            current_corridor->SetYmax(std::max(current_corridor->Ymax(),
+                                               next_corridor->Ymax()));
+            RemoveCorridor(i+1);
+            continue;
+        }
+
+        if (std::abs(current_corridor->Ymin() - next_corridor->Ymin()) &&
+                std::abs(current_corridor->Ymax() - next_corridor->Ymax())){
+            current_corridor->SetXmin(std::min(current_corridor->Xmin(), 
+                                               next_corridor->Xmin()));
+            current_corridor->SetXmax(std::max(current_corridor->Xmax(),
+                                               next_corridor->Xmax()));
+            RemoveCorridor(i+1);
+            continue;
+        }
+
+    }
 };

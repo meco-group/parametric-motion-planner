@@ -42,6 +42,9 @@ class Point2D {
         double Distance(const Point2D<T> &other) const {
             return sqrt(pow(x_ - other.x(), 2) + pow(y_ - other.y(), 2));
         }
+        T ManhattanDistance(const Point2D<T> &other) const {
+            return abs(x_ - other.x()) + abs(y_ - other.y());
+        }
 
         // setters
         void SetX(T x){ x_ = x;};

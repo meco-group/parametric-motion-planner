@@ -111,7 +111,7 @@ class MotionPlanner{
         Point2D<double> dest_;
         Point2D<double> start_vel_;
 
-        Trajectory last_solution_;
+        Trajectory last_solution_ = Trajectory();
 
         // P2P method attributes
 

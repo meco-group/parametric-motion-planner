@@ -7,6 +7,8 @@
 #include "exceptions.hpp"
 #include "corridor.hpp"
 
+class CorridorSequence;
+
 // Class representing the environment
 class Environment{
     public:
@@ -26,17 +28,19 @@ class Environment{
             return x >= 0 && x < nb_cell_cols_ && 
                    y >= 0 && y < nb_cell_rows_;
         }
-
         bool isValidPosition(Point2D<double> pos){
             return pos.x() >= 0 && pos.x() < nb_cell_cols_ * cell_width_ && 
                    pos.y() >= 0 && pos.y() < nb_cell_rows_ * cell_height_;
         }
 
 
-        bool isFreePosition(Point2D<double> pos){
+        bool IsFree(Point2D<double> const &pos){
+            if (!isValidPosition(pos)){ return false;}
             Point2D<int> cell = pos.ConvertWorldToCell(cell_width_, cell_height_);
             return IsFree(cell);
         }
+        bool IsFree(Point2D<int> const &cell);
+        bool IsFree(int x, int y);
 
         // Environment operations
         void DeleteCell(Point2D<int> cell){
@@ -85,9 +89,6 @@ class Environment{
         int NbCellCols(){ return nb_cell_cols_;};
         double CellWidth(){ return cell_width_;};
         double CellHeight(){ return cell_height_;};
-        
-        bool IsFree(Point2D<int> cell);
-        bool IsFree(int x, int y);
         
         CellOccupancy GetOccupancy(Point2D<int> cell);
         CellOccupancy GetOccupancy(int x, int y);
