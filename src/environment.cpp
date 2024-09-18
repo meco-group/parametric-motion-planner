@@ -66,7 +66,7 @@ void Environment::GetCorridorSequence(const Point2D<double> &start,
             std::reverse(occupied_cells.begin(), occupied_cells.end());
         }
         path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
-    } else {
+    } else if (occupied_cells.size() == 3){
         // find the diagonal cell
         int diagonal_idx;
         if (path[0].ManhattanDistance(occupied_cells[0]) == 2){

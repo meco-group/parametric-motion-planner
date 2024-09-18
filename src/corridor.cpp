@@ -437,6 +437,8 @@ bool CorridorSequence::RemoveIrrelevantCorridors(){
 
 bool CorridorSequence::MergeCorridors(){
     double tolerance = 1e-10;
+
+    bool made_change = false;
     
     Corridor* current_corridor;
     Corridor* next_corridor;
@@ -451,6 +453,7 @@ bool CorridorSequence::MergeCorridors(){
             current_corridor->SetYmax(std::max(current_corridor->Ymax(),
                                                next_corridor->Ymax()));
             RemoveCorridor(i+1);
+            made_change = true;
             continue;
         }
 
@@ -461,8 +464,9 @@ bool CorridorSequence::MergeCorridors(){
             current_corridor->SetXmax(std::max(current_corridor->Xmax(),
                                                next_corridor->Xmax()));
             RemoveCorridor(i+1);
+            made_change = true;
             continue;
         }
-
     }
+    return made_change;
 };
