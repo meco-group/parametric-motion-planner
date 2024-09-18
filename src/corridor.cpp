@@ -153,7 +153,6 @@ void CorridorSequence::InitializeFromCellPath(std::vector<Point2D<int>> &path,
             curr_start_cell.CopyValues(curr_end_cell);
             curr_direction.CopyValues(next_direction);
         }
-
         curr_end_cell.CopyValues(next_cell);
     }
 
@@ -165,18 +164,25 @@ void CorridorSequence::InflateCorridors(Environment &environment){
     int grow_counter = 0;
     int max_nb_grow_iterations = 3;
 
+    // grow corridors
     while (made_change && grow_counter < max_nb_grow_iterations){
         made_change = false;
         
-        // grow
         for (int i = 0; i < last_corridor_idx_; i++){
-            made_change = GrowCorridorSideways(i, environment);
+            made_change = made_change || GrowCorridorSideways(i, environment);
         }
 
-        // merge
         if (made_change){
             made_change = made_change || MergeCorridors();
         }
+        grow_counter++;
+    }
+
+    // grow first corridor even more
+    max_nb_grow_iterations = 3; grow_counter = 0;
+    while (made_change && grow_counter < max_nb_grow_iterations){
+        made_change = false;
+        made_change = made_change || GrowCorridorSideways(0, environment);
         grow_counter++;
     }
 
@@ -222,6 +228,13 @@ void CorridorSequence::RemoveCorridor(int idx){
 };
 
 bool CorridorSequence::GrowCorridorSideways(int idx, Environment &environment){
+    // A corridor cannot become fat (wider than it's length) unless it is the 
+    // first corridor
+    if (idx > 0 && sequence_[idx].Width() >= sequence_[idx].Height()){
+        return false;
+    }
+
+    // Check if we can grow
     bool growing_left_possible = CheckCellsOnLeftSide(idx, environment);
     bool growing_right_possible = CheckCellsOnrightSide(idx, environment);
 
@@ -432,6 +445,12 @@ bool CorridorSequence::RemoveIrrelevantCorridors(){
             continue; // move on to the next corridor
         }
     }
+
+    // The first/last corridor can be removed if the next/previous corridor
+    // contains the start/destination
+    // TODO: implement this
+
+
     return made_change;
 };
 

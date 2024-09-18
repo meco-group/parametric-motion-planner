@@ -42,6 +42,8 @@ class Corridor{
         double Xmax() const { return x_max_;};
         double Ymin() const { return y_min_;};
         double Ymax() const { return y_max_;};
+        double Width() const { return x_max_ - x_min_;};
+        double Height() const { return y_max_ - y_min_;};
         Point2D<int> Direction() const { return direction_;};
         int GetCellLength(double cell_width, double cell_height) const {
             return std::max(std::abs(x_max_ - x_min_)/cell_width, 
@@ -49,10 +51,10 @@ class Corridor{
         };
 
         // Setters
-        void SetXmin(double x_min){ x_min_ = x_min;};
-        void SetXmax(double x_max){ x_max_ = x_max;};
-        void SetYmin(double y_min){ y_min_ = y_min;};
-        void SetYmax(double y_max){ y_max_ = y_max;};
+        void SetXmin(double x_min){ x_min_ = x_min; UpdateDirection();};
+        void SetXmax(double x_max){ x_max_ = x_max; UpdateDirection();};
+        void SetYmin(double y_min){ y_min_ = y_min; UpdateDirection();};
+        void SetYmax(double y_max){ y_max_ = y_max; UpdateDirection();};
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, Corridor &corridor) {
