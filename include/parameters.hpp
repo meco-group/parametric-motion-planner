@@ -21,12 +21,14 @@ class Parameters{
             margin_ = margin;
         };
 
-        double GetVmax(){ return v_max_;};
-        double GetAmax(){ return a_max_;};
-        double GetVehWidth(){ return veh_width_;};
-        double GetVehHeight(){ return veh_height_;};
-        double GetMargin(){ return margin_;};
+        // basic getters
+        double GetVmax() const { return v_max_;};
+        double GetAmax() const { return a_max_;};
+        double GetVehWidth() const { return veh_width_;};
+        double GetVehHeight() const { return veh_height_;};
+        double GetMargin() const { return margin_;};
 
+        // basic setters
         void SetVmax(double v_max){ v_max_ = v_max;};
         void SetAmax(double a_max){ a_max_ = a_max;};
         void SetVehHeight(double veh_height){ veh_height_ = veh_height;};

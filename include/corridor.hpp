@@ -6,6 +6,7 @@
 #include "exceptions.hpp"
 #include "helper_types.hpp"
 #include "environment.hpp"
+#include "parameters.hpp"
 
 class Environment;
 class CorridorSequence;
@@ -36,6 +37,8 @@ class Corridor{
         bool IsCompletelyWithin(Corridor* const &other) const;
         bool IsCompletelyWithin(Corridor* const &other1, 
                                 Corridor* const &other2) const;
+        bool ContainsVehicle(const Point2D<double> &vehicle_position, 
+                             const Parameters &params) const;
 
         // Getters
         double Xmin() const { return x_min_;};
@@ -82,33 +85,20 @@ class Corridor{
 // Sequence of corridors
 class CorridorSequence{
     public:
-        CorridorSequence() : max_len_(MAX_NB_CORRIDORS), 
-            sequence_(MAX_NB_CORRIDORS), 
-            cells_along_corridor_(MAX_CORRIDOR_CELL_LENGTH){};
-        CorridorSequence(int max_len) : max_len_(max_len), sequence_(max_len_),
+        CorridorSequence(Environment const &environment) : 
+            CorridorSequence(environment, MAX_NB_CORRIDORS) {};
+        CorridorSequence(Environment const &environment, int max_len) : 
+            environment_(environment),
+            max_len_(max_len), sequence_(max_len_),
             cells_along_corridor_(MAX_CORRIDOR_CELL_LENGTH){};
 
         // Initialize corridors from cell path
-        void InitializeFromCellPath(std::vector<Point2D<int>> &path, 
-                                    const double &cell_width, 
-                                    const double &cell_height);
-
-        // Inflate corridors as much as possible
-        void InflateCorridors(Environment &environment);
-
-        // Add a corridor to the sequence
-        void AddCorridor(double x_min, double x_max, double y_min, double y_max);
-
-        // Add a corridor to the sequence based on two cells
-        void AddCorridorFromCells(Point2D<int> &start_cell, 
-                                  Point2D<int> &end_cell,
-                                  const double &cell_width, 
-                                  const double &cell_height);
-
-        // Remove a corridor from the sequence
-        void RemoveCorridor(int idx);
+        void UpdateSequence(Point2D<double> const &start,
+                            Point2D<double> const &dest,
+                            Parameters const &params);
 
         // Getters
+        int MaxNbCorridors() const { return max_len_;};
         Corridor GetCorridor(int idx) const { return sequence_[idx].Copy();};
         int NbCorridors() const { return last_corridor_idx_;};
 
@@ -121,24 +111,46 @@ class CorridorSequence{
         }
 
     private:
-        void ClearAll(){ last_corridor_idx_ = 0;};
+        void ClearAll(){ last_corridor_idx_ = 0; made_change_ = false;};
 
-        bool GrowCorridorSideways(int idx, Environment &environment);
+        // Inflate corridors as much as possible
+        void InflateCorridors(Point2D<double> const &start, 
+                              Point2D<double> const &dest, 
+                              Parameters const &params);
 
-        int GetCellsOnLeftSide(int corridor_idx, Environment &environment);
-        int GetCellsOnRightSide(int corridor_idx, Environment &environment);
+        // Add a corridor to the sequence
+        void AddCorridor(double x_min, double x_max, double y_min, double y_max);
 
-        bool CheckCellsOnLeftSide(int corridor_idx, Environment &environment);
-        bool CheckCellsOnrightSide(int corridor_idx, Environment &environment);
+        // Add a corridor to the sequence based on two cells
+        void AddCorridorFromCells(Point2D<int> &start_cell, 
+                                  Point2D<int> &end_cell);
 
-        bool RemoveIrrelevantCorridors();
+        // Remove a corridor from the sequence
+        void RemoveCorridor(int idx);
+
+        bool GrowCorridorSideways(int idx);
+
+        int GetCellsOnLeftSide(int corridor_idx);
+        int GetCellsOnRightSide(int corridor_idx);
+
+        bool CheckCellsOnLeftSide(int corridor_idx);
+        bool CheckCellsOnrightSide(int corridor_idx);
+
+        bool RemoveIrrelevantCorridors(Point2D<double> const &start, 
+                                       Point2D<double> const &dest,
+                                       Parameters const &params);
         bool MergeCorridors();
+
+        const Environment& environment_;    // Reference to the environment object
 
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors
 
         int last_corridor_idx_ = 0;         // index of the last corridor in the sequence
 
+        bool made_change_ = false;          // flag to indicate if a change was made (since last parametrization update)
+
+        // scratch space
         std::vector<Point2D<double>> cells_along_corridor_;
 };
 

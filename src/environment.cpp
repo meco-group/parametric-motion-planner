@@ -1,11 +1,11 @@
 #include <queue>
 #include <set>
-#include <algorithm>
 
 #include "environment.hpp"
 #include "corridor.hpp"
 
 Environment::Environment(){
+    std::cout << "Creating default environment" << std::endl;
     nb_cell_rows_ = 10;
     nb_cell_cols_ = 12;
     cell_width_ = 0.120;
@@ -40,71 +40,7 @@ Environment::Environment(int nb_cell_rows, int nb_cell_cols, double cell_width,
             std::vector<CellOccupancy>(nb_cell_rows_, FREE));
 }
 
-void Environment::GetCorridorSequence(const Point2D<double> &start, 
-                                      const Point2D<double> &dest,
-                                      const double &vehicle_width,
-                                      const double &vehicle_height,
-                                      CorridorSequence &corridor_sequence){
-    // Convert start and destination to cell points
-    Point2D<int> start_cell = start.ConvertWorldToCell(cell_width_, cell_height_);
-    Point2D<int> dest_cell = dest.ConvertWorldToCell(cell_width_, cell_height_);
-
-    // Compute a path in the cell environment from start to dest
-    std::vector<Point2D<int>> path = PerformBreadthFirstSearch(start_cell, dest_cell);
-
-    // Add cells to ensure initial footprint of the vehicle is included
-    std::vector<Point2D<int>> occupied_cells = 
-        GetOccupiedStartingCells(start_cell, vehicle_width, vehicle_height);
-
-    // Make sure to add the cells in the correct sequence (this makes the 
-    // resulting corridors nicer)
-    if (occupied_cells.size() == 1){
-        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
-    } else if (occupied_cells.size() > 1){
-        if (path[0].ManhattanDistance(occupied_cells[0]) < 
-                path[0].ManhattanDistance(occupied_cells[1])){
-            std::reverse(occupied_cells.begin(), occupied_cells.end());
-        }
-        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
-    } else if (occupied_cells.size() == 3){
-        // find the diagonal cell
-        int diagonal_idx;
-        if (path[0].ManhattanDistance(occupied_cells[0]) == 2){
-            path.insert(path.begin(), occupied_cells[1]);
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[2]);
-        } else if (path[0].ManhattanDistance(occupied_cells[1]) == 2){
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[1]);
-            path.insert(path.begin(), occupied_cells[2]);
-        } else {
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[2]);
-            path.insert(path.begin(), occupied_cells[1]);
-        }
-    }
-
-    // Initialize the corridor sequence
-    corridor_sequence.InitializeFromCellPath(path, cell_width_, cell_height_);
-
-    // Inflate the corridors
-    corridor_sequence.InflateCorridors(*this);
-    
-    // World coordinates
-        // Use the path to determine the corridors of minimal width
-
-        // Grow corridors sideways and merge if needed
-
-        // Grow the first corridor as much as possible
-
-        // Filter corridors that are completely within neighbouring corridors
-
-        // Potentially remove first/last corridor if they are redundant
-
-        // Another sweep of merging (?)
-}
-
-std::ostream& operator<<(std::ostream &out, Environment &environment){
+std::ostream& operator<<(std::ostream &out, Environment const &environment){
     out << environment.NbCellRows() << " x " << environment.NbCellCols() << " environment" << std::endl;
     for (int j = environment.NbCellRows() - 1; j >= 0 ; j--){
         for (int i = 0; i < environment.NbCellCols() ; i++){
@@ -125,33 +61,33 @@ std::ostream& operator<<(std::ostream &out, Environment &environment){
     return out;
 }
 
-bool Environment::IsFree(Point2D<int> const  &cell){
+bool Environment::IsFree(Point2D<int> const  &cell) const {
     if (!isValidCell(cell)){
         throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
     }
     return occupancy_grid_[cell.x()][cell.y()] == FREE;
 }
-bool Environment::IsFree(int x, int y){
+bool Environment::IsFree(int x, int y) const {
     if (!isValidCell(x, y)){
         throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
     }
     return occupancy_grid_[x][y] == FREE;
 }
-CellOccupancy Environment::GetOccupancy(Point2D<int> cell){
+CellOccupancy Environment::GetOccupancy(Point2D<int> cell) const {
     if (!isValidCell(cell)){
         throw InvalidEnvironmentOperationException("Cannot get occupancy of a cell outside of the environment");
     }
     return occupancy_grid_[cell.x()][cell.y()];
 }
-CellOccupancy Environment::GetOccupancy(int x, int y){
+CellOccupancy Environment::GetOccupancy(int x, int y) const {
     if (!isValidCell(x, y)){
         throw InvalidEnvironmentOperationException("Cannot get occupancy of a cell outside of the environment");
     }
     return occupancy_grid_[x][y];
 }
 
-std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch(
-    const Point2D<int> &start, const Point2D<int> &dest){
+std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
+    const Point2D<int> &start, const Point2D<int> &dest) const {
     // Initialize the queue and the set of visited cells
     std::queue<std::vector<Point2D<int>>> path_queue;
     std::set<Point2D<int>> visited;
@@ -208,7 +144,7 @@ std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch(
 
 std::vector<Point2D<int>> Environment::GetOccupiedStartingCells(
     const Point2D<int> &start, const double &vehicle_width,
-    const double &vehicle_length){
+    const double &vehicle_length) const {
     // Initialize the set of occupied cells
     std::set<Point2D<int>> occupied_cells;
 

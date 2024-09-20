@@ -2,28 +2,25 @@
 #include <casadi/casadi.hpp>
 
 #include "motion_planner.hpp"
+#include "corridor.hpp"
 #include "trajectory.hpp"
 
 using namespace casadi;
 
-MotionPlanner::MotionPlanner(){
-    environment_ = Environment();
-    params_ = new Parameters();
-    method_ = ARENA;
+MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params, 
+                             Environment const &environment) :
+        params_(params),
+        environment_(environment),
+        corridor_sequence_(environment_),
+        parametrization_(corridor_sequence_) {
 
-    opts_solver_["print_level"] = 0;
-
-    InitializeRK4();
+        method_ = method;
+        opts_solver_["print_level"] = 0;
+        InitializeRK4();
 }
 
 void MotionPlanner::UpdateCorridorSequence(){
-    if (!environment_.isValidPosition(start_) || 
-        !environment_.isValidPosition(dest_)){
-        throw InvalidPositionInEnvironmentException("Invalid starting position or destination");
-    }
-    environment_.GetCorridorSequence(start_, dest_, params_->GetVehWidth(), 
-                                     params_->GetVehHeight(), 
-                                     corridor_sequence_);
+    corridor_sequence_.UpdateSequence(start_, dest_, params_);
 }
 
 void MotionPlanner::UpdateCorridorSequence(const Point2D<double> &start,
@@ -69,6 +66,7 @@ void MotionPlanner::PlanOCP(){
 
     // Update the corridor sequence
     UpdateCorridorSequence();
+    PrintCorridorSequence();
     int nb_points_per_corridor = 30;
     int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor;
 
@@ -90,7 +88,7 @@ void MotionPlanner::PlanOCP(){
     opti.subject_to(xx(3, N) == 0);
 
     // basic box constraints
-    opti.subject_to(-params_->GetAmax() <= uu <= params_->GetAmax());
+    opti.subject_to(-params_.GetAmax() <= (uu <= params_.GetAmax()));
     opti.subject_to(tt > 0);
 
     // Prepare looping over corridors
@@ -110,7 +108,7 @@ void MotionPlanner::PlanOCP(){
         // initialize the time of the corridor
         initialization_distance = initialization_waypoints[s].Distance(
             initialization_waypoints[s+1]);
-        opti.set_initial(tt(s), initialization_distance/params_->GetVmax());
+        opti.set_initial(tt(s), initialization_distance/params_.GetVmax());
 
         // loop over time-steps
         k_offset = s * nb_points_per_corridor;
@@ -123,14 +121,14 @@ void MotionPlanner::PlanOCP(){
             opti.subject_to(xx(Slice(), k + 1) == rk4_outputs_[0]);
             
             // enforce corner points to be inside the current corridor
-            corners[0].SetValues(xx(0, k) - params_->GetVehWidth()/2.0, 
-                                 xx(1, k) - params_->GetVehHeight()/2.0);
-            corners[1].SetValues(xx(0, k) + params_->GetVehWidth()/2.0,
-                                 xx(1, k) - params_->GetVehHeight()/2.0);
-            corners[2].SetValues(xx(0, k) + params_->GetVehWidth()/2.0,
-                                 xx(1, k) + params_->GetVehHeight()/2.0);
-            corners[3].SetValues(xx(0, k) - params_->GetVehWidth()/2.0,
-                                 xx(1, k) + params_->GetVehHeight()/2.0);
+            corners[0].SetValues(xx(0, k) - params_.GetVehWidth()/2.0, 
+                                 xx(1, k) - params_.GetVehHeight()/2.0);
+            corners[1].SetValues(xx(0, k) + params_.GetVehWidth()/2.0,
+                                 xx(1, k) - params_.GetVehHeight()/2.0);
+            corners[2].SetValues(xx(0, k) + params_.GetVehWidth()/2.0,
+                                 xx(1, k) + params_.GetVehHeight()/2.0);
+            corners[3].SetValues(xx(0, k) - params_.GetVehWidth()/2.0,
+                                 xx(1, k) + params_.GetVehHeight()/2.0);
             for (Point2D<MX> corner : corners){
                 opti.subject_to(current_corridor.Xmin() <= 
                         (corner.x() <= current_corridor.Xmax()));
@@ -139,8 +137,8 @@ void MotionPlanner::PlanOCP(){
             }
 
             // Add max velocity constraint
-            opti.subject_to(-params_->GetVmax() <= 
-                            (xx(Slice(2,4), k) <= params_->GetVmax()));
+            opti.subject_to(-params_.GetVmax() <= 
+                            (xx(Slice(2,4), k) <= params_.GetVmax()));
 
             // Add initial guess
             opti.set_initial(xx(0, k), 
@@ -155,14 +153,14 @@ void MotionPlanner::PlanOCP(){
         if (s < corridor_sequence_.NbCorridors() - 1){
             int k = k_offset + nb_points_per_corridor;
             current_corridor = corridor_sequence_.GetCorridor(s+1);
-            corners[0].SetValues(xx(0, k) - params_->GetVehWidth()/2, 
-                                 xx(1, k) - params_->GetVehHeight()/2);
-            corners[1].SetValues(xx(0, k) + params_->GetVehWidth()/2,
-                                 xx(1, k) - params_->GetVehHeight()/2);
-            corners[2].SetValues(xx(0, k) + params_->GetVehWidth()/2,
-                                 xx(1, k) + params_->GetVehHeight()/2);
-            corners[3].SetValues(xx(0, k) - params_->GetVehWidth()/2,
-                                 xx(1, k) + params_->GetVehHeight()/2);
+            corners[0].SetValues(xx(0, k) - params_.GetVehWidth()/2, 
+                                 xx(1, k) - params_.GetVehHeight()/2);
+            corners[1].SetValues(xx(0, k) + params_.GetVehWidth()/2,
+                                 xx(1, k) - params_.GetVehHeight()/2);
+            corners[2].SetValues(xx(0, k) + params_.GetVehWidth()/2,
+                                 xx(1, k) + params_.GetVehHeight()/2);
+            corners[3].SetValues(xx(0, k) - params_.GetVehWidth()/2,
+                                 xx(1, k) + params_.GetVehHeight()/2);
             for (Point2D<MX> corner : corners){
                 opti.subject_to(current_corridor.Xmin() <= 
                         (corner.x() <= current_corridor.Xmax()));

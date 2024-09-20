@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <algorithm>
 
 #include "corridor.hpp"
 
@@ -22,7 +23,7 @@ bool Corridor::GetOverlap(Corridor &other, Corridor &overlap){
 }
 
 bool Corridor::IsCompletelyWithin(Corridor* const &other) const {
-    return x_min_ >= other->Xmin() && x_max_ <= other->Xmax() && 
+    return x_min_ >= other->Xmin() && x_max_ <= other->Xmax() &&
            y_min_ >= other->Ymin() && y_max_ <= other->Ymax();
 }
 
@@ -113,6 +114,14 @@ bool Corridor::IsCompletelyWithin(Corridor* const &other1,
     return false;
 }
 
+bool Corridor::ContainsVehicle(const Point2D<double> &vehicle_position, 
+                               const Parameters &params) const {
+    return vehicle_position.x() - params.GetVehWidth()/2 - params.GetMargin() >= x_min_ &&
+           vehicle_position.x() + params.GetVehWidth()/2 + params.GetMargin() <= x_max_ &&
+           vehicle_position.y() - params.GetVehHeight()/2 - params.GetMargin() >= y_min_ &&
+           vehicle_position.y() + params.GetVehHeight()/2 + params.GetMargin() <= y_max_;
+} 
+
 void Corridor::UpdateDirection(){
     if (std::abs(x_max_ - x_min_) > std::abs(y_max_ - y_min_)){
         if (x_max_ - x_min_ > 0){
@@ -134,10 +143,63 @@ void Corridor::UpdateDirection(){
 
 // CorridorSequence class
 
-void CorridorSequence::InitializeFromCellPath(std::vector<Point2D<int>> &path, 
-                                              const double &cell_width, 
-                                              const double &cell_height){
+void CorridorSequence::UpdateSequence(Point2D<double> const &start,
+                                      Point2D<double> const &dest,
+                                      Parameters const &params){
+    // Input checks
+    if (!environment_.isValidPosition(start) || 
+        !environment_.isValidPosition(dest)){
+        throw InvalidPositionInEnvironmentException("Invalid starting position or destination");
+    }
+
+    // Reset
     ClearAll();
+
+    // Convert start and destination to cell points
+    Point2D<int> start_cell = start.ConvertWorldToCell(
+                                                environment_.CellWidth(), 
+                                                environment_.CellHeight());
+    Point2D<int> dest_cell = dest.ConvertWorldToCell(
+                                                environment_.CellWidth(),
+                                                environment_.CellHeight());
+
+    // Compute a path in the cell environment from start to dest
+    std::vector<Point2D<int>> path = environment_.PerformBreadthFirstSearch(start_cell, dest_cell);
+
+    // Add cells to ensure initial footprint of the vehicle is included
+    std::vector<Point2D<int>> occupied_cells = 
+        environment_.GetOccupiedStartingCells(start_cell, params.GetVehWidth(), 
+                                 params.GetVehHeight());
+
+    // Make sure to add the cells in the correct sequence (this makes the 
+    // resulting corridors nicer)
+    if (occupied_cells.size() == 1){
+        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
+    } else if (occupied_cells.size() > 1){
+        if (path[0].ManhattanDistance(occupied_cells[0]) < 
+                path[0].ManhattanDistance(occupied_cells[1])){
+            std::reverse(occupied_cells.begin(), occupied_cells.end());
+        }
+        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
+    } else if (occupied_cells.size() == 3){
+        // find the diagonal cell
+        int diagonal_idx;
+        if (path[0].ManhattanDistance(occupied_cells[0]) == 2){
+            path.insert(path.begin(), occupied_cells[1]);
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[2]);
+        } else if (path[0].ManhattanDistance(occupied_cells[1]) == 2){
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[1]);
+            path.insert(path.begin(), occupied_cells[2]);
+        } else {
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[2]);
+            path.insert(path.begin(), occupied_cells[1]);
+        }
+    }
+
+    // Loop over path and add corridors
     Point2D<int> curr_start_cell = path[0];
     Point2D<int> curr_end_cell = path[1];
     Point2D<int> curr_direction = 
@@ -149,17 +211,22 @@ void CorridorSequence::InitializeFromCellPath(std::vector<Point2D<int>> &path,
         next_direction.SetX(next_cell.x() - curr_end_cell.x());
         next_direction.SetY(next_cell.y() - curr_end_cell.y());
         if (!(next_direction == curr_direction)){
-            AddCorridorFromCells(curr_start_cell, curr_end_cell, cell_width, cell_height);
+            AddCorridorFromCells(curr_start_cell, curr_end_cell);
             curr_start_cell.CopyValues(curr_end_cell);
             curr_direction.CopyValues(next_direction);
         }
         curr_end_cell.CopyValues(next_cell);
     }
+    AddCorridorFromCells(curr_start_cell, curr_end_cell);
 
-    AddCorridorFromCells(curr_start_cell, curr_end_cell, cell_width, cell_height);
+    // Inflate the corridors
+    InflateCorridors(start, dest, params);
 };
 
-void CorridorSequence::InflateCorridors(Environment &environment){
+void CorridorSequence::InflateCorridors(Point2D<double> const &start, 
+                                        Point2D<double> const &dest, 
+                                        Parameters const &params){
+    std::cout << "inflating corridors (there are " << last_corridor_idx_ << " corridors)" << std::endl;
     bool made_change = true;
     int grow_counter = 0;
     int max_nb_grow_iterations = 3;
@@ -169,7 +236,7 @@ void CorridorSequence::InflateCorridors(Environment &environment){
         made_change = false;
         
         for (int i = 0; i < last_corridor_idx_; i++){
-            made_change = made_change || GrowCorridorSideways(i, environment);
+            made_change = made_change || GrowCorridorSideways(i);
         }
 
         if (made_change){
@@ -182,12 +249,12 @@ void CorridorSequence::InflateCorridors(Environment &environment){
     max_nb_grow_iterations = 3; grow_counter = 0;
     while (made_change && grow_counter < max_nb_grow_iterations){
         made_change = false;
-        made_change = made_change || GrowCorridorSideways(0, environment);
+        made_change = made_change || GrowCorridorSideways(0);
         grow_counter++;
     }
 
     // remove irrelevant corridors
-    RemoveIrrelevantCorridors();
+    RemoveIrrelevantCorridors(start, dest, params);
 };
 
 void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min, 
@@ -204,9 +271,10 @@ void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min,
 };
 
 void CorridorSequence::AddCorridorFromCells(Point2D<int> &start_cell, 
-                                           Point2D<int> &end_cell,
-                                           const double &cell_width, 
-                                           const double &cell_height){
+                                           Point2D<int> &end_cell){
+    double cell_width = environment_.CellWidth();
+    double cell_height = environment_.CellHeight();
+
     Point2D<double> start = start_cell.ConvertCellToWorld(cell_width, cell_height);
     Point2D<double> end = end_cell.ConvertCellToWorld(cell_width, cell_height);
 
@@ -227,7 +295,7 @@ void CorridorSequence::RemoveCorridor(int idx){
     last_corridor_idx_--;
 };
 
-bool CorridorSequence::GrowCorridorSideways(int idx, Environment &environment){
+bool CorridorSequence::GrowCorridorSideways(int idx){
     // A corridor cannot become fat (wider than it's length) unless it is the 
     // first corridor
     if (idx > 0 && sequence_[idx].Width() >= sequence_[idx].Height()){
@@ -235,8 +303,8 @@ bool CorridorSequence::GrowCorridorSideways(int idx, Environment &environment){
     }
 
     // Check if we can grow
-    bool growing_left_possible = CheckCellsOnLeftSide(idx, environment);
-    bool growing_right_possible = CheckCellsOnrightSide(idx, environment);
+    bool growing_left_possible = CheckCellsOnLeftSide(idx);
+    bool growing_right_possible = CheckCellsOnrightSide(idx);
 
     // if not able to grow, stop
     if (!growing_left_possible && !growing_right_possible){
@@ -250,21 +318,21 @@ bool CorridorSequence::GrowCorridorSideways(int idx, Environment &environment){
         if (sequence_[idx].Direction().y() > 0){
             if (growing_left_possible){
                 sequence_[idx].SetXmin(sequence_[idx].Xmin() - 
-                                       environment.CellWidth());
+                                       environment_.CellWidth());
             }
             if (growing_right_possible){
                 sequence_[idx].SetXmax(sequence_[idx].Xmax() + 
-                                       environment.CellWidth());
+                                       environment_.CellWidth());
             }
         // downward corridor
         } else {
             if (growing_left_possible){
                 sequence_[idx].SetXmax(sequence_[idx].Xmax() + 
-                                       environment.CellWidth());
+                                       environment_.CellWidth());
             }
             if (growing_right_possible){
                 sequence_[idx].SetXmin(sequence_[idx].Xmin() - 
-                                       environment.CellWidth());
+                                       environment_.CellWidth());
             }
         }
 
@@ -274,21 +342,21 @@ bool CorridorSequence::GrowCorridorSideways(int idx, Environment &environment){
         if (sequence_[idx].Direction().x() > 0){
             if (growing_left_possible){
                 sequence_[idx].SetYmax(sequence_[idx].Ymax() + 
-                                       environment.CellHeight());
+                                       environment_.CellHeight());
             }
             if (growing_right_possible){
                 sequence_[idx].SetYmin(sequence_[idx].Ymin() - 
-                                       environment.CellHeight());
+                                       environment_.CellHeight());
             }
         // leftward corridor
         } else {
             if (growing_left_possible){
                 sequence_[idx].SetYmin(sequence_[idx].Ymin() - 
-                                       environment.CellHeight());
+                                       environment_.CellHeight());
             }
             if (growing_right_possible){
                 sequence_[idx].SetYmax(sequence_[idx].Ymax() + 
-                                       environment.CellHeight());
+                                       environment_.CellHeight());
             }
         }
     }
@@ -296,16 +364,15 @@ bool CorridorSequence::GrowCorridorSideways(int idx, Environment &environment){
     return true;
 };
 
-int CorridorSequence::GetCellsOnLeftSide(int corridor_idx, 
-                                         Environment &environment){
+int CorridorSequence::GetCellsOnLeftSide(int corridor_idx){
 
     // Get the direction of the corridor
     Corridor* corridor = &sequence_[corridor_idx];
     Point2D<int> direction = corridor->Direction();
 
     int corridor_cell_length = 
-        corridor->GetCellLength(environment.CellWidth(), 
-                                environment.CellHeight());
+        corridor->GetCellLength(environment_.CellWidth(), 
+                                environment_.CellHeight());
 
     // if vertical corridor
     if (direction.x() == 0){
@@ -313,14 +380,14 @@ int CorridorSequence::GetCellsOnLeftSide(int corridor_idx,
         // loop over all cells along the corridor
         for (int i = 0; i < corridor_cell_length; i++){
             cells_along_corridor_[i].SetY(corridor->Ymin() + 
-                                            environment.CellHeight()/2 +
-                                            i*environment.CellHeight());
+                                            environment_.CellHeight()/2 +
+                                            i*environment_.CellHeight());
             if (direction.y() > 0){
                 cells_along_corridor_[i].SetX(corridor->Xmin() - 
-                                            environment.CellWidth()/2);
+                                            environment_.CellWidth()/2);
             } else {
                 cells_along_corridor_[i].SetX(corridor->Xmax() + 
-                                            environment.CellWidth()/2);
+                                            environment_.CellWidth()/2);
             }
         }
     // if horizontal corridor
@@ -329,14 +396,14 @@ int CorridorSequence::GetCellsOnLeftSide(int corridor_idx,
         // loop over all cells along the corridor
         for (int i = 0; i < corridor_cell_length; i++){
             cells_along_corridor_[i].SetX(corridor->Xmin() + 
-                                            environment.CellWidth()/2 + 
-                                            i*environment.CellWidth());
+                                            environment_.CellWidth()/2 + 
+                                            i*environment_.CellWidth());
             if (direction.x() > 0){
                 cells_along_corridor_[i].SetY(corridor->Ymax() + 
-                                            environment.CellHeight()/2);
+                                            environment_.CellHeight()/2);
             } else {
                 cells_along_corridor_[i].SetY(corridor->Ymin() - 
-                                            environment.CellHeight()/2);
+                                            environment_.CellHeight()/2);
             }
         }
     }
@@ -344,16 +411,15 @@ int CorridorSequence::GetCellsOnLeftSide(int corridor_idx,
     return corridor_cell_length;
 };
 
-int CorridorSequence::GetCellsOnRightSide(int corridor_idx, 
-                                          Environment &environment){
+int CorridorSequence::GetCellsOnRightSide(int corridor_idx){
 
     // Get the direction of the corridor
     Corridor* corridor = &sequence_[corridor_idx];
     Point2D<int> direction = corridor->Direction();
 
     int corridor_cell_length = 
-        corridor->GetCellLength(environment.CellWidth(), 
-                                environment.CellHeight());
+        corridor->GetCellLength(environment_.CellWidth(), 
+                                environment_.CellHeight());
 
     // if vertical corridor
     if (direction.x() == 0){
@@ -361,14 +427,14 @@ int CorridorSequence::GetCellsOnRightSide(int corridor_idx,
         // loop over all cells along the corridor
         for (int i = 0; i < corridor_cell_length; i++){
             cells_along_corridor_[i].SetY(corridor->Ymin() + 
-                                            environment.CellHeight()/2 +
-                                            i*environment.CellHeight());
+                                            environment_.CellHeight()/2 +
+                                            i*environment_.CellHeight());
             if (direction.y() > 0){
                 cells_along_corridor_[i].SetX(corridor->Xmax() + 
-                                            environment.CellWidth()/2);
+                                            environment_.CellWidth()/2);
             } else {
                 cells_along_corridor_[i].SetX(corridor->Xmin() - 
-                                            environment.CellWidth()/2);
+                                            environment_.CellWidth()/2);
             }
         }
     // if horizontal corridor
@@ -377,14 +443,14 @@ int CorridorSequence::GetCellsOnRightSide(int corridor_idx,
         // loop over all cells along the corridor
         for (int i = 0; i < corridor_cell_length; i++){
             cells_along_corridor_[i].SetX(corridor->Xmin() + 
-                                            environment.CellWidth()/2 + 
-                                            i*environment.CellWidth());
+                                            environment_.CellWidth()/2 + 
+                                            i*environment_.CellWidth());
             if (direction.x() > 0){
                 cells_along_corridor_[i].SetY(corridor->Ymin() - 
-                                            environment.CellHeight()/2);
+                                            environment_.CellHeight()/2);
             } else {
                 cells_along_corridor_[i].SetY(corridor->Ymax() + 
-                                            environment.CellHeight()/2);
+                                            environment_.CellHeight()/2);
             }
         }
     }
@@ -392,12 +458,11 @@ int CorridorSequence::GetCellsOnRightSide(int corridor_idx,
     return corridor_cell_length;
 };
 
-bool CorridorSequence::CheckCellsOnLeftSide(int corridor_idx, 
-                                            Environment &environment){
-    int corridor_cell_length = GetCellsOnLeftSide(corridor_idx, environment);
+bool CorridorSequence::CheckCellsOnLeftSide(int corridor_idx){
+    int corridor_cell_length = GetCellsOnLeftSide(corridor_idx);
 
     for (int i = 0; i < corridor_cell_length; i++){
-        if (!environment.IsFree(cells_along_corridor_[i])){
+        if (!environment_.IsFree(cells_along_corridor_[i])){
             return false;
         }
     }
@@ -405,12 +470,11 @@ bool CorridorSequence::CheckCellsOnLeftSide(int corridor_idx,
     return true;
 };
 
-bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx, 
-                                            Environment &environment){
-    int corridor_cell_length = GetCellsOnRightSide(corridor_idx, environment);
+bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx){
+    int corridor_cell_length = GetCellsOnRightSide(corridor_idx);
 
     for (int i = 0; i < corridor_cell_length; i++){
-        if (!environment.IsFree(cells_along_corridor_[i])){
+        if (!environment_.IsFree(cells_along_corridor_[i])){
             return false;
         }
     }
@@ -418,7 +482,9 @@ bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx,
     return true;
 };
 
-bool CorridorSequence::RemoveIrrelevantCorridors(){
+bool CorridorSequence::RemoveIrrelevantCorridors(Point2D<double> const &start, 
+                                                 Point2D<double> const &dest,
+                                                 Parameters const &params){
     bool made_change = false;
 
     Corridor* previous_corridor;
@@ -448,8 +514,14 @@ bool CorridorSequence::RemoveIrrelevantCorridors(){
 
     // The first/last corridor can be removed if the next/previous corridor
     // contains the start/destination
-    // TODO: implement this
-
+    while (last_corridor_idx_ >= 1 &&
+           sequence_[1].ContainsVehicle(start, params)){
+        RemoveCorridor(0);
+    }
+    while (last_corridor_idx_ >= 1 && 
+           sequence_[last_corridor_idx_ - 2].ContainsVehicle(dest, params)){
+        RemoveCorridor(last_corridor_idx_ - 1);
+    }
 
     return made_change;
 };

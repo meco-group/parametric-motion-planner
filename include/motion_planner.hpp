@@ -9,12 +9,19 @@
 #include "corridor.hpp"
 #include "helper_methods.hpp"
 #include "trajectory.hpp"
+#include "parametrization.hpp"
 
 using namespace casadi;
 
 class MotionPlanner{
     public:
-        MotionPlanner();
+        MotionPlanner(Parameters const &params, 
+                      Environment const &environment)
+            : MotionPlanner(ARENA, params, environment){};
+
+        MotionPlanner(PlannerMethod method, Parameters const &params, 
+                      Environment const &environment);
+            
 
         void SetMethod(PlannerMethod method){
             method_ = method;
@@ -47,7 +54,7 @@ class MotionPlanner{
 
         // Compute a corridor sequence in the environment
         void UpdateCorridorSequence(const Point2D<double> &start, 
-                                 const Point2D<double> &dest);
+                                    const Point2D<double> &dest);
 
         // Plan a trajectory using the selected method and the current
         // start, destination, and start velocity
@@ -60,18 +67,20 @@ class MotionPlanner{
 
         
         // Basic getters
-        Environment* GetEnvironment(){ return &environment_;};
-        CorridorSequence* GetCorridorSequence(){ return &corridor_sequence_;};    
-        Point2D<double> GetStart(){ return start_;};
-        Point2D<double> GetDest(){ return dest_;};
-        Point2D<double> GetStart_vel(){ return start_vel_;};
-        double GetVehWidth(){ return params_->GetVehWidth();};
-        double GetVehHeight(){ return params_->GetVehHeight();};
+        const Environment& GetEnvironment() const { return environment_;};
+        Point2D<double> GetStart() const { return start_;};
+        Point2D<double> GetDest() const { return dest_;};
+        Point2D<double> GetStart_vel() const { return start_vel_;};
+        double GetVehWidth() const { return params_.GetVehWidth();};
+        double GetVehHeight() const { return params_.GetVehHeight();};
 
         // Basic setters
         void SetPrintLevel(int print_level) { opts_solver_["print_level"] = print_level;};
 
         // Printing
+        void PrintEnvironment(){
+            std::cout << environment_ << std::endl;
+        };
         void PrintCorridorSequence(){
             std::cout << corridor_sequence_ << std::endl;
         };
@@ -100,12 +109,13 @@ class MotionPlanner{
         void InitializeRK4();
 
         
-        Environment environment_;
-        CorridorSequence corridor_sequence_;
-        Helper helper_;
+        const Environment& environment_;               
+        CorridorSequence corridor_sequence_;    // contains a reference to the environment
+        Parametrization parametrization_;       // contains a reference to the corridor sequence
 
-        Parameters* params_;
+        const Parameters& params_;
         PlannerMethod method_;
+        Helper helper_;
 
         Point2D<double> start_;
         Point2D<double> dest_;
