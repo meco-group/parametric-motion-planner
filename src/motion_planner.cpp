@@ -12,7 +12,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         params_(params),
         environment_(environment),
         corridor_sequence_(environment_),
-        parametrization_(corridor_sequence_) {
+        parametrization_(corridor_sequence_, params_) {
 
         method_ = method;
         opts_solver_["print_level"] = 0;
@@ -205,6 +205,15 @@ void MotionPlanner::PlanOCP(){
 
 void MotionPlanner::PlanARENA(){
     std::cout << "Planning using ARENA method" << std::endl;
+
+    // Update the corridor sequence
+    UpdateCorridorSequence();
+    PrintCorridorSequence();
+
+    // Initialize the parametrization
+    parametrization_.UpdateParametrization();
+
+    std::cout << parametrization_ << std::endl;
 }
 
 void MotionPlanner::InitializeRK4(){

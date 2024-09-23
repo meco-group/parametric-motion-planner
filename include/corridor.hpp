@@ -32,7 +32,7 @@ class Corridor{
         // overlap
         // Function returns a boolean indicating if there is overlap. If not, 
         // overlap is not modified
-        bool GetOverlap(Corridor &other, Corridor &overlap);
+        bool GetOverlap(Corridor &other, Corridor &overlap) const;
 
         bool IsCompletelyWithin(Corridor* const &other) const;
         bool IsCompletelyWithin(Corridor* const &other1, 
@@ -52,6 +52,9 @@ class Corridor{
             return std::max(std::abs(x_max_ - x_min_)/cell_width, 
                             std::abs(y_max_ - y_min_)/cell_height);
         };
+        Point2D<double> GetCenter() const {
+            return Point2D<double>((x_min_ + x_max_)/2, (y_min_ + y_max_)/2);
+        };
 
         // Setters
         void SetXmin(double x_min){ x_min_ = x_min; UpdateDirection();};
@@ -69,6 +72,12 @@ class Corridor{
 
         // Copy function
         Corridor Copy() const { return Corridor(x_min_, x_max_, y_min_, y_max_);};
+
+        // take the values of another corridor
+        void CopyValues(Corridor const &other) {
+            SetXmin(other.Xmin()); SetXmax(other.Xmax());
+            SetYmin(other.Ymin()); SetYmax(other.Ymax());
+        }
 
     private:
         void UpdateDirection();
@@ -99,8 +108,14 @@ class CorridorSequence{
 
         // Getters
         int MaxNbCorridors() const { return max_len_;};
-        Corridor GetCorridor(int idx) const { return sequence_[idx].Copy();};
+        Corridor GetCorridor(int idx) const;
+        void GetCorridor(int idx, Corridor &corridor) const;
         int NbCorridors() const { return last_corridor_idx_;};
+
+        Point2D<double> GetStart() const { return start_.Copy();};
+        Point2D<double> GetDest() const { return dest_.Copy();};
+        void GetStart(Point2D<double> &point) const;
+        void GetDest(Point2D<double> &point) const;
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, CorridorSequence &sequence) {
@@ -114,9 +129,7 @@ class CorridorSequence{
         void ClearAll(){ last_corridor_idx_ = 0; made_change_ = false;};
 
         // Inflate corridors as much as possible
-        void InflateCorridors(Point2D<double> const &start, 
-                              Point2D<double> const &dest, 
-                              Parameters const &params);
+        void InflateCorridors(Parameters const &params);
 
         // Add a corridor to the sequence
         void AddCorridor(double x_min, double x_max, double y_min, double y_max);
@@ -136,12 +149,13 @@ class CorridorSequence{
         bool CheckCellsOnLeftSide(int corridor_idx);
         bool CheckCellsOnrightSide(int corridor_idx);
 
-        bool RemoveIrrelevantCorridors(Point2D<double> const &start, 
-                                       Point2D<double> const &dest,
-                                       Parameters const &params);
+        bool RemoveIrrelevantCorridors(Parameters const &params);
         bool MergeCorridors();
 
         const Environment& environment_;    // Reference to the environment object
+
+        Point2D<double> start_;
+        Point2D<double> dest_;
 
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors

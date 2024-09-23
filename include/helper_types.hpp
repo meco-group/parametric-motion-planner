@@ -35,6 +35,9 @@ class Point2D {
         T x() const { return x_;};
         T y() const { return y_;};
         
+        Point2D<T> Copy() const { return Point2D(x_, y_);};
+
+        // take the values of another point
         void CopyValues(const Point2D<T> &other){
             x_ = other.x(); y_ = other.y();
         }
@@ -44,6 +47,16 @@ class Point2D {
         }
         T ManhattanDistance(const Point2D<T> &other) const {
             return abs(x_ - other.x()) + abs(y_ - other.y());
+        }
+        double DistanceToLine(const Point2D<T> &line_start, 
+                              const Point2D<T> &line_end) const {
+            double num = abs((line_end.y() - line_start.y()) * x_ - 
+                             (line_end.x() - line_start.x()) * y_ + 
+                             line_end.x() * line_start.y() - 
+                             line_end.y() * line_start.x());
+            double den = sqrt(pow(line_end.y() - line_start.y(), 2) + 
+                              pow(line_end.x() - line_start.x(), 2));
+            return num / den;
         }
 
         // setters
@@ -57,9 +70,21 @@ class Point2D {
             return out;
         }
 
-        // equality overloading
+        // operation overloading
         bool operator==(const Point2D<T> &other) const {
             return x_ == other.x() && y_ == other.y();
+        }
+        Point2D<T> operator-(const Point2D<T> &other) const {
+            return Point2D<T>(x_ - other.x(), y_ - other.y());
+        }
+        Point2D<T>& operator-=(const Point2D<T> &other){
+            x_ -= other.x(); y_ -= other.y(); return *this;
+        }
+        Point2D<T> operator+(const Point2D<T> &other) const {
+            return Point2D<T>(x_ + other.x(), y_ + other.y());
+        }
+        Point2D<T>& operator+=(const Point2D<T> &other){
+            x_ += other.x(); y_ += other.y(); return *this;
         }
 
         // Convert a cell to world coordinates

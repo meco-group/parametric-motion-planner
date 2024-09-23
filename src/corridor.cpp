@@ -6,7 +6,7 @@
 
 // Corridor class
 
-bool Corridor::GetOverlap(Corridor &other, Corridor &overlap){
+bool Corridor::GetOverlap(Corridor &other, Corridor &overlap) const {
     // Check if there is overlap
     if (other.Xmax() <= x_min_ || other.Xmin() >= x_max_ || 
         other.Ymax() <= y_min_ || other.Ymin() >= y_max_){
@@ -141,6 +141,10 @@ void Corridor::UpdateDirection(){
 
 
 
+
+
+
+
 // CorridorSequence class
 
 void CorridorSequence::UpdateSequence(Point2D<double> const &start,
@@ -151,6 +155,8 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
         !environment_.isValidPosition(dest)){
         throw InvalidPositionInEnvironmentException("Invalid starting position or destination");
     }
+    start_.CopyValues(start);
+    dest_.CopyValues(dest);
 
     // Reset
     ClearAll();
@@ -220,12 +226,32 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     AddCorridorFromCells(curr_start_cell, curr_end_cell);
 
     // Inflate the corridors
-    InflateCorridors(start, dest, params);
+    InflateCorridors(params);
 };
 
-void CorridorSequence::InflateCorridors(Point2D<double> const &start, 
-                                        Point2D<double> const &dest, 
-                                        Parameters const &params){
+Corridor CorridorSequence::GetCorridor(int idx) const { 
+    if (idx < 0 || idx >= last_corridor_idx_){
+        throw std::out_of_range("Invalid index of corridor to get");
+    }
+    return sequence_[idx].Copy();
+};
+
+void CorridorSequence::GetCorridor(int idx, Corridor &corridor) const {
+    if (idx < 0 || idx >= last_corridor_idx_){
+        throw std::out_of_range("Invalid index of corridor to get");
+    }
+    corridor.CopyValues(sequence_[idx]);
+};
+
+void CorridorSequence::GetStart(Point2D<double> &point) const {
+    point.CopyValues(start_);
+};
+
+void CorridorSequence::GetDest(Point2D<double> &point) const {
+    point.CopyValues(dest_);
+};
+
+void CorridorSequence::InflateCorridors(Parameters const &params){
     std::cout << "inflating corridors (there are " << last_corridor_idx_ << " corridors)" << std::endl;
     bool made_change = true;
     int grow_counter = 0;
@@ -254,7 +280,7 @@ void CorridorSequence::InflateCorridors(Point2D<double> const &start,
     }
 
     // remove irrelevant corridors
-    RemoveIrrelevantCorridors(start, dest, params);
+    RemoveIrrelevantCorridors(params);
 };
 
 void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min, 
@@ -482,9 +508,7 @@ bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx){
     return true;
 };
 
-bool CorridorSequence::RemoveIrrelevantCorridors(Point2D<double> const &start, 
-                                                 Point2D<double> const &dest,
-                                                 Parameters const &params){
+bool CorridorSequence::RemoveIrrelevantCorridors(Parameters const &params){
     bool made_change = false;
 
     Corridor* previous_corridor;
@@ -515,11 +539,11 @@ bool CorridorSequence::RemoveIrrelevantCorridors(Point2D<double> const &start,
     // The first/last corridor can be removed if the next/previous corridor
     // contains the start/destination
     while (last_corridor_idx_ >= 1 &&
-           sequence_[1].ContainsVehicle(start, params)){
+           sequence_[1].ContainsVehicle(start_, params)){
         RemoveCorridor(0);
     }
     while (last_corridor_idx_ >= 1 && 
-           sequence_[last_corridor_idx_ - 2].ContainsVehicle(dest, params)){
+           sequence_[last_corridor_idx_ - 2].ContainsVehicle(dest_, params)){
         RemoveCorridor(last_corridor_idx_ - 1);
     }
 
