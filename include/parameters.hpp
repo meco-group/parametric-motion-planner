@@ -3,14 +3,7 @@
 
 class Parameters{
     public:
-        Parameters(){
-            // assign default values to class attributes
-            v_max_ = 2.0;
-            a_max_ = 6.0;
-            veh_width_ = 0.115;
-            veh_height_ = 0.115;
-            margin_ = 0.001;
-        };
+        Parameters() : Parameters(2.0, 6.0, 0.115, 0.115, 0.001){};
 
         Parameters(double v_max, double a_max, double veh_width, 
                    double veh_height, double margin){
@@ -27,6 +20,8 @@ class Parameters{
         double GetVehWidth() const { return veh_width_;};
         double GetVehHeight() const { return veh_height_;};
         double GetMargin() const { return margin_;};
+        double GetWidthOffset() const { return veh_width_/2 + margin_;};
+        double GetHeightOffset() const { return veh_height_/2 + margin_;};
 
         // basic setters
         void SetVmax(double v_max){ v_max_ = v_max;};
@@ -42,7 +37,6 @@ class Parameters{
         double veh_width_;   // Width of the vehicle (in 2D top-down view)
         double veh_height_;  // Height of the vehicle (in 2D top-down view)
         double margin_;      // Margin between vehicle and corridor bounds
-
 };
 
 

@@ -101,10 +101,19 @@ class CorridorSequence{
             max_len_(max_len), sequence_(max_len_),
             cells_along_corridor_(MAX_CORRIDOR_CELL_LENGTH){};
 
+        // Create access token such that only the motion planner can update
+        // the corridor sequence
+        class UpdateToken{
+            friend class MotionPlanner; 
+            private: UpdateToken() {};
+        };
+
         // Initialize corridors from cell path
         void UpdateSequence(Point2D<double> const &start,
                             Point2D<double> const &dest,
-                            Parameters const &params);
+                            Point2D<double> const &start_vel,
+                            Parameters const &params,
+                            UpdateToken const &token);
 
         // Getters
         int MaxNbCorridors() const { return max_len_;};
@@ -113,8 +122,10 @@ class CorridorSequence{
         int NbCorridors() const { return last_corridor_idx_;};
 
         Point2D<double> GetStart() const { return start_.Copy();};
+        Point2D<double> GetStartVel() const { return start_vel_.Copy();};
         Point2D<double> GetDest() const { return dest_.Copy();};
         void GetStart(Point2D<double> &point) const;
+        void GetStartVel(Point2D<double> &point) const;
         void GetDest(Point2D<double> &point) const;
 
         // printing
@@ -156,6 +167,7 @@ class CorridorSequence{
 
         Point2D<double> start_;
         Point2D<double> dest_;
+        Point2D<double> start_vel_;
 
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors

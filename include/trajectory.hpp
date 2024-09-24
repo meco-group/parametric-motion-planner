@@ -4,6 +4,8 @@
 #include <vector>
 #include <casadi/casadi.hpp>
 
+#include "parametrization.hpp"
+
 using namespace casadi;
 
 const double DT_DEFAULT = 0.01;
@@ -14,8 +16,17 @@ class Trajectory{
     public:
         Trajectory();
 
-        void Update(DM &xx_ocp, DM &uu_ocp, 
-                    std::vector<double> &tt_ocp);
+        void Update(DM const  &xx_ocp, DM const &uu_ocp, 
+                    std::vector<double> const &tt_ocp);
+
+        void Update(int nb_corridors,
+                    std::vector<std::vector<double>> const &t_x,
+                    std::vector<std::vector<double>> const &t_y,
+                    std::vector<double> const &alpha_x,
+                    std::vector<double> const &alpha_y,
+                    std::vector<Point2D<double>> const &waypoints,
+                    std::vector<Point2D<double>> const &waypoint_velocities,
+                    double a_max);
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, Trajectory &trajectory);

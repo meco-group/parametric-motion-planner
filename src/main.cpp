@@ -6,7 +6,6 @@
 int main(){
     Environment environment = Environment();
     Parameters params = Parameters();
-    std::cout << params.GetAmax() << std::endl;
 
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
@@ -18,7 +17,6 @@ int main(){
 
     my_motion_planner.SetStart(start);
     my_motion_planner.SetDest(dest);
-    my_motion_planner.UpdateCorridorSequence();
     my_motion_planner.Plan();
 
     my_motion_planner.PrintCorridorSequence();

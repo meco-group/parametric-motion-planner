@@ -2,6 +2,7 @@
 #define __HELPER_TYPES__
 
 #include <iostream>
+#include <cmath>
 
 // Enumeration of supported planning methods
 enum PlannerMethod{
@@ -38,8 +39,9 @@ class Point2D {
         Point2D<T> Copy() const { return Point2D(x_, y_);};
 
         // take the values of another point
-        void CopyValues(const Point2D<T> &other){
-            x_ = other.x(); y_ = other.y();
+        template <typename U>
+        void CopyValues(const Point2D<U> &other){
+            x_ = T(other.x()); y_ = T(other.y());
         }
 
         double Distance(const Point2D<T> &other) const {
@@ -57,6 +59,13 @@ class Point2D {
             double den = sqrt(pow(line_end.y() - line_start.y(), 2) + 
                               pow(line_end.x() - line_start.x(), 2));
             return num / den;
+        }
+
+        template<typename U = T, typename = typename std::enable_if<std::is_same<U, double>::value>::type>
+        void Rotate(double angle){
+            double temp = x_;
+            SetX(x_*std::cos(angle) - y_*std::sin(angle));
+            SetY(temp*std::sin(angle) + y_*std::cos(angle));
         }
 
         // setters
@@ -85,6 +94,15 @@ class Point2D {
         }
         Point2D<T>& operator+=(const Point2D<T> &other){
             x_ += other.x(); y_ += other.y(); return *this;
+        }
+        Point2D<T> operator*(double scalar) const {
+            return Point2D<T>(x_ * scalar, y_ * scalar);
+        }
+        Point2D<T>& operator*=(double scalar){
+            x_ *= scalar; y_ *= scalar; return *this;
+        }
+        Point2D<T> operator*(const Point2D<T> &other) const {
+            return Point2D<T>(x_ * other.x(), y_ * other.y());
         }
 
         // Convert a cell to world coordinates

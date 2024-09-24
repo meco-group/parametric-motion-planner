@@ -108,10 +108,15 @@ class MotionPlanner{
         // Initialize the rk4 integrator
         void InitializeRK4();
 
+        std::vector<int> CheckOutOfCorridor();
+        bool EliminateSubOptimalParametrization();
+
         
         const Environment& environment_;               
         CorridorSequence corridor_sequence_;    // contains a reference to the environment
         Parametrization parametrization_;       // contains a reference to the corridor sequence
+        Parametrization::UpdateToken parametrization_update_token_; // token to update the parametrization
+        CorridorSequence::UpdateToken sequence_update_token_; // token to update the corridor sequence
 
         const Parameters& params_;
         PlannerMethod method_;
@@ -131,6 +136,8 @@ class MotionPlanner{
         std::vector<MX> rk4_outputs_ = std::vector<MX>(1);
 
         // ARENA method attributes
+        std::vector<int> add_constraints_list_;
+        int max_nb_iterations_ = 4;
 
         // other attributes
         Dict opts_casadi_;

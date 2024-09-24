@@ -149,7 +149,9 @@ void Corridor::UpdateDirection(){
 
 void CorridorSequence::UpdateSequence(Point2D<double> const &start,
                                       Point2D<double> const &dest,
-                                      Parameters const &params){
+                                      Point2D<double> const &start_vel,
+                                      Parameters const &params,
+                                      UpdateToken const &token){
     // Input checks
     if (!environment_.isValidPosition(start) || 
         !environment_.isValidPosition(dest)){
@@ -157,6 +159,7 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     }
     start_.CopyValues(start);
     dest_.CopyValues(dest);
+    start_vel_.CopyValues(start_vel);
 
     // Reset
     ClearAll();
@@ -247,12 +250,15 @@ void CorridorSequence::GetStart(Point2D<double> &point) const {
     point.CopyValues(start_);
 };
 
+void CorridorSequence::GetStartVel(Point2D<double> &point) const {
+    point.CopyValues(start_vel_);
+};
+
 void CorridorSequence::GetDest(Point2D<double> &point) const {
     point.CopyValues(dest_);
 };
 
 void CorridorSequence::InflateCorridors(Parameters const &params){
-    std::cout << "inflating corridors (there are " << last_corridor_idx_ << " corridors)" << std::endl;
     bool made_change = true;
     int grow_counter = 0;
     int max_nb_grow_iterations = 3;

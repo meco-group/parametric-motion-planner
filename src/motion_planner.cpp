@@ -12,7 +12,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         params_(params),
         environment_(environment),
         corridor_sequence_(environment_),
-        parametrization_(corridor_sequence_, params_) {
+        parametrization_(corridor_sequence_, params) {
 
         method_ = method;
         opts_solver_["print_level"] = 0;
@@ -20,7 +20,8 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 }
 
 void MotionPlanner::UpdateCorridorSequence(){
-    corridor_sequence_.UpdateSequence(start_, dest_, params_);
+    corridor_sequence_.UpdateSequence(start_, dest_, start_vel_, params_,
+                                      sequence_update_token_);
 }
 
 void MotionPlanner::UpdateCorridorSequence(const Point2D<double> &start,
@@ -66,7 +67,6 @@ void MotionPlanner::PlanOCP(){
 
     // Update the corridor sequence
     UpdateCorridorSequence();
-    PrintCorridorSequence();
     int nb_points_per_corridor = 30;
     int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor;
 
@@ -193,14 +193,18 @@ void MotionPlanner::PlanOCP(){
     }
     t[N] = accumulated_time;
 
-    std::cout << "t: " << t << std::endl;
+    // Duplicate last controls
+    DM last_controls = DM::zeros(2, 1);
+    for (int i = 0; i < 2; i++){
+        last_controls(i) = uu_sol(i, uu_sol.size2() - 1);
+    }
+    uu_sol = horzcat(uu_sol, last_controls);
 
     // Construct trajectory
     last_solution_.Update(xx_sol, uu_sol, t);
 
     std::cout << "Solution obtained:" << std::endl;
     std::cout << last_solution_ << std::endl;
-
 }
 
 void MotionPlanner::PlanARENA(){
@@ -211,9 +215,34 @@ void MotionPlanner::PlanARENA(){
     PrintCorridorSequence();
 
     // Initialize the parametrization
-    parametrization_.UpdateParametrization();
-
+    parametrization_.UpdateParametrization(parametrization_update_token_);
     std::cout << parametrization_ << std::endl;
+
+    // Start the optimization loop
+    bool made_modification = true;
+    int iteration_counter = 0;
+    while ((made_modification || add_constraints_list_.size() > 0) && 
+            iteration_counter < max_nb_iterations_){
+        
+        parametrization_.OptimizeParametrization(parametrization_update_token_);
+        add_constraints_list_ = CheckOutOfCorridor();
+        made_modification = EliminateSubOptimalParametrization();
+
+        iteration_counter++;
+    }
+
+    // Update the solution
+    last_solution_.Update(corridor_sequence_.NbCorridors(),
+                          parametrization_.GetTxSol(), 
+                          parametrization_.GetTySol(), 
+                          parametrization_.GetAlphaXSol(), 
+                          parametrization_.GetAlphaYSol(), 
+                          parametrization_.GetWaypointsSol(),
+                          parametrization_.GetWaypointVelocitiesSol(),
+                          params_.GetAmax());
+
+    std::cout << "Solution obtained:" << std::endl;
+    std::cout << last_solution_ << std::endl;
 }
 
 void MotionPlanner::InitializeRK4(){
@@ -235,4 +264,12 @@ void MotionPlanner::InitializeRK4(){
     MX k4 = dt*rhs(rhs_arguments)[0];
 
     rk4_ = Function("rk4", {xk, uk, dt}, {xk + (k1 + 2*k2 + 2*k3 + k4)/6});
+}
+
+std::vector<int> MotionPlanner::CheckOutOfCorridor(){
+    return {};
+}
+
+bool MotionPlanner::EliminateSubOptimalParametrization(){
+    return false;
 }

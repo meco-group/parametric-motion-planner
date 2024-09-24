@@ -17,15 +17,9 @@ Trajectory::Trajectory() :
     ay_ = std::vector<double>(max_nb_samples_);
 }
 
-void Trajectory::Update(DM &xx_ocp, DM &uu_ocp, std::vector<double> &tt_ocp){
+void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp, 
+                        std::vector<double> const &tt_ocp){
     curr_nb_samples_ = tt_ocp[tt_ocp.size() - 1] / dt_ + 1;
-    
-    // Duplicate last controls
-    DM last_controls = DM::zeros(2, 1);
-    for (int i = 0; i < 2; i++){
-        last_controls(i) = uu_ocp(i, uu_ocp.size2() - 1);
-    }
-    uu_ocp = horzcat(uu_ocp, last_controls);
 
     // initialize time-grid
     for (int i = 0; i < curr_nb_samples_; i++){
@@ -65,6 +59,91 @@ void Trajectory::Update(DM &xx_ocp, DM &uu_ocp, std::vector<double> &tt_ocp){
     vy_[curr_nb_samples_ - 1] = 0.0;
     ax_[curr_nb_samples_ - 1] = 0.0;
     ay_[curr_nb_samples_ - 1] = 0.0;
+}
+
+void Trajectory::Update(int nb_corridors,
+                        std::vector<std::vector<double>> const &t_x,
+                        std::vector<std::vector<double>> const &t_y,
+                        std::vector<double> const &alpha_x,
+                        std::vector<double> const &alpha_y,
+                        std::vector<Point2D<double>> const &waypoints,
+                        std::vector<Point2D<double>> const 
+                            &waypoint_velocities,
+                        double a_max){
+    // compute the total time
+    double total_time = 0.0;
+    for (int i = 0; i < t_x.size(); i++){
+        total_time += t_x[i][0] + t_x[i][1] + t_x[i][2];
+    }
+
+    // compute the number of samples
+    curr_nb_samples_ = total_time / dt_ + 1;
+
+    // initialize time-grid
+    for (int i = 0; i < curr_nb_samples_; i++){
+        t_[i] = i * dt_;
+    }
+
+    // initialize the trajectory
+    int sample_ptr = 0;
+    double local_corridor_time = 0.0;
+    double tx_arc1, tx_arc2, tx_arc3, ty_arc1, ty_arc2, ty_arc3;
+    Point2D<double> p0;
+    Point2D<double> v0;
+
+    // loop over corridors
+    for (int w = 0; w < nb_corridors; w++){
+        local_corridor_time = std::fmod(local_corridor_time, dt_);
+
+        // set initial conditions for this corridor
+        p0.CopyValues(waypoints[w]);
+        v0.CopyValues(waypoint_velocities[w]);
+
+        // sample this corridor
+        while (local_corridor_time < t_x[w][0] + t_x[w][1] + t_x[w][2]){
+            // update timings for every arc
+            tx_arc1 = std::max(0.0, std::min(t_x[w][0], local_corridor_time));
+            tx_arc2 = std::max(0.0, std::min(t_x[w][1], local_corridor_time - 
+                                             t_x[w][0]));
+            tx_arc3 = std::max(0.0, std::min(t_x[w][2], local_corridor_time - 
+                                             t_x[w][0] - t_x[w][1]));
+            ty_arc1 = std::max(0.0, std::min(t_y[w][0], local_corridor_time));
+            ty_arc2 = std::max(0.0, std::min(t_y[w][1], local_corridor_time - 
+                                             t_y[w][0]));
+            ty_arc3 = std::max(0.0, std::min(t_y[w][2], local_corridor_time -
+                                             t_y[w][0] - t_y[w][1]));
+
+            px_[sample_ptr] = p0.x() + v0.x()*tx_arc1 +
+                              0.5*alpha_x[w]*a_max*std::pow(tx_arc1, 2) +
+                              (v0.x() + alpha_x[w]*a_max*tx_arc1)*
+                                (tx_arc2 + tx_arc3) +
+                              0.5*alpha_x[w+1]*a_max*std::pow(tx_arc3, 2);
+            py_[sample_ptr] = p0.y() + v0.y()*ty_arc1 +
+                              0.5*alpha_y[w]*a_max*std::pow(ty_arc1, 2) +
+                              (v0.y() + alpha_y[w]*a_max*ty_arc1)*
+                                (ty_arc2 + ty_arc3) +
+                              0.5*alpha_y[w+1]*a_max*std::pow(ty_arc3, 2);
+            vx_[sample_ptr] = v0.x() + alpha_x[w]*a_max*tx_arc1 +
+                              alpha_x[w+1]*a_max*tx_arc3;
+            vy_[sample_ptr] = v0.y() + alpha_y[w]*a_max*ty_arc1 +
+                              alpha_y[w+1]*a_max*ty_arc3;
+            
+            if (local_corridor_time <= t_x[w][0]){ 
+                ax_[sample_ptr] = alpha_x[w]*a_max;
+            } else { 
+                ax_[sample_ptr] = alpha_x[w+1]*a_max;
+            }
+            if (local_corridor_time <= t_y[w][0]){ 
+                ay_[sample_ptr] = alpha_y[w]*a_max;
+            } else { 
+                ay_[sample_ptr] = alpha_y[w+1]*a_max;
+            }
+
+            sample_ptr++;
+            local_corridor_time += dt_;
+        }
+    }
+
 }
 
 std::ostream& operator<<(std::ostream &out, Trajectory &trajectory){

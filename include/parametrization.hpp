@@ -6,24 +6,50 @@
 #include "helper_types.hpp"
 #include "corridor.hpp"
 
+// forward declaration
+class MotionPlanner;
+
+enum WaypointLocation{
+    Bottom_Left = 0,
+    Bottom_Right = 1,
+    Top_Right = 2,
+    Top_Left = 3,
+    Start = 4,
+    Dest = 5
+};
+
 class Parametrization{
     public:
         Parametrization(CorridorSequence const &corridor_sequence,
                         Parameters const &params);
 
-        void UpdateParametrization();
+        // Create access token such that only the motion planner can update
+        // the parametrization
+        class UpdateToken{
+            friend class MotionPlanner; 
+            private: UpdateToken() {};
+        };
+
+        // only the motion planner can update the parametrization
+        void UpdateParametrization(const UpdateToken&);
+
+        void OptimizeParametrization(const UpdateToken&);
 
         // basic getters
         int MaxNbCorridors() const {return max_nb_corridors_;};
         int NbCorridors() const { return corridor_sequence_.NbCorridors();};
-        Point2D<double> GetWaypoint(int idx) const { 
-            return waypoints_[idx].Copy();};
-        Point2D<double> GetWaypointOffset(int idx) const {
-            return waypoint_offsets_[idx].Copy();};
-        bool IsWaypointMovable(int idx) const { 
-            return movable_waypoints_[idx];};
+        Point2D<double> GetWaypoint(int idx) const;
+        Point2D<double> GetWaypointOffset(int idx) const;
+        WaypointLocation GetWaypointLocation(int idx) const;
+        bool IsWaypointMovable(int idx) const;
         double GetAlphaX(int idx) const { return alpha_x_[idx];};
         double GetAlphaY(int idx) const { return alpha_y_[idx];};
+        std::vector<double>& GetAlphaXSol() { return alpha_x_sol_;};
+        std::vector<double>& GetAlphaYSol() { return alpha_y_sol_;};
+        std::vector<Point2D<double>>& GetWaypointsSol();
+        std::vector<std::vector<double>>& GetTxSol() { return t_x_sol_;};
+        std::vector<std::vector<double>>& GetTySol() { return t_y_sol_;};
+        std::vector<Point2D<double>>& GetWaypointVelocitiesSol();
 
         // printing overload
         friend std::ostream& operator<<(std::ostream &out, 
@@ -50,19 +76,41 @@ class Parametrization{
                                     Corridor const &corridor1,
                                     Corridor const &corridor2) const;
 
+        void IntegrateOverCorridor(Point2D<casadi::MX> const &start, 
+                                   Point2D<casadi::MX> const &start_vel, 
+                                   int corridor_idx,
+                                   casadi::MX const &t_x, 
+                                   casadi::MX const &t_y);
+
         const CorridorSequence& corridor_sequence_; // Reference to the corridor sequence object
         const Parameters& params_;
 
         const int max_nb_corridors_;
 
-        std::vector<double> alpha_x_;
-        std::vector<double> alpha_y_;
-        std::vector<Point2D<double>> waypoints_;
-        std::vector<Point2D<double>> waypoint_offsets_;
-        std::vector<bool> movable_waypoints_;
+        // true parametrization variables
+        std::vector<double> alpha_x_;                   // acceleration in x-direction
+        std::vector<double> alpha_y_;                   // acceleration in y-direction
+        std::vector<Point2D<double>> waypoints_;        // waypoints
+        std::vector<bool> movable_waypoints_;           // flag to indicate if a waypoint is movable
+        std::vector<Point2D<double>> max_waypoint_offsets_; // maximum waypoint offsets
+        std::vector<WaypointLocation> waypoint_locations_;  // naming (debugging purposes)
+        int nb_movable_waypoints_;
+
+        // mx objects to be used in the optimization
+        casadi::MX alpha_x_mx_;
+        casadi::MX alpha_y_mx_;
+        std::vector<Point2D<casadi::MX>> waypoints_mx_;
+
+        // optimization options
+        bool RELAX_INITIAL_VELOCITY_ = true;
         
-        std::vector<std::vector<double>> t_x_;
-        std::vector<std::vector<double>> t_y_;
+        // optimized values
+        std::vector<double> alpha_x_sol_;
+        std::vector<double> alpha_y_sol_;
+        std::vector<Point2D<double>> waypoints_sol_;
+        std::vector<Point2D<double>> waypoint_velocities_sol_;
+        std::vector<std::vector<double>> t_x_sol_;
+        std::vector<std::vector<double>> t_y_sol_;
 
         // scratch space
         Corridor overlap_;
@@ -76,6 +124,10 @@ class Parametrization{
         Point2D<double> next_point_;
         Point2D<double> curr_point_;
         Point2D<double> prev_point_;
+
+        std::vector<Point2D<casadi::MX>> intermediate_positions_;
+        std::vector<Point2D<casadi::MX>> intermediate_velocities_;
+
 };
 
 #endif

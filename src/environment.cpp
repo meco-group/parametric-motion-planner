@@ -5,7 +5,6 @@
 #include "corridor.hpp"
 
 Environment::Environment(){
-    std::cout << "Creating default environment" << std::endl;
     nb_cell_rows_ = 10;
     nb_cell_cols_ = 12;
     cell_width_ = 0.120;
