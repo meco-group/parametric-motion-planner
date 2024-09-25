@@ -2,16 +2,18 @@
 #define __CORRIDOR__
 
 #include <vector>
-
+#include <nlohmann/json.hpp>
 #include "exceptions.hpp"
 #include "helper_types.hpp"
 #include "environment.hpp"
 #include "parameters.hpp"
 
+using json = nlohmann::json;
+
 class Environment;
 class CorridorSequence;
 
-const int MAX_NB_CORRIDORS = 50;
+const int MAX_NB_CORRIDORS = 10;
 const int MAX_CORRIDOR_CELL_LENGTH = 20;
 
 // Class to represent corridors
@@ -79,6 +81,10 @@ class Corridor{
             SetYmin(other.Ymin()); SetYmax(other.Ymax());
         }
 
+        json ToJson() const {
+            return json{{"x_min", x_min_}, {"x_max", x_max_}, 
+                        {"y_min", y_min_}, {"y_max", y_max_}};};
+
     private:
         void UpdateDirection();
 
@@ -119,7 +125,7 @@ class CorridorSequence{
         int MaxNbCorridors() const { return max_len_;};
         Corridor GetCorridor(int idx) const;
         void GetCorridor(int idx, Corridor &corridor) const;
-        int NbCorridors() const { return last_corridor_idx_;};
+        int NbCorridors() const { return nb_of_corridors_;};
 
         Point2D<double> GetStart() const { return start_.Copy();};
         Point2D<double> GetStartVel() const { return start_vel_.Copy();};
@@ -130,14 +136,16 @@ class CorridorSequence{
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, CorridorSequence &sequence) {
-            for (int i = 0; i < sequence.last_corridor_idx_; i++){
+            for (int i = 0; i < sequence.nb_of_corridors_; i++){
                 out << i << ": " << sequence.sequence_[i] << std::endl;
             }
             return out;
         }
 
+        json ToJson() const;
+
     private:
-        void ClearAll(){ last_corridor_idx_ = 0; made_change_ = false;};
+        void ClearAll(){ nb_of_corridors_ = 0; made_change_ = false;};
 
         // Inflate corridors as much as possible
         void InflateCorridors(Parameters const &params);
@@ -172,7 +180,7 @@ class CorridorSequence{
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors
 
-        int last_corridor_idx_ = 0;         // index of the last corridor in the sequence
+        int nb_of_corridors_ = 0;         // index of the last corridor in the sequence
 
         bool made_change_ = false;          // flag to indicate if a change was made (since last parametrization update)
 

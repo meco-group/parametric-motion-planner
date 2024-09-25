@@ -2,10 +2,13 @@
 #define __ENVIRONMENT__
 
 #include <vector>
+#include <nlohmann/json.hpp>
 
 #include "helper_types.hpp"
 #include "exceptions.hpp"
 #include "corridor.hpp"
+
+using json = nlohmann::json;
 
 class CorridorSequence;
 
@@ -90,6 +93,8 @@ class Environment{
         
         CellOccupancy GetOccupancy(Point2D<int> cell) const;
         CellOccupancy GetOccupancy(int x, int y) const;
+
+        json ToJson() const;
 
     private:
 

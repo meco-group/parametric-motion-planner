@@ -1,8 +1,11 @@
 #include <stdexcept>
 #include <algorithm>
+#include <nlohmann/json.hpp>
+#include <fstream>
 
 #include "corridor.hpp"
 
+using json = nlohmann::json;
 
 // Corridor class
 
@@ -233,14 +236,14 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
 };
 
 Corridor CorridorSequence::GetCorridor(int idx) const { 
-    if (idx < 0 || idx >= last_corridor_idx_){
+    if (idx < 0 || idx >= nb_of_corridors_){
         throw std::out_of_range("Invalid index of corridor to get");
     }
     return sequence_[idx].Copy();
 };
 
 void CorridorSequence::GetCorridor(int idx, Corridor &corridor) const {
-    if (idx < 0 || idx >= last_corridor_idx_){
+    if (idx < 0 || idx >= nb_of_corridors_){
         throw std::out_of_range("Invalid index of corridor to get");
     }
     corridor.CopyValues(sequence_[idx]);
@@ -258,6 +261,22 @@ void CorridorSequence::GetDest(Point2D<double> &point) const {
     point.CopyValues(dest_);
 };
 
+json CorridorSequence::ToJson() const {
+    // Create a new JSON entry for the Environment class
+    json corridor_sequence_json;
+    corridor_sequence_json["start"] = start_.ToJson();
+    corridor_sequence_json["dest"] = dest_.ToJson();
+    corridor_sequence_json["start_vel"] = start_vel_.ToJson();
+    corridor_sequence_json["nb_of_corridors"] = nb_of_corridors_;
+    std::vector<json> sequence_json = std::vector<json>(nb_of_corridors_);
+    for (int i = 0; i < nb_of_corridors_; i++){
+        sequence_json[i] = sequence_[i].ToJson();
+    }
+    corridor_sequence_json["sequence"] = sequence_json;
+
+    return corridor_sequence_json;
+}
+
 void CorridorSequence::InflateCorridors(Parameters const &params){
     bool made_change = true;
     int grow_counter = 0;
@@ -267,12 +286,12 @@ void CorridorSequence::InflateCorridors(Parameters const &params){
     while (made_change && grow_counter < max_nb_grow_iterations){
         made_change = false;
         
-        for (int i = 0; i < last_corridor_idx_; i++){
-            made_change = made_change || GrowCorridorSideways(i);
+        for (int i = 0; i < nb_of_corridors_; i++){
+            made_change = GrowCorridorSideways(i) || made_change;
         }
 
         if (made_change){
-            made_change = made_change || MergeCorridors();
+            made_change = MergeCorridors() || made_change;
         }
         grow_counter++;
     }
@@ -281,7 +300,7 @@ void CorridorSequence::InflateCorridors(Parameters const &params){
     max_nb_grow_iterations = 3; grow_counter = 0;
     while (made_change && grow_counter < max_nb_grow_iterations){
         made_change = false;
-        made_change = made_change || GrowCorridorSideways(0);
+        made_change = GrowCorridorSideways(0) || made_change;
         grow_counter++;
     }
 
@@ -293,13 +312,13 @@ void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min,
                                    double y_max){
 
     // Check if there is still space to add a corridor
-    if (last_corridor_idx_ >= max_len_){
+    if (nb_of_corridors_ >= max_len_){
         throw FullCorridorSequenceException();
     }
     
     // If so, add the new Corridor
-    sequence_[last_corridor_idx_] = Corridor(x_min, x_max, y_min, y_max);
-    last_corridor_idx_++;
+    sequence_[nb_of_corridors_] = Corridor(x_min, x_max, y_min, y_max);
+    nb_of_corridors_++;
 };
 
 void CorridorSequence::AddCorridorFromCells(Point2D<int> &start_cell, 
@@ -318,13 +337,13 @@ void CorridorSequence::AddCorridorFromCells(Point2D<int> &start_cell,
 
 void CorridorSequence::RemoveCorridor(int idx){
     // Check if the index is valid
-    if (idx < 0 || idx >= last_corridor_idx_){
+    if (idx < 0 || idx >= nb_of_corridors_){
         throw std::out_of_range("Invalid index of corridor to remove");
     }
 
     // If so, remove the corridor
     sequence_.erase(sequence_.begin() + idx);
-    last_corridor_idx_--;
+    nb_of_corridors_--;
 };
 
 bool CorridorSequence::GrowCorridorSideways(int idx){
@@ -521,7 +540,7 @@ bool CorridorSequence::RemoveIrrelevantCorridors(Parameters const &params){
     Corridor* current_corridor;
     Corridor* next_corridor;
     Corridor overlap;
-    for (int i = last_corridor_idx_ - 2; i >= 1; i--){
+    for (int i = nb_of_corridors_ - 2; i >= 1; i--){
         previous_corridor = &sequence_[i-1];
         current_corridor = &sequence_[i];
         next_corridor = &sequence_[i+1];
@@ -544,13 +563,13 @@ bool CorridorSequence::RemoveIrrelevantCorridors(Parameters const &params){
 
     // The first/last corridor can be removed if the next/previous corridor
     // contains the start/destination
-    while (last_corridor_idx_ >= 1 &&
+    while (nb_of_corridors_ >= 1 &&
            sequence_[1].ContainsVehicle(start_, params)){
         RemoveCorridor(0);
     }
-    while (last_corridor_idx_ >= 1 && 
-           sequence_[last_corridor_idx_ - 2].ContainsVehicle(dest_, params)){
-        RemoveCorridor(last_corridor_idx_ - 1);
+    while (nb_of_corridors_ >= 1 && 
+           sequence_[nb_of_corridors_ - 2].ContainsVehicle(dest_, params)){
+        RemoveCorridor(nb_of_corridors_ - 1);
     }
 
     return made_change;
@@ -563,7 +582,7 @@ bool CorridorSequence::MergeCorridors(){
     
     Corridor* current_corridor;
     Corridor* next_corridor;
-    for (int i = last_corridor_idx_ - 2; i >= 0; i--){
+    for (int i = nb_of_corridors_ - 2; i >= 0; i--){
         current_corridor = &sequence_[i];
         next_corridor = &sequence_[i+1];
 

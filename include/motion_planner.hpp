@@ -85,6 +85,8 @@ class MotionPlanner{
             std::cout << corridor_sequence_ << std::endl;
         };
 
+        void DumpToJson(const std::string &filename) const;
+
 
     private:
         void SampleSolution();

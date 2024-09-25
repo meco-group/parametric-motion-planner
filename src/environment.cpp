@@ -1,8 +1,12 @@
 #include <queue>
 #include <set>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 #include "environment.hpp"
 #include "corridor.hpp"
+
+using json = nlohmann::json;
 
 Environment::Environment(){
     nb_cell_rows_ = 10;
@@ -40,7 +44,10 @@ Environment::Environment(int nb_cell_rows, int nb_cell_cols, double cell_width,
 }
 
 std::ostream& operator<<(std::ostream &out, Environment const &environment){
-    out << environment.NbCellRows() << " x " << environment.NbCellCols() << " environment" << std::endl;
+    out << environment.NbCellRows() << " x " << environment.NbCellCols() 
+        << " environment (" << environment.NbCellRows()*environment.CellWidth() 
+        << " x " << environment.NbCellCols()*environment.CellHeight() << ")" 
+        << std::endl;
     for (int j = environment.NbCellRows() - 1; j >= 0 ; j--){
         for (int i = 0; i < environment.NbCellCols() ; i++){
             switch(environment.GetOccupancy(i, j)){
@@ -164,4 +171,16 @@ std::vector<Point2D<int>> Environment::GetOccupiedStartingCells(
     }
 
     return std::vector<Point2D<int>>(occupied_cells.begin(), occupied_cells.end());
+}
+
+json Environment::ToJson() const {
+    json j;
+
+    j["nb_cell_rows"] = nb_cell_rows_;
+    j["nb_cell_cols"] = nb_cell_cols_;
+    j["cell_width"] = cell_width_;
+    j["cell_height"] = cell_height_;
+    j["occupancy_grid"] = occupancy_grid_;
+
+    return j;
 }

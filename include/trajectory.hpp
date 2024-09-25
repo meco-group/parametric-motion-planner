@@ -42,6 +42,7 @@ class Trajectory{
         std::vector<double> Ax() const { return ax_;};
         std::vector<double> Ay() const { return ay_;};
 
+        json ToJson() const;
 
 
     private:

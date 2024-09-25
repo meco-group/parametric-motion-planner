@@ -1,9 +1,11 @@
 #include <vector>
 #include <casadi/casadi.hpp>
+#include <nlohmann/json.hpp>
 
 #include "trajectory.hpp"
 
 using namespace casadi;
+using json = nlohmann::json;
 
 Trajectory::Trajectory() : 
         dt_(DT_DEFAULT), max_trajectory_time_(MAX_TRAJECTORY_TIME_DEFAULT), 
@@ -130,12 +132,16 @@ void Trajectory::Update(int nb_corridors,
             
             if (local_corridor_time <= t_x[w][0]){ 
                 ax_[sample_ptr] = alpha_x[w]*a_max;
-            } else { 
+            } else if (local_corridor_time <= t_x[w][0] + t_x[w][1]){ 
+                ax_[sample_ptr] = 0;
+            } else {
                 ax_[sample_ptr] = alpha_x[w+1]*a_max;
             }
             if (local_corridor_time <= t_y[w][0]){ 
                 ay_[sample_ptr] = alpha_y[w]*a_max;
-            } else { 
+            } else if (local_corridor_time <= t_y[w][0] + t_y[w][1]){
+                ay_[sample_ptr] = 0;
+            } else {
                 ay_[sample_ptr] = alpha_y[w+1]*a_max;
             }
 
@@ -147,9 +153,29 @@ void Trajectory::Update(int nb_corridors,
 }
 
 std::ostream& operator<<(std::ostream &out, Trajectory &trajectory){
-    out << "t\tpx\tpy\tvx\tvy\tax\tay" << std::endl;
+    out << "t\t\tpx\t\tpy\t\tvx\t\tvy\t\tax\t\tay" << std::endl;
     for (int i = 0; i < trajectory.NbSamples(); i++){
-        out << trajectory.T()[i] << "\t" << trajectory.Px()[i] << "\t" << trajectory.Py()[i] << "\t" << trajectory.Vx()[i] << "\t" << trajectory.Vy()[i] << "\t" << trajectory.Ax()[i] << "\t" << trajectory.Ay()[i] << std::endl;
+        out << trajectory.T()[i] << "\t\t" << trajectory.Px()[i] << "\t\t" << trajectory.Py()[i] << "\t\t" << trajectory.Vx()[i] << "\t\t" << trajectory.Vy()[i] << "\t\t" << trajectory.Ax()[i] << "\t\t" << trajectory.Ay()[i] << std::endl;
     }
+    // for (int i = 0; i < trajectory.NbSamples(); i++){
+    //     out << trajectory.T()[i] << "\t\t" << trajectory.Ax()[i] << "\t\t" << trajectory.Ay()[i] << std::endl;
+    // }
+
     return out;
+}
+
+json Trajectory::ToJson() const {
+    json j;
+
+    j["nb_samples"] = curr_nb_samples_;
+    j["dt"] = dt_;
+    j["t"] = std::vector<double>(t_.begin(), t_.begin() + curr_nb_samples_);
+    j["px"] = std::vector<double>(px_.begin(), px_.begin() + curr_nb_samples_);
+    j["py"] = std::vector<double>(py_.begin(), py_.begin() + curr_nb_samples_);
+    j["vx"] = std::vector<double>(vx_.begin(), vx_.begin() + curr_nb_samples_);
+    j["vy"] = std::vector<double>(vy_.begin(), vy_.begin() + curr_nb_samples_);
+    j["ax"] = std::vector<double>(ax_.begin(), ax_.begin() + curr_nb_samples_);
+    j["ay"] = std::vector<double>(ay_.begin(), ay_.begin() + curr_nb_samples_);
+
+    return j;
 }

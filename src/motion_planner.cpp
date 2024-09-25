@@ -1,11 +1,13 @@
 #include <iostream>
 #include <casadi/casadi.hpp>
+#include <nlohmann/json.hpp>
 
 #include "motion_planner.hpp"
 #include "corridor.hpp"
 #include "trajectory.hpp"
 
 using namespace casadi;
+using json = nlohmann::json;
 
 MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params, 
                              Environment const &environment) :
@@ -39,14 +41,20 @@ void MotionPlanner::Plan(){
 
     switch(method_){
         case P2P:
-            return PlanP2P();
+            PlanP2P();
+            break;
         case OCP:
-            return PlanOCP();
+            PlanOCP();
+            break;
         case ARENA:
-            return PlanARENA();
+            PlanARENA();
+            break;
         default:
             std::cout << "Invalid method selected" << std::endl;
     }
+
+    std::cout << "Solution obtained:" << std::endl;
+    std::cout << last_solution_ << std::endl;
 }
 
 void MotionPlanner::Plan(const Point2D<double> &start, 
@@ -56,6 +64,38 @@ void MotionPlanner::Plan(const Point2D<double> &start,
     SetDest(dest);
     SetStartVel(start_vel);
     Plan();
+}
+
+
+void MotionPlanner::DumpToJson(const std::string &filename) const {
+    // Create output directory if it doesn't exist
+    std::filesystem::create_directories("output");
+
+    // Define the full path
+    std::string full_path = "output/" + filename;
+
+    json j;
+    // Read existing content from the file if it exists
+    // std::ifstream inFile(full_path);
+    // if (inFile) {
+    //     inFile >> j;
+    //     inFile.close();
+    // }
+
+    // Add all elements
+    j["Environment"] = environment_.ToJson();
+    j["Parameters"] = params_.ToJson();
+    j["CorridorSequence"] = corridor_sequence_.ToJson();
+    j["PlannerMethod"] = method_;
+    if (method_ == PlannerMethod::ARENA){
+        j["Parametrization"] = parametrization_.ToJson();
+    }
+    j["Trajectory"] = last_solution_.ToJson();
+
+    // Write the updated content back to the file, creating it if it doesn't exist
+    std::ofstream outFile(full_path);
+    outFile << j.dump(4);  // Automatically creates the file if it doesn't exist
+    outFile.close();
 }
 
 void MotionPlanner::PlanP2P(){
@@ -202,9 +242,6 @@ void MotionPlanner::PlanOCP(){
 
     // Construct trajectory
     last_solution_.Update(xx_sol, uu_sol, t);
-
-    std::cout << "Solution obtained:" << std::endl;
-    std::cout << last_solution_ << std::endl;
 }
 
 void MotionPlanner::PlanARENA(){
@@ -240,9 +277,6 @@ void MotionPlanner::PlanARENA(){
                           parametrization_.GetWaypointsSol(),
                           parametrization_.GetWaypointVelocitiesSol(),
                           params_.GetAmax());
-
-    std::cout << "Solution obtained:" << std::endl;
-    std::cout << last_solution_ << std::endl;
 }
 
 void MotionPlanner::InitializeRK4(){

@@ -3,6 +3,9 @@
 
 #include <iostream>
 #include <cmath>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 // Enumeration of supported planning methods
 enum PlannerMethod{
@@ -68,6 +71,8 @@ class Point2D {
             SetY(temp*std::sin(angle) + y_*std::cos(angle));
         }
 
+        double Norm() const {return sqrt(x_*x_ + y_*y_);}
+
         // setters
         void SetX(T x){ x_ = x;};
         void SetY(T y){ y_ = y;};
@@ -129,6 +134,8 @@ class Point2D {
         bool operator<(const Point2D<T> &other) const {
             return x_ < other.x() || (x_ == other.x() && y_ < other.y());
         }
+
+        json ToJson() const { return json{{"x", x_}, {"y", y_}};};
     
     private:
         T x_;

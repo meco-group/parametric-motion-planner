@@ -2,9 +2,13 @@
 #define __PARAMETRIZATION__
 
 #include <vector>
+#include <nlohmann/json.hpp>
 
+#include "helper_methods.hpp"
 #include "helper_types.hpp"
 #include "corridor.hpp"
+
+using json = nlohmann::json;
 
 // forward declaration
 class MotionPlanner;
@@ -55,6 +59,8 @@ class Parametrization{
         friend std::ostream& operator<<(std::ostream &out, 
                             Parametrization const &parametrization);
 
+        json ToJson() const;
+
     private:
         // waypoint with index waypoint_idx is in the overlapping region of 
         // corridor waypoint_idx - 1 and corridor waypoint_idx
@@ -78,9 +84,19 @@ class Parametrization{
 
         void IntegrateOverCorridor(Point2D<casadi::MX> const &start, 
                                    Point2D<casadi::MX> const &start_vel, 
-                                   int corridor_idx,
                                    casadi::MX const &t_x, 
-                                   casadi::MX const &t_y);
+                                   casadi::MX const &t_y,
+                                   casadi::MX const &alpha_x,
+                                   casadi::MX const &alpha_y,
+                                   casadi::MX const &alpha_x_next,
+                                   casadi::MX const &alpha_y_next);
+
+        void InitializeOptimization();
+
+        bool InitializeArc(int corridor_idx, double v_des,
+                           Point2D<double> const &start_vel);
+
+        void ShowInitialization();
 
         const CorridorSequence& corridor_sequence_; // Reference to the corridor sequence object
         const Parameters& params_;
@@ -100,6 +116,13 @@ class Parametrization{
         casadi::MX alpha_x_mx_;
         casadi::MX alpha_y_mx_;
         std::vector<Point2D<casadi::MX>> waypoints_mx_;
+
+        // initialization containers
+        std::vector<std::vector<double>> t_x_init_;
+        std::vector<std::vector<double>> t_y_init_;
+        std::vector<Point2D<double>> waypoint_velocities_init_;
+        double alpha_0_init_;
+        double alpha_f_init_;
 
         // optimization options
         bool RELAX_INITIAL_VELOCITY_ = true;
