@@ -42,12 +42,12 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 	  {
 
 	// true parameter variables
-	alpha_x_ = std::vector<double>(max_nb_corridors_),
-	alpha_y_ = std::vector<double>(max_nb_corridors_);
-	waypoints_ = std::vector<Point2D<double>>(max_nb_corridors_); 
-	max_waypoint_offsets_ = std::vector<Point2D<double>>(max_nb_corridors_);
-	movable_waypoints_ = std::vector<bool>(max_nb_corridors_, false);
-	waypoint_locations_ = std::vector<WaypointLocation>(max_nb_corridors_);
+	alpha_x_ = std::vector<double>(max_nb_corridors_ + 1),
+	alpha_y_ = std::vector<double>(max_nb_corridors_ + 1);
+	waypoints_ = std::vector<Point2D<double>>(max_nb_corridors_ + 1); 
+	max_waypoint_offsets_ = std::vector<Point2D<double>>(max_nb_corridors_ + 1);
+	movable_waypoints_ = std::vector<bool>(max_nb_corridors_ + 1, false);
+	waypoint_locations_ = std::vector<WaypointLocation>(max_nb_corridors_ + 1);
 
 	// mx objects used in the optimization
 	alpha_x_mx_ = MX(max_nb_corridors_ + 1, 1);
@@ -362,7 +362,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&){
 			}
 		}
 	} catch (std::exception &e){
-		std::cout << e.what() << std::endl;
+		std::cout << "An error occured: " << e.what() << std::endl;
 		for (int i = 0; i < corridor_sequence_.NbCorridors() + 1; i++){
 			alpha_x_sol_[i] = double(opti.debug().value(alpha_x_mx_(i)));
 			alpha_y_sol_[i] = double(opti.debug().value(alpha_y_mx_(i)));
@@ -380,6 +380,25 @@ void Parametrization::OptimizeParametrization(const UpdateToken&){
 		}
 	}
 };
+
+void Parametrization::OptimizeSingleArc(const UpdateToken&){
+	OptimizeSingleArc1D(t_x_sol_[0], alpha_x_sol_, 
+						corridor_sequence_.GetStart().x(),
+						corridor_sequence_.GetDest().x(),
+						corridor_sequence_.GetStartVel().x());
+	OptimizeSingleArc1D(t_y_sol_[0], alpha_y_sol_,
+						corridor_sequence_.GetStart().y(),
+						corridor_sequence_.GetDest().y(),
+						corridor_sequence_.GetStartVel().y());
+
+	// empty the solution of the subsequent corridors
+	for (int i = 1; i < corridor_sequence_.NbCorridors(); i++){
+		for (int j = 0; j < 3; j++){
+			t_x_sol_[i][j] = 0.0;
+			t_y_sol_[i][j] = 0.0;
+		}
+	}
+}
 
 Point2D<double> Parametrization::GetWaypoint(int idx) const {
 	return waypoints_[idx].Copy();
@@ -437,14 +456,11 @@ json Parametrization::ToJson() const {
 	int curr_nb_corridors = std::max(max_nb_corridors_, 
 									 corridor_sequence_.NbCorridors());
 
-	std::vector<json> waypoints_json = 
-		std::vector<json>(curr_nb_corridors + 1);
-	std::vector<json> max_waypoint_offsets_json = 
-		std::vector<json>(curr_nb_corridors + 1);
-	std::vector<json> waypoints_sol_json = 
-		std::vector<json>(curr_nb_corridors + 1);
-	std::vector<json> waypoint_velocities_sol_json = 
-		std::vector<json>(curr_nb_corridors + 1);
+	std::vector<json> waypoints_json = 					std::vector<json>(curr_nb_corridors + 1);
+	std::vector<json> max_waypoint_offsets_json = 		std::vector<json>(curr_nb_corridors + 1);
+	std::vector<json> waypoints_sol_json = 				std::vector<json>(curr_nb_corridors + 1);
+	std::vector<json> waypoint_velocities_sol_json = 	std::vector<json>(curr_nb_corridors + 1);
+
 	for (int i = 0; i < curr_nb_corridors + 1; i++){
 		waypoints_json[i] = waypoints_[i].ToJson();
 		max_waypoint_offsets_json[i] = max_waypoint_offsets_[i].ToJson();
@@ -1115,4 +1131,82 @@ void Parametrization::ShowInitialization(){
 		
 	// std::cout << "Initialized trajectory" << std::endl;
 	// std::cout << initialized_trajectory << std::endl;
+}
+
+void Parametrization::OptimizeSingleArc1D(std::vector<double> &t_sol_vector,
+										  std::vector<double> &alpha_sol_vector,
+										  double p0, double pf, double v0){
+	double pf_rel = std::abs(pf - p0);
+	double v_max = params_.GetVmax();
+	double a_max = params_.GetAmax();
+	
+	if (pf - p0 < 0){
+		v0 = -v0;
+	}
+
+	double T = 0;
+	double ts1 = 0;
+	double ts2 = 0;
+	double ts3 = 0;
+
+	// first, check if the velocity limit is being exceeded
+	if (v0 >= params_.GetVmax()){
+		t_sol_vector[0] = (v0 - v_max) / a_max;
+		t_sol_vector[1] = 1.0 / v_max*(pf_rel - 
+						  		  	   1.0 / a_max*(2 * v0 * v_max - 
+									 			    0.5 * std::pow(v0, 2) - 
+												    v_max));
+		t_sol_vector[2] = v_max / a_max;
+		T = t_sol_vector[0] + t_sol_vector[1] + t_sol_vector[2];
+
+		ts1 = t_sol_vector[0];
+		ts2 = t_sol_vector[1] + t_sol_vector[0];
+		alpha_sol_vector[0] = -1;
+		alpha_sol_vector[1] = -1;			
+
+	// if not, proceed as normal
+	} else {
+		// if v0 exceeds this threshold velocity, you need to start braking
+		// immediately, because you will overshoot the target otherwise
+		double V1 = std::sqrt(2*a_max*pf_rel);
+
+		double ts = 0;
+		if (v0 >= V1){
+			alpha_sol_vector[0] = -1;
+			alpha_sol_vector[1] = 1;
+			T = (v0 + std::sqrt(std::max(0.0, 2*std::pow(v0, 2) - 
+										 4*a_max*pf_rel))) / a_max;
+			ts = 0.5*(T - v0/a_max);
+		} else {
+			alpha_sol_vector[0] = 1;
+			alpha_sol_vector[1] = -1;
+			T = (-v0 + std::sqrt(std::max(0.0, 2*std::pow(v0, 2) + 
+										 4*a_max*pf_rel))) / a_max;
+			ts = 0.5*(T - v0/a_max);
+		}
+
+		// check velocity limit
+		// if we accelerate beyond the velocity limit, increase the coasting \
+		// time
+		if (a_max*(T - ts) > v_max){
+			double delta_t = T - ts - v_max/a_max;
+			ts1 = ts - delta_t;
+			ts2 = ts + a_max/v_max*std::pow(delta_t, 2) + delta_t;
+			T = ts2 + v_max/a_max;
+		// if the velocitiy limit is not exceeded, keep the solution
+		} else {
+			ts1 = ts;
+			ts2 = ts;
+		}
+	}
+
+	// write solution
+	if (pf - p0 < 0){
+		alpha_sol_vector[0] = -alpha_sol_vector[0];
+		alpha_sol_vector[1] = -alpha_sol_vector[1];
+	}
+
+	t_sol_vector[0] = ts1;
+	t_sol_vector[1] = ts2 - ts1;
+	t_sol_vector[2] = T - ts2;
 }

@@ -51,8 +51,9 @@ class Corridor{
         double Height() const { return y_max_ - y_min_;};
         Point2D<int> Direction() const { return direction_;};
         int GetCellLength(double cell_width, double cell_height) const {
-            return std::max(std::abs(x_max_ - x_min_)/cell_width, 
-                            std::abs(y_max_ - y_min_)/cell_height);
+            return direction_.y() == 0 ? 
+                    std::abs(x_max_ - x_min_)/cell_width :
+                    std::abs(y_max_ - y_min_)/cell_height;
         };
         Point2D<double> GetCenter() const {
             return Point2D<double>((x_min_ + x_max_)/2, (y_min_ + y_max_)/2);
@@ -85,6 +86,10 @@ class Corridor{
             return json{{"x_min", x_min_}, {"x_max", x_max_}, 
                         {"y_min", y_min_}, {"y_max", y_max_}};};
 
+        void FlipDirection(){
+            direction_ = Point2D<int>(direction_.y(), direction_.x());
+        }
+
     private:
         void UpdateDirection();
 
@@ -100,10 +105,13 @@ class Corridor{
 // Sequence of corridors
 class CorridorSequence{
     public:
-        CorridorSequence(Environment const &environment) : 
-            CorridorSequence(environment, MAX_NB_CORRIDORS) {};
-        CorridorSequence(Environment const &environment, int max_len) : 
+        CorridorSequence(Environment const &environment,
+                         Parameters const &params) : 
+            CorridorSequence(environment, params, MAX_NB_CORRIDORS) {};
+        CorridorSequence(Environment const &environment, 
+                         Parameters const &params, int max_len) : 
             environment_(environment),
+            params_(params),
             max_len_(max_len), sequence_(max_len_),
             cells_along_corridor_(MAX_CORRIDOR_CELL_LENGTH){};
 
@@ -147,8 +155,11 @@ class CorridorSequence{
     private:
         void ClearAll(){ nb_of_corridors_ = 0; made_change_ = false;};
 
+        void AddInitialFootprint(std::vector<Point2D<int>> &path);
+        void AddFinalFootprint(std::vector<Point2D<int>> &path);
+
         // Inflate corridors as much as possible
-        void InflateCorridors(Parameters const &params);
+        void InflateCorridors();
 
         // Add a corridor to the sequence
         void AddCorridor(double x_min, double x_max, double y_min, double y_max);
@@ -168,10 +179,11 @@ class CorridorSequence{
         bool CheckCellsOnLeftSide(int corridor_idx);
         bool CheckCellsOnrightSide(int corridor_idx);
 
-        bool RemoveIrrelevantCorridors(Parameters const &params);
+        bool RemoveIrrelevantCorridors();
         bool MergeCorridors();
 
         const Environment& environment_;    // Reference to the environment object
+        const Parameters& params_;          // Reference to the parameters object
 
         Point2D<double> start_;
         Point2D<double> dest_;

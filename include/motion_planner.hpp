@@ -89,30 +89,21 @@ class MotionPlanner{
 
 
     private:
-        void SampleSolution();
-
         // Plan a simple trajectory, moving from corridor to corridor in 
         // straight lines
         void PlanP2P();
-        // Sample the P2P solution
-        void SampleP2PSolution();
 
         // Plan a trajectory by solving an Optimal Control Problem
         void PlanOCP();
-        // Sample the OCP solution
-        void SampleOCPSolution(DM &xx_sol, DM &uu_sol, DM &tt_sol);
 
         // Plan a trajectory using the ARENA method
         void PlanARENA();
-        // Sample ARENA solution
-        void SampleARENASolution();
 
         // Initialize the rk4 integrator
         void InitializeRK4();
 
         std::vector<int> CheckOutOfCorridor();
         bool EliminateSubOptimalParametrization();
-
         
         const Environment& environment_;               
         CorridorSequence corridor_sequence_;    // contains a reference to the environment

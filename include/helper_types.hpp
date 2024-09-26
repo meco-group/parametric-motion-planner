@@ -79,7 +79,7 @@ class Point2D {
         void SetValues(T x, T y){ x_ = x; y_ = y;};
 
         // printing overloading
-        friend std::ostream& operator<<(std::ostream &out, Point2D &v) {
+        friend std::ostream& operator<<(std::ostream &out, Point2D const &v) {
             out << "(" << v.x() << ", " << v.y() << ")";
             return out;
         }

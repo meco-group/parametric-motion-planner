@@ -30,14 +30,20 @@ class Parametrization{
         // Create access token such that only the motion planner can update
         // the parametrization
         class UpdateToken{
+            public: 
+                void Invalidate(){is_valid_ = false;};
+                void Validate(){is_valid_ = true;};
+
             friend class MotionPlanner; 
-            private: UpdateToken() {};
+            private: 
+                UpdateToken() {};
+                bool is_valid_ = true;
         };
 
         // only the motion planner can update the parametrization
         void UpdateParametrization(const UpdateToken&);
-
         void OptimizeParametrization(const UpdateToken&);
+        void OptimizeSingleArc(const UpdateToken&);
 
         // basic getters
         int MaxNbCorridors() const {return max_nb_corridors_;};
@@ -91,12 +97,15 @@ class Parametrization{
                                    casadi::MX const &alpha_x_next,
                                    casadi::MX const &alpha_y_next);
 
+        // Initialization functions
         void InitializeOptimization();
-
         bool InitializeArc(int corridor_idx, double v_des,
                            Point2D<double> const &start_vel);
-
         void ShowInitialization();
+
+        void OptimizeSingleArc1D(std::vector<double> &t_sol_vector, 
+                                 std::vector<double> &alpha_sol_vector,
+                                 double p0, double pf, double v0);
 
         const CorridorSequence& corridor_sequence_; // Reference to the corridor sequence object
         const Parameters& params_;

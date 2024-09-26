@@ -78,8 +78,8 @@ class Environment{
             const Point2D<int> &start,const Point2D<int> &dest) const;
 
         // Return the cells that are occupied by the footprint of the vehicle
-        std::vector<Point2D<int>> GetOccupiedStartingCells(
-            const Point2D<int> &start, const double &vehicle_width,
+        std::vector<Point2D<int>> GetOccupiedFootprintCells(
+            const Point2D<double> &start, const double &vehicle_width,
             const double &vehicle_length) const;
 
         // Function to print the occupancy grid

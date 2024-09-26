@@ -40,6 +40,15 @@ class Parameters{
                         {"margin", margin_}};
         };
 
+        friend std::ostream& operator<<(std::ostream &out, Parameters const &params){
+            out << "v_max: " << params.v_max_ << std::endl;
+            out << "a_max: " << params.a_max_ << std::endl;
+            out << "veh_width: " << params.veh_width_ << std::endl;
+            out << "veh_height: " << params.veh_height_ << std::endl;
+            out << "margin: " << params.margin_ << std::endl;
+            return out;
+        };
+
     private:
         double v_max_;       // Maximum (horizontal or vertical) velocity
         double a_max_;       // Maximum (horizontal or vertical) acceleration

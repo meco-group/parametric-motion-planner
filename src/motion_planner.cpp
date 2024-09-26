@@ -13,7 +13,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
                              Environment const &environment) :
         params_(params),
         environment_(environment),
-        corridor_sequence_(environment_),
+        corridor_sequence_(environment_, params),
         parametrization_(corridor_sequence_, params) {
 
         method_ = method;
@@ -53,8 +53,8 @@ void MotionPlanner::Plan(){
             std::cout << "Invalid method selected" << std::endl;
     }
 
-    std::cout << "Solution obtained:" << std::endl;
-    std::cout << last_solution_ << std::endl;
+    // std::cout << "Solution obtained:" << std::endl;
+    // std::cout << last_solution_ << std::endl;
 }
 
 void MotionPlanner::Plan(const Point2D<double> &start, 
@@ -139,6 +139,8 @@ void MotionPlanner::PlanOCP(){
     std::vector<Point2D<double>> initialization_waypoints = 
         helper_.GetCorridorOverlapCenters(corridor_sequence_, start_, dest_);
     double initialization_distance = 0;
+    double width_offset = params_.GetVehWidth()/2.0 + params_.GetMargin();
+    double height_offset = params_.GetVehHeight()/2.0 + params_.GetMargin();
 
     // Start looping over corridors
     for (int s = 0; s < corridor_sequence_.NbCorridors(); s++){
@@ -161,14 +163,14 @@ void MotionPlanner::PlanOCP(){
             opti.subject_to(xx(Slice(), k + 1) == rk4_outputs_[0]);
             
             // enforce corner points to be inside the current corridor
-            corners[0].SetValues(xx(0, k) - params_.GetVehWidth()/2.0, 
-                                 xx(1, k) - params_.GetVehHeight()/2.0);
-            corners[1].SetValues(xx(0, k) + params_.GetVehWidth()/2.0,
-                                 xx(1, k) - params_.GetVehHeight()/2.0);
-            corners[2].SetValues(xx(0, k) + params_.GetVehWidth()/2.0,
-                                 xx(1, k) + params_.GetVehHeight()/2.0);
-            corners[3].SetValues(xx(0, k) - params_.GetVehWidth()/2.0,
-                                 xx(1, k) + params_.GetVehHeight()/2.0);
+            corners[0].SetValues(xx(0, k) - width_offset, 
+                                 xx(1, k) - height_offset);
+            corners[1].SetValues(xx(0, k) + width_offset,
+                                 xx(1, k) - height_offset);
+            corners[2].SetValues(xx(0, k) + width_offset,
+                                 xx(1, k) + height_offset);
+            corners[3].SetValues(xx(0, k) - width_offset,
+                                 xx(1, k) + height_offset);
             for (Point2D<MX> corner : corners){
                 opti.subject_to(current_corridor.Xmin() <= 
                         (corner.x() <= current_corridor.Xmax()));
@@ -192,15 +194,15 @@ void MotionPlanner::PlanOCP(){
         // exists a next corridor)
         if (s < corridor_sequence_.NbCorridors() - 1){
             int k = k_offset + nb_points_per_corridor;
-            current_corridor = corridor_sequence_.GetCorridor(s+1);
-            corners[0].SetValues(xx(0, k) - params_.GetVehWidth()/2, 
-                                 xx(1, k) - params_.GetVehHeight()/2);
-            corners[1].SetValues(xx(0, k) + params_.GetVehWidth()/2,
-                                 xx(1, k) - params_.GetVehHeight()/2);
-            corners[2].SetValues(xx(0, k) + params_.GetVehWidth()/2,
-                                 xx(1, k) + params_.GetVehHeight()/2);
-            corners[3].SetValues(xx(0, k) - params_.GetVehWidth()/2,
-                                 xx(1, k) + params_.GetVehHeight()/2);
+            // current_corridor = corridor_sequence_.GetCorridor(s+1);
+            corners[0].SetValues(xx(0, k) - width_offset, 
+                                 xx(1, k) - height_offset);
+            corners[1].SetValues(xx(0, k) + width_offset,
+                                 xx(1, k) - height_offset);
+            corners[2].SetValues(xx(0, k) + width_offset,
+                                 xx(1, k) + height_offset);
+            corners[3].SetValues(xx(0, k) - width_offset,
+                                 xx(1, k) + height_offset);
             for (Point2D<MX> corner : corners){
                 opti.subject_to(current_corridor.Xmin() <= 
                         (corner.x() <= current_corridor.Xmax()));
@@ -213,12 +215,22 @@ void MotionPlanner::PlanOCP(){
 
     opti.minimize(obj);
     opti.solver("ipopt", opts_casadi_, opts_solver_);
-    OptiSol sol = opti.solve();
     
-    // Extract solution
-    DM xx_sol = sol.value(xx);
-    DM uu_sol = sol.value(uu);
-    DM tt_sol = sol.value(tt);
+    DM xx_sol, uu_sol, tt_sol;
+    try {
+        OptiSol sol = opti.solve();
+        
+        // Extract solution
+        xx_sol = sol.value(xx);
+        uu_sol = sol.value(uu);
+        tt_sol = sol.value(tt);
+
+    } catch (std::exception &e){
+        std::cout << "An error occurred: " << e.what() << std::endl;
+        xx_sol = opti.debug().value(xx);
+        uu_sol = opti.debug().value(uu);
+        tt_sol = opti.debug().value(tt);
+    }
 
     // Construct a time-grid for the current samples
     std::vector<double> t(N+1);
@@ -249,26 +261,35 @@ void MotionPlanner::PlanARENA(){
 
     // Update the corridor sequence
     UpdateCorridorSequence();
+    std::cout << "Corridor sequence updated" << std::endl;
     PrintCorridorSequence();
+    
+    // Try to solve a single arc
+    parametrization_.OptimizeSingleArc(parametrization_update_token_);
+    std::vector<int> problematic_corridors = CheckOutOfCorridor();
 
-    // Initialize the parametrization
-    parametrization_.UpdateParametrization(parametrization_update_token_);
-    std::cout << parametrization_ << std::endl;
+    // only continue if that didn't work
+    if (problematic_corridors.size() == 0){
+        // Initialize the parametrization
+        parametrization_.UpdateParametrization(parametrization_update_token_);
+        std::cout << parametrization_ << std::endl;
 
-    // Start the optimization loop
-    bool made_modification = true;
-    int iteration_counter = 0;
-    while ((made_modification || add_constraints_list_.size() > 0) && 
-            iteration_counter < max_nb_iterations_){
-        
-        parametrization_.OptimizeParametrization(parametrization_update_token_);
-        add_constraints_list_ = CheckOutOfCorridor();
-        made_modification = EliminateSubOptimalParametrization();
+        // Start the optimization loop
+        bool made_modification = true;
+        int iteration_counter = 0;
+        while ((made_modification || add_constraints_list_.size() > 0) && 
+                iteration_counter < max_nb_iterations_){
+            
+            parametrization_.OptimizeParametrization(parametrization_update_token_);
+            add_constraints_list_ = CheckOutOfCorridor();
+            made_modification = EliminateSubOptimalParametrization();
 
-        iteration_counter++;
+            iteration_counter++;
+        }
     }
 
     // Update the solution
+    // std::cout << "updating solution " << std::endl;
     last_solution_.Update(corridor_sequence_.NbCorridors(),
                           parametrization_.GetTxSol(), 
                           parametrization_.GetTySol(), 
@@ -301,6 +322,7 @@ void MotionPlanner::InitializeRK4(){
 }
 
 std::vector<int> MotionPlanner::CheckOutOfCorridor(){
+    // TODO: implement this
     return {};
 }
 

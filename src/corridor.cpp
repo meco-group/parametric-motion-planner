@@ -10,9 +10,12 @@ using json = nlohmann::json;
 // Corridor class
 
 bool Corridor::GetOverlap(Corridor &other, Corridor &overlap) const {
+    double tolerance = 1e-6;
     // Check if there is overlap
-    if (other.Xmax() <= x_min_ || other.Xmin() >= x_max_ || 
-        other.Ymax() <= y_min_ || other.Ymin() >= y_max_){
+    if (other.Xmax() <= x_min_ + tolerance || 
+        other.Xmin() >= x_max_  - tolerance || 
+        other.Ymax() <= y_min_  + tolerance || 
+        other.Ymin() >= y_max_ - tolerance){
         return false;
     }
 
@@ -119,10 +122,10 @@ bool Corridor::IsCompletelyWithin(Corridor* const &other1,
 
 bool Corridor::ContainsVehicle(const Point2D<double> &vehicle_position, 
                                const Parameters &params) const {
-    return vehicle_position.x() - params.GetVehWidth()/2 - params.GetMargin() >= x_min_ &&
-           vehicle_position.x() + params.GetVehWidth()/2 + params.GetMargin() <= x_max_ &&
-           vehicle_position.y() - params.GetVehHeight()/2 - params.GetMargin() >= y_min_ &&
-           vehicle_position.y() + params.GetVehHeight()/2 + params.GetMargin() <= y_max_;
+    return vehicle_position.x() - params.GetVehWidth()/2.0 - params.GetMargin() >= x_min_ &&
+           vehicle_position.x() + params.GetVehWidth()/2.0 + params.GetMargin() <= x_max_ &&
+           vehicle_position.y() - params.GetVehHeight()/2.0 - params.GetMargin() >= y_min_ &&
+           vehicle_position.y() + params.GetVehHeight()/2.0 + params.GetMargin() <= y_max_;
 } 
 
 void Corridor::UpdateDirection(){
@@ -179,37 +182,10 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     std::vector<Point2D<int>> path = environment_.PerformBreadthFirstSearch(start_cell, dest_cell);
 
     // Add cells to ensure initial footprint of the vehicle is included
-    std::vector<Point2D<int>> occupied_cells = 
-        environment_.GetOccupiedStartingCells(start_cell, params.GetVehWidth(), 
-                                 params.GetVehHeight());
+    AddInitialFootprint(path);
 
-    // Make sure to add the cells in the correct sequence (this makes the 
-    // resulting corridors nicer)
-    if (occupied_cells.size() == 1){
-        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
-    } else if (occupied_cells.size() > 1){
-        if (path[0].ManhattanDistance(occupied_cells[0]) < 
-                path[0].ManhattanDistance(occupied_cells[1])){
-            std::reverse(occupied_cells.begin(), occupied_cells.end());
-        }
-        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
-    } else if (occupied_cells.size() == 3){
-        // find the diagonal cell
-        int diagonal_idx;
-        if (path[0].ManhattanDistance(occupied_cells[0]) == 2){
-            path.insert(path.begin(), occupied_cells[1]);
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[2]);
-        } else if (path[0].ManhattanDistance(occupied_cells[1]) == 2){
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[1]);
-            path.insert(path.begin(), occupied_cells[2]);
-        } else {
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[2]);
-            path.insert(path.begin(), occupied_cells[1]);
-        }
-    }
+    // Add cells to ensure final footprint of the vehicle is included
+    AddFinalFootprint(path);
 
     // Loop over path and add corridors
     Point2D<int> curr_start_cell = path[0];
@@ -232,7 +208,7 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     AddCorridorFromCells(curr_start_cell, curr_end_cell);
 
     // Inflate the corridors
-    InflateCorridors(params);
+    InflateCorridors();
 };
 
 Corridor CorridorSequence::GetCorridor(int idx) const { 
@@ -277,7 +253,95 @@ json CorridorSequence::ToJson() const {
     return corridor_sequence_json;
 }
 
-void CorridorSequence::InflateCorridors(Parameters const &params){
+void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path){
+    std::vector<Point2D<int>> occupied_cells = 
+        environment_.GetOccupiedFootprintCells(start_, params_.GetVehWidth(), 
+                                               params_.GetVehHeight());
+    
+    // Filter out cells that are in the path
+    for (int i =  occupied_cells.size()-1; i >= 0; i--){
+        for (int j = 0; j < path.size(); j++){
+            if (occupied_cells[i] == path[j]){
+                occupied_cells.erase(occupied_cells.begin() + i);
+                break;
+            }
+        }
+    }
+
+    // Make sure to add the cells in the correct sequence (this makes the 
+    // resulting corridors nicer)
+    if (occupied_cells.size() == 1){
+        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
+    } else if (occupied_cells.size() > 1){
+        if (path[0].ManhattanDistance(occupied_cells[0]) < 
+                path[0].ManhattanDistance(occupied_cells[1])){
+            std::reverse(occupied_cells.begin(), occupied_cells.end());
+        }
+        path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
+    } else if (occupied_cells.size() == 3){
+        // find the diagonal cell
+        int diagonal_idx;
+        if (path[0].ManhattanDistance(occupied_cells[0]) == 2){
+            path.insert(path.begin(), occupied_cells[1]);
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[2]);
+        } else if (path[0].ManhattanDistance(occupied_cells[1]) == 2){
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[1]);
+            path.insert(path.begin(), occupied_cells[2]);
+        } else {
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[2]);
+            path.insert(path.begin(), occupied_cells[1]);
+        }
+    }
+}
+
+void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path){
+    std::vector<Point2D<int>> occupied_cells = 
+        environment_.GetOccupiedFootprintCells(dest_, params_.GetVehWidth(), 
+                                               params_.GetVehHeight());
+
+    // Filter out cells that are in the path
+    for (int i =  occupied_cells.size()-1; i >= 0; i--){
+        for (int j = 0; j < path.size(); j++){
+            if (occupied_cells[i] == path[j]){
+                occupied_cells.erase(occupied_cells.begin() + i);
+                break;
+            }
+        }
+    }
+
+    // Make sure to add the cells in the correct sequence (this makes the 
+    // resulting corridors nicer)
+    if (occupied_cells.size() == 1){
+        path.insert(path.end(), occupied_cells.begin(), occupied_cells.end());
+    } else if (occupied_cells.size() == 2){
+        if (path[0].ManhattanDistance(occupied_cells[0]) > 
+                path[0].ManhattanDistance(occupied_cells[1])){
+            std::reverse(occupied_cells.begin(), occupied_cells.end());
+        }
+        path.insert(path.end(), occupied_cells.begin(), occupied_cells.end());
+    } else if (occupied_cells.size() == 3){
+        // find the diagonal cell
+        int diagonal_idx;
+        if (path[0].ManhattanDistance(occupied_cells[0]) == 2){
+            path.insert(path.begin(), occupied_cells[1]);
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[2]);
+        } else if (path[0].ManhattanDistance(occupied_cells[1]) == 2){
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[1]);
+            path.insert(path.begin(), occupied_cells[2]);
+        } else {
+            path.insert(path.begin(), occupied_cells[0]);
+            path.insert(path.begin(), occupied_cells[2]);
+            path.insert(path.begin(), occupied_cells[1]);
+        }
+    }
+}
+
+void CorridorSequence::InflateCorridors(){
     bool made_change = true;
     int grow_counter = 0;
     int max_nb_grow_iterations = 3;
@@ -298,14 +362,18 @@ void CorridorSequence::InflateCorridors(Parameters const &params){
 
     // grow first corridor even more
     max_nb_grow_iterations = 3; grow_counter = 0;
+    made_change = true;
     while (made_change && grow_counter < max_nb_grow_iterations){
-        made_change = false;
-        made_change = GrowCorridorSideways(0) || made_change;
+        made_change = GrowCorridorSideways(0);
+
+        sequence_[0].FlipDirection();
+        made_change = GrowCorridorSideways(0);
+        sequence_[0].FlipDirection();
         grow_counter++;
     }
 
     // remove irrelevant corridors
-    RemoveIrrelevantCorridors(params);
+    RemoveIrrelevantCorridors();
 };
 
 void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min, 
@@ -342,14 +410,22 @@ void CorridorSequence::RemoveCorridor(int idx){
     }
 
     // If so, remove the corridor
-    sequence_.erase(sequence_.begin() + idx);
+    for (int i = idx; i < nb_of_corridors_-1; i++){
+        sequence_[i].CopyValues(sequence_[i+1]);
+    }
+    // sequence_.erase(sequence_.begin() + idx);
+
     nb_of_corridors_--;
 };
 
 bool CorridorSequence::GrowCorridorSideways(int idx){
     // A corridor cannot become fat (wider than it's length) unless it is the 
     // first corridor
-    if (idx > 0 && sequence_[idx].Width() >= sequence_[idx].Height()){
+    if (idx > 0 && 
+        (sequence_[idx].Direction().x() == 0 && 
+            sequence_[idx].Width() >= sequence_[idx].Height() || 
+        sequence_[idx].Direction().y() == 0 &&
+            sequence_[idx].Height() >= sequence_[idx].Width())){
         return false;
     }
 
@@ -533,7 +609,7 @@ bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx){
     return true;
 };
 
-bool CorridorSequence::RemoveIrrelevantCorridors(Parameters const &params){
+bool CorridorSequence::RemoveIrrelevantCorridors(){
     bool made_change = false;
 
     Corridor* previous_corridor;
@@ -549,7 +625,7 @@ bool CorridorSequence::RemoveIrrelevantCorridors(Parameters const &params){
         // - it is completely within the previous corridor
         // - it is completely within the next corridor
         // - it is completely within a union of the previous and next corridor
-        // - it overlaps both with the previous and the next corridor
+        // - the previous and the next corridor overlap
         if (current_corridor->IsCompletelyWithin(previous_corridor) ||
                 current_corridor->IsCompletelyWithin(next_corridor) ||
                 current_corridor->IsCompletelyWithin(previous_corridor, 
@@ -563,12 +639,12 @@ bool CorridorSequence::RemoveIrrelevantCorridors(Parameters const &params){
 
     // The first/last corridor can be removed if the next/previous corridor
     // contains the start/destination
-    while (nb_of_corridors_ >= 1 &&
-           sequence_[1].ContainsVehicle(start_, params)){
+    while (nb_of_corridors_ >= 2 &&
+           sequence_[1].ContainsVehicle(start_, params_)){
         RemoveCorridor(0);
     }
-    while (nb_of_corridors_ >= 1 && 
-           sequence_[nb_of_corridors_ - 2].ContainsVehicle(dest_, params)){
+    while (nb_of_corridors_ >= 2 && 
+           sequence_[nb_of_corridors_ - 2].ContainsVehicle(dest_, params_)){
         RemoveCorridor(nb_of_corridors_ - 1);
     }
 
@@ -586,26 +662,26 @@ bool CorridorSequence::MergeCorridors(){
         current_corridor = &sequence_[i];
         next_corridor = &sequence_[i+1];
 
-        if (std::abs(current_corridor->Xmin() - next_corridor->Xmin()) &&
-                std::abs(current_corridor->Xmax() - next_corridor->Xmax())){
+        if (std::abs(current_corridor->Xmin() - 
+                     next_corridor->Xmin()) < tolerance &&
+            std::abs(current_corridor->Xmax() - 
+                     next_corridor->Xmax()) < tolerance){
             current_corridor->SetYmin(std::min(current_corridor->Ymin(), 
                                                next_corridor->Ymin()));
             current_corridor->SetYmax(std::max(current_corridor->Ymax(),
                                                next_corridor->Ymax()));
             RemoveCorridor(i+1);
             made_change = true;
-            continue;
-        }
-
-        if (std::abs(current_corridor->Ymin() - next_corridor->Ymin()) &&
-                std::abs(current_corridor->Ymax() - next_corridor->Ymax())){
+        } else if (std::abs(current_corridor->Ymin() - 
+                     next_corridor->Ymin()) < tolerance &&
+            std::abs(current_corridor->Ymax() - 
+                     next_corridor->Ymax()) < tolerance){
             current_corridor->SetXmin(std::min(current_corridor->Xmin(), 
                                                next_corridor->Xmin()));
             current_corridor->SetXmax(std::max(current_corridor->Xmax(),
                                                next_corridor->Xmax()));
             RemoveCorridor(i+1);
             made_change = true;
-            continue;
         }
     }
     return made_change;

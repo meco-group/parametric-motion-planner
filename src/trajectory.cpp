@@ -23,6 +23,10 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
                         std::vector<double> const &tt_ocp){
     curr_nb_samples_ = tt_ocp[tt_ocp.size() - 1] / dt_ + 1;
 
+    if (curr_nb_samples_ > max_nb_samples_){
+        throw std::runtime_error("Trajectory  is too long to be updated");
+    }
+
     // initialize time-grid
     for (int i = 0; i < curr_nb_samples_; i++){
         t_[i] = i * dt_;
@@ -36,6 +40,8 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
                 (tt_ocp[ocp_sol_idx]) < t_[i]){
             ocp_sol_idx++;
         }
+
+        if (ocp_sol_idx == 0) {ocp_sol_idx = 1;}
 
         // Linearly interpolate
         alpha = (t_[i] - tt_ocp[ocp_sol_idx - 1]) / 
@@ -80,6 +86,10 @@ void Trajectory::Update(int nb_corridors,
 
     // compute the number of samples
     curr_nb_samples_ = total_time / dt_ + 1;
+
+    if (curr_nb_samples_ > max_nb_samples_){
+        throw std::runtime_error("Trajectory  is too long to be updated");
+    }
 
     // initialize time-grid
     for (int i = 0; i < curr_nb_samples_; i++){
