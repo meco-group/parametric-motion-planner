@@ -8,8 +8,11 @@ int main(){
     Parameters params = Parameters();
 
     // Add some obstacles
-    // environment.AddObstacle(Point2D<int>(6, 9));
+    environment.AddObstacle(Point2D<int>(6, 9));
     environment.AddObstacle(Point2D<int>(3, 3));
+    environment.AddObstacle(Point2D<int>(0, 6));
+    environment.AddObstacle(Point2D<int>(1, 6));
+    environment.AddObstacle(Point2D<int>(2, 6));
 
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
