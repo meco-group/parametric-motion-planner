@@ -129,10 +129,12 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 	}
 };
 
-void Parametrization::OptimizeParametrization(const UpdateToken&){
+void Parametrization::OptimizeParametrization(const UpdateToken&,
+											  Dict const &opts_casadi,
+											  Dict const &opts_solver){
 	// prepare initial guess
 	InitializeOptimization();
-	ShowInitialization();
+	// ShowInitialization();
 
 	// reset mx containers
 	alpha_x_mx_ = MX(max_nb_corridors_ + 1, 1);
@@ -259,10 +261,9 @@ void Parametrization::OptimizeParametrization(const UpdateToken&){
 	////////////////////////////////
 	/// Definiton of constraints ///
 	////////////////////////////////
-	
 	// constraint to prevent initial overshooting
-	// TODO
-
+	ApplyOvershootingPreventionConstraint(opti, t_x, t_y);
+	
 	double width_offset = params_.GetWidthOffset();
 	double height_offset = params_.GetHeightOffset();
 	Point2D<MX> curr_waypoint;
@@ -319,7 +320,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&){
 		curr_v_x = intermediate_velocities_[2].x();
 		curr_v_y = intermediate_velocities_[2].y();
 		
-		// constraint exit velocity
+		// constrain exit velocity
 		// TODO (is this needed?)
 
 		// update objective term
@@ -338,13 +339,15 @@ void Parametrization::OptimizeParametrization(const UpdateToken&){
 	/// Finish problem formulation ///
 	//////////////////////////////////
 	opti.minimize(obj);
-	opti.solver("ipopt", {}, {});
+	opti.solver("ipopt", opts_casadi, opts_solver);
 
 	////////////////////////
 	/// Extract solution ///
 	////////////////////////
 	try {
 		OptiSol sol = opti.solve();
+		solver_time_ = sol.stats()["t_wall_total"];
+		solver_time_ *= 1000; // convert to milliseconds
 
 		for (int i = 0; i < corridor_sequence_.NbCorridors() + 1; i++){
 			alpha_x_sol_[i] = double(sol.value(alpha_x_mx_(i)));
@@ -362,6 +365,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&){
 			}
 		}
 	} catch (std::exception &e){
+		solver_time_ = -1.0;
 		std::cout << "An error occured: " << e.what() << std::endl;
 		for (int i = 0; i < corridor_sequence_.NbCorridors() + 1; i++){
 			alpha_x_sol_[i] = double(opti.debug().value(alpha_x_mx_(i)));
@@ -382,6 +386,12 @@ void Parametrization::OptimizeParametrization(const UpdateToken&){
 };
 
 void Parametrization::OptimizeSingleArc(const UpdateToken&){
+	waypoints_[0].CopyValues(corridor_sequence_.GetStart());
+	waypoints_[1].CopyValues(corridor_sequence_.GetDest());
+	waypoints_sol_[0].CopyValues(corridor_sequence_.GetStart());
+	waypoints_sol_[1].CopyValues(corridor_sequence_.GetDest());
+	waypoint_velocities_sol_[0].CopyValues(corridor_sequence_.GetStartVel());
+
 	OptimizeSingleArc1D(t_x_sol_[0], alpha_x_sol_, 
 						corridor_sequence_.GetStart().x(),
 						corridor_sequence_.GetDest().x(),
@@ -392,12 +402,21 @@ void Parametrization::OptimizeSingleArc(const UpdateToken&){
 						corridor_sequence_.GetStartVel().y());
 
 	// empty the solution of the subsequent corridors
-	for (int i = 1; i < corridor_sequence_.NbCorridors(); i++){
+	for (int i = 2; i < corridor_sequence_.NbCorridors(); i++){
 		for (int j = 0; j < 3; j++){
 			t_x_sol_[i][j] = 0.0;
 			t_y_sol_[i][j] = 0.0;
 		}
+		waypoints_[i].CopyValues(corridor_sequence_.GetDest());
+		waypoints_sol_[i].CopyValues(corridor_sequence_.GetDest());
+		waypoint_velocities_sol_[i].CopyValues(Point2D<double>(0.0, 0.0));
 	}
+	waypoints_[corridor_sequence_.NbCorridors()].CopyValues(
+		corridor_sequence_.GetDest());
+	waypoints_sol_[corridor_sequence_.NbCorridors()].CopyValues(
+		corridor_sequence_.GetDest());
+	waypoint_velocities_sol_[corridor_sequence_.NbCorridors()].CopyValues(
+		Point2D<double>(0.0, 0.0));
 }
 
 Point2D<double> Parametrization::GetWaypoint(int idx) const {
@@ -842,6 +861,45 @@ void Parametrization::IntegrateOverCorridor(Point2D<MX> const &start,
 										   t*accel);
 }
 
+void Parametrization::ApplyOvershootingPreventionConstraint(
+									Opti &opti, MX &t_x, MX &t_y){
+	double local_alpha;
+	double dist_waypoints;
+	double starting_vel_bd;
+	MX t0;
+	
+	if (waypoints_[0].x() - waypoints_[1].x() > 
+		waypoints_[0].y() - waypoints_[1].y()){
+		// x is bottleneck
+		local_alpha = alpha_x_[0];
+		dist_waypoints = waypoints_[1].x() - waypoints_[0].x();
+		starting_vel_bd = corridor_sequence_.GetStartVel().x();
+		t0 = t_x(0, 0);
+	} else {
+		// y is bottleneck
+		local_alpha = alpha_y_[0];
+		dist_waypoints = waypoints_[1].y() - waypoints_[0].y();
+		starting_vel_bd = corridor_sequence_.GetStartVel().y();
+		t0 = t_y(0, 0);
+	}
+	bool cond_correct_direction = (starting_vel_bd > 0 ? 1.0 : -1.0) == 
+			 					  (dist_waypoints > 0 ? 1.0 : -1.0);
+	bool cond_braking = (local_alpha > 0 ? 1.0 : -1.0) == 
+						(starting_vel_bd > 0 ? -1.0 : 1.0);
+	bool cond_braking_distance = 0.5*std::pow(starting_vel_bd, 2)/
+						params_.GetAmax() > std::abs(dist_waypoints);
+
+	if (cond_correct_direction && cond_braking && cond_braking_distance){
+		// compute maximum duration to not overshoot the first waypoint
+		double t_limit = (std::abs(starting_vel_bd) - 
+						  std::sqrt(std::pow(starting_vel_bd, 2) - 
+						  			2*params_.GetAmax()*
+										std::abs(dist_waypoints)))/
+						 (params_.GetAmax());
+		opti.subject_to(t0 <= t_limit);
+	} 
+}
+
 void Parametrization::InitializeOptimization(){
 	double v_des;
 	if (params_.GetAmax() > params_.GetVmax()){
@@ -1123,11 +1181,11 @@ void Parametrization::ShowInitialization(){
 
 
 	Trajectory initialized_trajectory = Trajectory();
-	initialized_trajectory.Update(corridor_sequence_.NbCorridors(),
+	initialized_trajectory.Update(corridor_sequence_,
 								  t_x_init_, t_y_init_,
 								  alpha_x_temp, alpha_y_temp,
 								  waypoints_, waypoint_velocities_init_,
-								  params_.GetAmax());
+								  params_, 0.0);
 		
 	// std::cout << "Initialized trajectory" << std::endl;
 	// std::cout << initialized_trajectory << std::endl;
@@ -1150,17 +1208,16 @@ void Parametrization::OptimizeSingleArc1D(std::vector<double> &t_sol_vector,
 	double ts3 = 0;
 
 	// first, check if the velocity limit is being exceeded
-	if (v0 >= params_.GetVmax()){
-		t_sol_vector[0] = (v0 - v_max) / a_max;
-		t_sol_vector[1] = 1.0 / v_max*(pf_rel - 
-						  		  	   1.0 / a_max*(2 * v0 * v_max - 
-									 			    0.5 * std::pow(v0, 2) - 
-												    v_max));
-		t_sol_vector[2] = v_max / a_max;
-		T = t_sol_vector[0] + t_sol_vector[1] + t_sol_vector[2];
+	if (v0 >= params_.GetVmax() + 1.0e-7){
+		double t1 = (v0 - v_max)/a_max;
+		double t2 = 1.0/v_max*(pf_rel - 1.0/a_max*(2*v0*v_max - 
+									 			   0.5*std::pow(v0, 2) - 
+												   v_max));
+		double t3 = v_max/a_max;
+		T = t1 + t2 + t3;
 
-		ts1 = t_sol_vector[0];
-		ts2 = t_sol_vector[1] + t_sol_vector[0];
+		ts1 = t1;
+		ts2 = t1 + t2;
 		alpha_sol_vector[0] = -1;
 		alpha_sol_vector[1] = -1;			
 
@@ -1176,7 +1233,7 @@ void Parametrization::OptimizeSingleArc1D(std::vector<double> &t_sol_vector,
 			alpha_sol_vector[1] = 1;
 			T = (v0 + std::sqrt(std::max(0.0, 2*std::pow(v0, 2) - 
 										 4*a_max*pf_rel))) / a_max;
-			ts = 0.5*(T - v0/a_max);
+			ts = 0.5*(T + v0/a_max);
 		} else {
 			alpha_sol_vector[0] = 1;
 			alpha_sol_vector[1] = -1;

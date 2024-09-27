@@ -33,6 +33,8 @@ class Environment{
             return pos.x() >= 0 && pos.x() < nb_cell_cols_ * cell_width_ && 
                    pos.y() >= 0 && pos.y() < nb_cell_rows_ * cell_height_;
         }
+        bool isValidVehiclePosition(Point2D<double> pos, double vehicle_width, 
+                                    double vehicle_length) const;
 
 
         bool IsFree(Point2D<double> const &pos) const {
@@ -93,6 +95,10 @@ class Environment{
         
         CellOccupancy GetOccupancy(Point2D<int> cell) const;
         CellOccupancy GetOccupancy(int x, int y) const;
+
+        void GetRandomFreeVehiclePosition(Point2D<double> &pos,
+                                          double vehicle_width,
+                                          double vehicle_height) const;
 
         json ToJson() const;
 

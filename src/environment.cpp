@@ -2,6 +2,7 @@
 #include <set>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <random>
 
 #include "environment.hpp"
 #include "corridor.hpp"
@@ -42,6 +43,24 @@ Environment::Environment(int nb_cell_rows, int nb_cell_cols, double cell_width,
         std::vector<std::vector<CellOccupancy>>(nb_cell_cols_, 
             std::vector<CellOccupancy>(nb_cell_rows_, FREE));
 }
+
+bool Environment::isValidVehiclePosition(Point2D<double> pos, 
+                                         double vehicle_width, 
+                                         double vehicle_length) const {
+    Point2D<double> test_point;
+
+    for (int i = -1; i <= 1; i++){
+        for (int j = -1; j <= 1; j++){
+            test_point.SetX(pos.x() + i*vehicle_width/2);
+            test_point.SetY(pos.y() + j*vehicle_length/2);
+            if (!IsFree(test_point)){
+                return false;
+            }
+        }
+    }
+
+    return true;
+};
 
 std::ostream& operator<<(std::ostream &out, Environment const &environment){
     out << environment.NbCellRows() << " x " << environment.NbCellCols() 
@@ -171,6 +190,26 @@ std::vector<Point2D<int>> Environment::GetOccupiedFootprintCells(
     }
 
     return std::vector<Point2D<int>>(occupied_cells.begin(), occupied_cells.end());
+}
+
+void Environment::GetRandomFreeVehiclePosition(Point2D<double> &pos, 
+                                               double vehicle_width, 
+                                               double vehicle_length) const {
+    // Initialize the random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dis_x(0, nb_cell_cols_*cell_width_);
+    std::uniform_real_distribution<double> dis_y(0, nb_cell_rows_*cell_height_);
+
+    // Initialize the position
+    pos.SetX(dis_x(gen));
+    pos.SetY(dis_y(gen));
+
+    // Check if the position is valid
+    while (!isValidVehiclePosition(pos, vehicle_width, vehicle_length)){
+        pos.SetX(dis_x(gen));
+        pos.SetY(dis_y(gen));
+    }
 }
 
 json Environment::ToJson() const {

@@ -122,10 +122,25 @@ bool Corridor::IsCompletelyWithin(Corridor* const &other1,
 
 bool Corridor::ContainsVehicle(const Point2D<double> &vehicle_position, 
                                const Parameters &params) const {
-    return vehicle_position.x() - params.GetVehWidth()/2.0 - params.GetMargin() >= x_min_ &&
-           vehicle_position.x() + params.GetVehWidth()/2.0 + params.GetMargin() <= x_max_ &&
-           vehicle_position.y() - params.GetVehHeight()/2.0 - params.GetMargin() >= y_min_ &&
-           vehicle_position.y() + params.GetVehHeight()/2.0 + params.GetMargin() <= y_max_;
+    std::vector<double> violations(4);
+    violations[0] = vehicle_position.x() - params.GetVehWidth()/2.0 - params.GetMargin() - x_min_;
+    violations[1] = x_max_ - vehicle_position.x() - params.GetVehWidth()/2.0 - params.GetMargin();
+    violations[2] = vehicle_position.y() - params.GetVehHeight()/2.0 - params.GetMargin() - y_min_;
+    violations[3] = y_max_ - vehicle_position.y() - params.GetVehHeight()/2.0 - params.GetMargin();
+
+    double tolerance = 1.0e-4;
+    for (double violation : violations){
+        if (violation < -tolerance){
+            // std::cout << "corridor bound violation detected: " << violation << std::endl;
+            return false;
+        }
+    }
+    return true;
+
+    // return vehicle_position.x() - params.GetVehWidth()/2.0 - params.GetMargin() >= x_min_ - tolerance &&
+    //        vehicle_position.x() + params.GetVehWidth()/2.0 + params.GetMargin() <= x_max_  + tolerance &&
+    //        vehicle_position.y() - params.GetVehHeight()/2.0 - params.GetMargin() >= y_min_ - tolerance &&
+    //        vehicle_position.y() + params.GetVehHeight()/2.0 + params.GetMargin() <= y_max_ + tolerance;
 } 
 
 void Corridor::UpdateDirection(){
@@ -272,7 +287,7 @@ void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path){
     // resulting corridors nicer)
     if (occupied_cells.size() == 1){
         path.insert(path.begin(), occupied_cells.begin(), occupied_cells.end());
-    } else if (occupied_cells.size() > 1){
+    } else if (occupied_cells.size() == 2){
         if (path[0].ManhattanDistance(occupied_cells[0]) < 
                 path[0].ManhattanDistance(occupied_cells[1])){
             std::reverse(occupied_cells.begin(), occupied_cells.end());
@@ -317,26 +332,26 @@ void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path){
     if (occupied_cells.size() == 1){
         path.insert(path.end(), occupied_cells.begin(), occupied_cells.end());
     } else if (occupied_cells.size() == 2){
-        if (path[0].ManhattanDistance(occupied_cells[0]) > 
-                path[0].ManhattanDistance(occupied_cells[1])){
+        if (path[path.size()-1].ManhattanDistance(occupied_cells[0]) > 
+                path[path.size()-1].ManhattanDistance(occupied_cells[1])){
             std::reverse(occupied_cells.begin(), occupied_cells.end());
         }
         path.insert(path.end(), occupied_cells.begin(), occupied_cells.end());
     } else if (occupied_cells.size() == 3){
         // find the diagonal cell
         int diagonal_idx;
-        if (path[0].ManhattanDistance(occupied_cells[0]) == 2){
-            path.insert(path.begin(), occupied_cells[1]);
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[2]);
-        } else if (path[0].ManhattanDistance(occupied_cells[1]) == 2){
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[1]);
-            path.insert(path.begin(), occupied_cells[2]);
+        if (path[path.size()-1].ManhattanDistance(occupied_cells[0]) == 2){
+            path.insert(path.end(), occupied_cells[1]);
+            path.insert(path.end(), occupied_cells[0]);
+            path.insert(path.end(), occupied_cells[2]);
+        } else if (path[path.size()-1].ManhattanDistance(occupied_cells[1]) == 2){
+            path.insert(path.end(), occupied_cells[0]);
+            path.insert(path.end(), occupied_cells[1]);
+            path.insert(path.end(), occupied_cells[2]);
         } else {
-            path.insert(path.begin(), occupied_cells[0]);
-            path.insert(path.begin(), occupied_cells[2]);
-            path.insert(path.begin(), occupied_cells[1]);
+            path.insert(path.end(), occupied_cells[0]);
+            path.insert(path.end(), occupied_cells[2]);
+            path.insert(path.end(), occupied_cells[1]);
         }
     }
 }

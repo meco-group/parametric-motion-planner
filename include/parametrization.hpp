@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <nlohmann/json.hpp>
+#include <casadi/casadi.hpp>
 
 #include "helper_methods.hpp"
 #include "helper_types.hpp"
@@ -42,7 +43,9 @@ class Parametrization{
 
         // only the motion planner can update the parametrization
         void UpdateParametrization(const UpdateToken&);
-        void OptimizeParametrization(const UpdateToken&);
+        void OptimizeParametrization(const UpdateToken&, 
+                                     casadi::Dict const &opts_casadi, 
+                                     casadi::Dict const &opts_solver);
         void OptimizeSingleArc(const UpdateToken&);
 
         // basic getters
@@ -60,6 +63,7 @@ class Parametrization{
         std::vector<std::vector<double>>& GetTxSol() { return t_x_sol_;};
         std::vector<std::vector<double>>& GetTySol() { return t_y_sol_;};
         std::vector<Point2D<double>>& GetWaypointVelocitiesSol();
+        double GetSolverTime() const { return solver_time_;};
 
         // printing overload
         friend std::ostream& operator<<(std::ostream &out, 
@@ -88,6 +92,7 @@ class Parametrization{
                                     Corridor const &corridor1,
                                     Corridor const &corridor2) const;
 
+        // Optimization helper functions
         void IntegrateOverCorridor(Point2D<casadi::MX> const &start, 
                                    Point2D<casadi::MX> const &start_vel, 
                                    casadi::MX const &t_x, 
@@ -96,6 +101,10 @@ class Parametrization{
                                    casadi::MX const &alpha_y,
                                    casadi::MX const &alpha_x_next,
                                    casadi::MX const &alpha_y_next);
+        void ApplyOvershootingPreventionConstraint(casadi::Opti &opti, 
+                                                   casadi::MX &t_x, 
+                                                   casadi::MX &t_y);
+
 
         // Initialization functions
         void InitializeOptimization();
@@ -143,6 +152,7 @@ class Parametrization{
         std::vector<Point2D<double>> waypoint_velocities_sol_;
         std::vector<std::vector<double>> t_x_sol_;
         std::vector<std::vector<double>> t_y_sol_;
+        double solver_time_;
 
         // scratch space
         Corridor overlap_;

@@ -3,6 +3,20 @@
 #include "motion_planner.hpp"
 #include "environment.hpp"
 
+void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename){
+    motion_planner.SetMethod(ARENA);
+    motion_planner.Plan();
+    motion_planner.DumpToJson(filename + "_arena.json");
+
+    motion_planner.SetMethod(OCP);
+    motion_planner.Plan();
+    motion_planner.DumpToJson(filename + "_ocp.json");
+
+    motion_planner.SetMethod(P2P);
+    motion_planner.Plan();
+    motion_planner.DumpToJson(filename + "_p2p.json");
+}
+
 int main(){
     Environment environment = Environment();
     Parameters params = Parameters();
@@ -19,25 +33,23 @@ int main(){
     const Environment& my_environment = my_motion_planner.GetEnvironment();
     std::cout << "Created motion planner in environment " << my_environment << std::endl;
 
-    Point2D<double> start = Point2D<double>(1.25, 0.3);
-    Point2D<double> dest = Point2D<double>(0.9, 1.14);
-    // Point2D<double> start = Point2D<double>(0.25, 0.15); // infeasible case
-    // Point2D<double> dest = Point2D<double>(0.12, 1.2-0.12);
-    
-    Point2D<double> start_vel = Point2D<double>(0, 0);
-    // Point2D<double> start_vel = Point2D<double>(1.0, 0.4);
+    // Point2D<double> start = Point2D<double>(0.25, 0.15);
+    // Point2D<double> dest = Point2D<double>(0.5, 1.2-0.12);    
+    // Point2D<double> start_vel = Point2D<double>(0, 0);
 
+    Point2D<double> start = Point2D<double>(0.549371, 1.14159);  // CASE TO CHECK ! (ocp infeasible)
+    Point2D<double> dest = Point2D<double>(1.22551, 0.204132);   // CASE TO CHECK ! (ocp infeasible)
+    Point2D<double> start_vel = Point2D<double>(0, 0);           // CASE TO CHECK ! (ocp infeasible)
 
     my_motion_planner.SetStart(start);
     my_motion_planner.SetDest(dest);
     my_motion_planner.SetStartVel(start_vel);
-    my_motion_planner.Plan();
 
-    my_motion_planner.SetMethod(OCP);
-    my_motion_planner.Plan();
-    my_motion_planner.DumpToJson("solution_ocp.json");
+    // my_motion_planner.SetRandomStart();
+    // my_motion_planner.SetRandomDest();
 
-    my_motion_planner.SetMethod(ARENA);
-    my_motion_planner.Plan();
-    my_motion_planner.DumpToJson("solution_arena.json");
+    SolveAllMethods(my_motion_planner, "solution");
+    // SolveAllMethods(my_motion_planner, "solution_" + std::to_string(0));
+
+    my_motion_planner.PrintCorridorSequence();
 }

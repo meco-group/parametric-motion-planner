@@ -13,7 +13,7 @@ def load_data(output_file):
     planner_method = data['PlannerMethod']
     trajectory = data['Trajectory']
 
-    if planner_method == 2:
+    if planner_method == "ARENA":
         parametrization = data['Parametrization']
         return (env, params, corridors, planner_method, trajectory, parametrization)
     else:
@@ -59,7 +59,7 @@ def visualize_output(env, params, corridors, planner_methods,
     fig_folder = '../post-process/figures/'
 
     first_arena_idx = 0
-    while planner_methods[first_arena_idx] != 2:
+    while planner_methods[first_arena_idx] != "ARENA":
         first_arena_idx += 1
 
         if first_arena_idx >= len(planner_methods):
@@ -68,11 +68,11 @@ def visualize_output(env, params, corridors, planner_methods,
 
     colors = []
     for i in range(len(trajectories)):
-        if planner_methods[i] == 0:
+        if planner_methods[i] == "P2P":
             colors.append('orange')
-        elif planner_methods[i] == 1:
+        elif planner_methods[i] == "OCP":
             colors.append('r')
-        elif planner_methods[i] == 2:
+        elif planner_methods[i] == "ARENA":
             colors.append('b')
         else:
             colors.append('k')
@@ -121,10 +121,12 @@ def visualize_output(env, params, corridors, planner_methods,
         
     # plot waypoints
     for i in range(len(trajectories)):
-        if planner_methods[i] == 2:
+        if planner_methods[i] == "ARENA":
             for w in range(0, parametrizations[i]["nb_corridors"] + 1):
                 plt.plot([parametrizations[i]["waypoints"][w]["x"]], 
-                         [parametrizations[i]["waypoints"][w]["y"]], 'ok')
+                         [parametrizations[i]["waypoints"][w]["y"]], 'ok', alpha=0.1)
+                plt.plot([parametrizations[i]["waypoints_sol"][w]["x"]], 
+                         [parametrizations[i]["waypoints_sol"][w]["y"]], 'ok')
                 
     # show vehicle footprint
     plot_vehicle_footprint(plt.gca(), trajectories[0]["px"][0], 
@@ -138,7 +140,7 @@ def visualize_output(env, params, corridors, planner_methods,
     for i in range(len(trajectories)):
         plt.plot(trajectories[i]["px"], trajectories[i]["py"], 'o-', 
                  color=colors[i], markersize=1)
-    
+
     plt.xlim([0, cell_width*env["nb_cell_cols"]])
     plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(2*cell_width))
     plt.ylim([0, cell_height*env["nb_cell_rows"]])
@@ -196,7 +198,77 @@ def visualize_output(env, params, corridors, planner_methods,
 
     plt.savefig(fig_folder + 'controls.png', dpi=300)
 
-files = ["output/solution_arena.json", "output/solution_ocp.json"]
+    ### plot computation time and moving time ###
+    fig, ax1 = plt.subplots()
+    color_moving_time = 'chocolate'
+    color_solver_time = 'royalblue'
+
+    # Bar width
+    bar_width = 0.4
+
+    # Plot Tf on ax1
+    methods = []
+    x = []
+    tfs = []
+    total_computation_times = []
+    solver_times = []
+    non_solver_times = []
+    for i in range(len(trajectories)):
+        methods.append(planner_methods[i])
+        x.append(i)
+        tfs.append(trajectories[i]['Tf'])
+        solver_times.append(trajectories[i]['solver_time'])
+        total_computation_times.append(trajectories[i]['total_computation_time'])
+        non_solver_times.append(total_computation_times[i] - solver_times[i])
+    
+    ax1.bar([i - bar_width/2 for i in x], tfs, bar_width, 
+            label='Moving Time [s]', color=color_moving_time)
+    
+    # add bar value on top of each bar
+    for i in range(len(x)):
+        ax1.text(x[i] - bar_width/2, tfs[i] + 0.0, f'{tfs[i]:.3f}', 
+                 ha='center', va='bottom', color='black')
+
+    ax1.set_ylabel('Moving Time [s]', color=color_moving_time)
+    ax1.tick_params(axis='y', labelcolor=color_moving_time)
+    ax1.spines['left'].set_color(color_moving_time)
+
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(methods)
+    handles1, labels1 = ax1.get_legend_handles_labels()
+
+
+    # Plot solver_time and total_computation_time on ax2
+    ax2 = ax1.twinx()
+    ax2.bar([i + bar_width/2 for i in x], solver_times, bar_width, 
+            label='Solver Time [ms]', color=color_solver_time)
+    ax2.bar([i + bar_width/2 for i in x], non_solver_times, bar_width,
+            bottom=solver_times, label='Non-Solver Time [ms]', color=color_solver_time, alpha=0.5)
+
+    # add bar value on top of each bar
+    for i in range(len(x)):
+        ax2.text(x[i] + bar_width/2, solver_times[i] + 0.0, f'{solver_times[i]:.2f}', 
+                 ha='center', va='bottom', color='black')
+        ax2.text(x[i] + bar_width/2, total_computation_times[i] + 13, f'{total_computation_times[i]:.2f}', 
+                 ha='center', va='top', color='black')
+
+    ax2.set_ylabel('Computation Time [ms]', color=color_solver_time)
+    ax2.tick_params(axis='y', labelcolor=color_solver_time)
+    ax2.spines['right'].set_color(color_solver_time)
+
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(methods)
+
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    handles = handles1 + handles2
+    labels = labels1 + labels2
+    plt.legend(handles, labels)
+    plt.savefig(fig_folder + '/timings.png', dpi=300)
+
+
+
+files = ["output/solution_arena.json", "output/solution_ocp.json", "output/solution_p2p.json"]
+# files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
 # files = ["output/solution_ocp.json"]
 # files = ["output/solution_arena.json"]
 

@@ -19,6 +19,42 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         method_ = method;
         opts_solver_["print_level"] = 0;
         InitializeRK4();
+
+        // P2P method attributes
+        int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
+        p2p_waypoints_ = std::vector<Point2D<double>>(max_nb_corridors + 1);
+        coarse_samples_position_ = 
+            std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
+        coarse_samples_velocity_ =
+            std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
+        coarse_samples_acceleration_ =
+            std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
+        coarse_samples_time_ = std::vector<double>(1 + 3*max_nb_corridors);
+
+}
+
+void MotionPlanner::SetStart(Point2D<double> start){
+    if (!environment_.isValidPosition(start)){
+        throw InvalidPositionInEnvironmentException("Invalid starting position");
+    }
+    start_ = start;
+}
+
+void MotionPlanner::SetRandomStart(){
+    environment_.GetRandomFreeVehiclePosition(start_, params_.GetVehWidth(),
+                                              params_.GetVehHeight());
+}
+
+void MotionPlanner::SetDest(Point2D<double> dest){
+    if (!environment_.isValidPosition(dest)){
+        throw InvalidPositionInEnvironmentException("Invalid destination");
+    }
+    dest_ = dest;
+}
+
+void MotionPlanner::SetRandomDest(){
+    environment_.GetRandomFreeVehiclePosition(dest_, params_.GetVehWidth(),
+                                              params_.GetVehHeight());
 }
 
 void MotionPlanner::UpdateCorridorSequence(){
@@ -38,6 +74,9 @@ void MotionPlanner::Plan(){
     // planner
 
     std::cout << "Planning from " << start_ << " to " << dest_ << " with start velocity " << start_vel_ << std::endl;
+    
+    // Start the clock
+    auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
 
     switch(method_){
         case P2P:
@@ -52,6 +91,15 @@ void MotionPlanner::Plan(){
         default:
             std::cout << "Invalid method selected" << std::endl;
     }
+
+    // Stop the clock
+    auto planning_computation_time_end = std::chrono::high_resolution_clock::now();
+
+    // print out the computation time in milliseconds
+    std::chrono::duration<double, std::milli> planning_computation_time = 
+        planning_computation_time_end - planning_computation_time_start;
+    std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
+    last_solution_.SetTotalComputationTime(planning_computation_time.count());
 
     // std::cout << "Solution obtained:" << std::endl;
     // std::cout << last_solution_ << std::endl;
@@ -86,7 +134,7 @@ void MotionPlanner::DumpToJson(const std::string &filename) const {
     j["Environment"] = environment_.ToJson();
     j["Parameters"] = params_.ToJson();
     j["CorridorSequence"] = corridor_sequence_.ToJson();
-    j["PlannerMethod"] = method_;
+    j["PlannerMethod"] = PlannerMethodToString();
     if (method_ == PlannerMethod::ARENA){
         j["Parametrization"] = parametrization_.ToJson();
     }
@@ -100,6 +148,126 @@ void MotionPlanner::DumpToJson(const std::string &filename) const {
 
 void MotionPlanner::PlanP2P(){
     std::cout << "Planning using P2P method" << std::endl;
+    
+    if (start_vel_.x() != 0.0 || start_vel_.y() != 0.0){
+        std::runtime_error("P2P method does not support planning with an initial velocity");
+    }
+
+    // Get the waypoints
+    p2p_waypoints_ = 
+        helper_.GetCorridorOverlapCenters(corridor_sequence_, start_, dest_);
+    
+    for (int i = 0; i < corridor_sequence_.NbCorridors(); i++){
+        PlanP2PLine(i);
+    }
+
+    int coarse_sample_idx = 3*corridor_sequence_.NbCorridors();
+    coarse_samples_position_[coarse_sample_idx].CopyValues(
+        p2p_waypoints_[corridor_sequence_.NbCorridors()]);
+    coarse_samples_velocity_[coarse_sample_idx].SetX(0);
+    coarse_samples_velocity_[coarse_sample_idx].SetY(0);
+    coarse_samples_acceleration_[coarse_sample_idx].SetX(0);
+    coarse_samples_acceleration_[coarse_sample_idx].SetY(0);
+
+    last_solution_.Update(corridor_sequence_.NbCorridors(),
+                          p2p_waypoints_,
+                          coarse_samples_position_, 
+                          coarse_samples_velocity_, 
+                          coarse_samples_acceleration_, 
+                          coarse_samples_time_,
+                          0.0);
+}
+
+void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
+    int coarse_sample_idx = 3*start_waypoint_idx;
+
+    curr_pos_.CopyValues(p2p_waypoints_[start_waypoint_idx]);
+    next_pos_.CopyValues(p2p_waypoints_[start_waypoint_idx + 1]);
+    curr_vel_.SetX(0.0); curr_vel_.SetY(0.0);
+    curr_acc_.SetX(sign(next_pos_.x() - curr_pos_.x()) * params_.GetAmax());
+    curr_acc_.SetY(sign(next_pos_.y() - curr_pos_.y()) * params_.GetAmax());
+
+    double dist_x = std::abs(next_pos_.x() - curr_pos_.x());
+    double dist_y = std::abs(next_pos_.y() - curr_pos_.y());
+    double dist_bd;
+    int bd = (dist_x > dist_y) ? 0 : 1;
+    if (bd == 0){
+        dist_bd = dist_x;
+        curr_acc_.SetY(curr_acc_.y() * dist_y/dist_x);
+    } else {
+        dist_bd = dist_y;
+        curr_acc_.SetX(curr_acc_.x() * dist_x/dist_y);
+    }
+
+    // compute distance covered while accelerating to maximum velocity
+    double dist_accel = std::pow(params_.GetVmax(), 2) / 
+                        (2.0 * params_.GetAmax());
+    
+    if (2*dist_accel > dist_bd){
+        // unable to reach max velocity
+        
+        // accelerate to half the distance
+        coarse_samples_position_[coarse_sample_idx].CopyValues(curr_pos_);
+        coarse_samples_velocity_[coarse_sample_idx].CopyValues(curr_vel_);
+        coarse_samples_acceleration_[coarse_sample_idx].CopyValues(curr_acc_);
+        coarse_samples_time_[coarse_sample_idx] = 
+            std::sqrt(dist_bd / params_.GetAmax());
+
+        // integrate
+        curr_pos_ += curr_acc_*
+                    std::pow(coarse_samples_time_[coarse_sample_idx], 2)*0.5;
+        curr_vel_ += curr_acc_*coarse_samples_time_[coarse_sample_idx];
+        coarse_sample_idx++;
+    
+        // Add point after first acceleration to the samples
+        coarse_samples_position_[coarse_sample_idx].CopyValues(curr_pos_);
+        coarse_samples_velocity_[coarse_sample_idx].CopyValues(curr_vel_);
+        coarse_samples_acceleration_[coarse_sample_idx].SetX(0.0);
+        coarse_samples_acceleration_[coarse_sample_idx].SetY(0.0);
+        coarse_samples_time_[coarse_sample_idx] = 0.0;
+        coarse_sample_idx++;
+        
+        // Add point after zero coasting time
+        coarse_samples_position_[coarse_sample_idx].CopyValues(curr_pos_);
+        coarse_samples_velocity_[coarse_sample_idx].CopyValues(curr_vel_);
+        coarse_samples_acceleration_[coarse_sample_idx].SetX(-curr_acc_.x());
+        coarse_samples_acceleration_[coarse_sample_idx].SetY(-curr_acc_.y());
+        coarse_samples_time_[coarse_sample_idx] = 
+            coarse_samples_time_[coarse_sample_idx - 2];
+    } else {
+        // able to reach maximum velocity
+
+        // accelerate to maximum velocity
+        coarse_samples_position_[coarse_sample_idx].CopyValues(curr_pos_);
+        coarse_samples_velocity_[coarse_sample_idx].CopyValues(curr_vel_);
+        coarse_samples_acceleration_[coarse_sample_idx].CopyValues(curr_acc_);
+        coarse_samples_time_[coarse_sample_idx] = 
+            params_.GetVmax() / params_.GetAmax();
+
+        curr_pos_ += curr_acc_*
+                    std::pow(coarse_samples_time_[coarse_sample_idx], 2)*0.5;
+        curr_vel_ += curr_acc_*coarse_samples_time_[coarse_sample_idx];
+        coarse_sample_idx++;
+    
+        // Add point after first acceleration to the samples
+        coarse_samples_position_[coarse_sample_idx].CopyValues(curr_pos_);
+        coarse_samples_velocity_[coarse_sample_idx].CopyValues(curr_vel_);
+        coarse_samples_acceleration_[coarse_sample_idx].SetX(0.0);
+        coarse_samples_acceleration_[coarse_sample_idx].SetY(0.0);
+        double coasting_time = (dist_bd - 2*dist_accel)/params_.GetVmax();
+        coarse_samples_time_[coarse_sample_idx] = coasting_time;
+
+        curr_pos_ += curr_vel_*coasting_time;
+        coarse_sample_idx++;
+
+        // Add point after coasting to the samples
+        coarse_samples_position_[coarse_sample_idx].CopyValues(curr_pos_);
+        coarse_samples_velocity_[coarse_sample_idx].CopyValues(curr_vel_);
+        coarse_samples_acceleration_[coarse_sample_idx].SetX(-curr_acc_.x());
+        coarse_samples_acceleration_[coarse_sample_idx].SetY(-curr_acc_.y());
+        coarse_samples_time_[coarse_sample_idx] = 
+            params_.GetVmax() / params_.GetAmax();
+    }
 }
 
 void MotionPlanner::PlanOCP(){
@@ -217,6 +385,7 @@ void MotionPlanner::PlanOCP(){
     opti.solver("ipopt", opts_casadi_, opts_solver_);
     
     DM xx_sol, uu_sol, tt_sol;
+    double solver_time;
     try {
         OptiSol sol = opti.solve();
         
@@ -225,11 +394,16 @@ void MotionPlanner::PlanOCP(){
         uu_sol = sol.value(uu);
         tt_sol = sol.value(tt);
 
+        solver_time = sol.stats()["t_wall_total"];
+        solver_time *= 1000; // convert to milliseconds
+
     } catch (std::exception &e){
         std::cout << "An error occurred: " << e.what() << std::endl;
         xx_sol = opti.debug().value(xx);
         uu_sol = opti.debug().value(uu);
         tt_sol = opti.debug().value(tt);
+
+        solver_time = -1;
     }
 
     // Construct a time-grid for the current samples
@@ -253,7 +427,7 @@ void MotionPlanner::PlanOCP(){
     uu_sol = horzcat(uu_sol, last_controls);
 
     // Construct trajectory
-    last_solution_.Update(xx_sol, uu_sol, t);
+    last_solution_.Update(xx_sol, uu_sol, t, solver_time);
 }
 
 void MotionPlanner::PlanARENA(){
@@ -261,18 +435,19 @@ void MotionPlanner::PlanARENA(){
 
     // Update the corridor sequence
     UpdateCorridorSequence();
-    std::cout << "Corridor sequence updated" << std::endl;
-    PrintCorridorSequence();
+    // PrintCorridorSequence();
     
     // Try to solve a single arc
+    double solver_time = 0.0;
     parametrization_.OptimizeSingleArc(parametrization_update_token_);
-    std::vector<int> problematic_corridors = CheckOutOfCorridor();
+    std::set<int> problematic_corridors = CheckOutOfCorridor(solver_time);
+
 
     // only continue if that didn't work
-    if (problematic_corridors.size() == 0){
+    if (problematic_corridors.size() > 0){
         // Initialize the parametrization
         parametrization_.UpdateParametrization(parametrization_update_token_);
-        std::cout << parametrization_ << std::endl;
+        // std::cout << parametrization_ << std::endl;
 
         // Start the optimization loop
         bool made_modification = true;
@@ -280,8 +455,15 @@ void MotionPlanner::PlanARENA(){
         while ((made_modification || add_constraints_list_.size() > 0) && 
                 iteration_counter < max_nb_iterations_){
             
-            parametrization_.OptimizeParametrization(parametrization_update_token_);
-            add_constraints_list_ = CheckOutOfCorridor();
+            parametrization_.OptimizeParametrization(
+                parametrization_update_token_, opts_casadi_, opts_solver_);
+            solver_time += parametrization_.GetSolverTime();
+            add_constraints_list_ = CheckOutOfCorridor(solver_time);
+
+            // TODO: check if these constraints are needed. What if we just sampler a bit more finely?
+            if (add_constraints_list_.size() > 0){
+                std::runtime_error("Requirement for additional constraints detected. But this is not implemented yet.");
+            }
             made_modification = EliminateSubOptimalParametrization();
 
             iteration_counter++;
@@ -290,14 +472,14 @@ void MotionPlanner::PlanARENA(){
 
     // Update the solution
     // std::cout << "updating solution " << std::endl;
-    last_solution_.Update(corridor_sequence_.NbCorridors(),
-                          parametrization_.GetTxSol(), 
-                          parametrization_.GetTySol(), 
-                          parametrization_.GetAlphaXSol(), 
-                          parametrization_.GetAlphaYSol(), 
-                          parametrization_.GetWaypointsSol(),
-                          parametrization_.GetWaypointVelocitiesSol(),
-                          params_.GetAmax());
+    // last_solution_.Update(corridor_sequence_,
+    //                       parametrization_.GetTxSol(), 
+    //                       parametrization_.GetTySol(), 
+    //                       parametrization_.GetAlphaXSol(), 
+    //                       parametrization_.GetAlphaYSol(), 
+    //                       parametrization_.GetWaypointsSol(),
+    //                       parametrization_.GetWaypointVelocitiesSol(),
+    //                       params_);
 }
 
 void MotionPlanner::InitializeRK4(){
@@ -321,11 +503,31 @@ void MotionPlanner::InitializeRK4(){
     rk4_ = Function("rk4", {xk, uk, dt}, {xk + (k1 + 2*k2 + 2*k3 + k4)/6});
 }
 
-std::vector<int> MotionPlanner::CheckOutOfCorridor(){
-    // TODO: implement this
-    return {};
+std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){
+    return last_solution_.Update(corridor_sequence_,
+                                 parametrization_.GetTxSol(), 
+                                 parametrization_.GetTySol(), 
+                                 parametrization_.GetAlphaXSol(), 
+                                 parametrization_.GetAlphaYSol(), 
+                                 parametrization_.GetWaypointsSol(),
+                                 parametrization_.GetWaypointVelocitiesSol(),
+                                 params_,
+                                 solver_time);
 }
 
 bool MotionPlanner::EliminateSubOptimalParametrization(){
     return false;
+}
+
+std::string MotionPlanner::PlannerMethodToString() const {
+    switch(method_){
+        case P2P:
+            return "P2P";
+        case OCP:
+            return "OCP";
+        case ARENA:
+            return "ARENA";
+        default:
+            return "Invalid";
+    }
 }
