@@ -175,7 +175,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 				opti.subject_to(0 <= (offsets(0, offset_idx) <= 
 									 max_waypoint_offsets_[i].x()));
 			} else {
-				opti.subject_to(-max_waypoint_offsets_[i].x() <= 
+				opti.subject_to(max_waypoint_offsets_[i].x() <= 
 								(offsets(0, offset_idx) <= 0));
 			}
 
@@ -184,7 +184,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 				opti.subject_to(0 <= (offsets(1, offset_idx) <= 
 									 max_waypoint_offsets_[i].y()));
 			} else {
-				opti.subject_to(-max_waypoint_offsets_[i].y() <= 
+				opti.subject_to(max_waypoint_offsets_[i].y() <= 
 								(offsets(1, offset_idx) <= 0));
 			}
 
@@ -285,7 +285,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 							  alpha_x_mx_(w), alpha_y_mx_(w),
 							  alpha_x_mx_(w+1), alpha_y_mx_(w+1));
 		
-		// add gap-closing constraints on position 
+		// add gap-closing constraints on position s
 		opti.subject_to(next_waypoint.x() - position_tolerance <=
 					   (intermediate_positions_[2].x() <=
 						next_waypoint.x() + position_tolerance));
@@ -896,6 +896,7 @@ void Parametrization::ApplyOvershootingPreventionConstraint(
 						  			2*params_.GetAmax()*
 										std::abs(dist_waypoints)))/
 						 (params_.GetAmax());
+		std::cout << "t_limit: " << t_limit << std::endl;
 		opti.subject_to(t0 <= t_limit);
 	} 
 }

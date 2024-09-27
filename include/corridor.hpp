@@ -13,7 +13,7 @@ using json = nlohmann::json;
 class Environment;
 class CorridorSequence;
 
-const int MAX_NB_CORRIDORS = 10;
+const int MAX_NB_CORRIDORS = 20;
 const int MAX_CORRIDOR_CELL_LENGTH = 20;
 
 // Class to represent corridors

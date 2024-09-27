@@ -63,6 +63,7 @@ class MotionPlanner{
         Point2D<double> GetStart_vel() const { return start_vel_;};
         double GetVehWidth() const { return params_.GetVehWidth();};
         double GetVehHeight() const { return params_.GetVehHeight();};
+        const Trajectory& GetLastSolution() const { return last_solution_;};
 
         // Basic setters
         void SetPrintLevel(int print_level) { opts_solver_["print_level"] = print_level;};

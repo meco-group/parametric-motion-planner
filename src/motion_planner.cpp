@@ -462,7 +462,7 @@ void MotionPlanner::PlanARENA(){
 
             // TODO: check if these constraints are needed. What if we just sampler a bit more finely?
             if (add_constraints_list_.size() > 0){
-                std::runtime_error("Requirement for additional constraints detected. But this is not implemented yet.");
+                throw std::runtime_error("Requirement for additional constraints detected. But this is not implemented yet.");
             }
             made_modification = EliminateSubOptimalParametrization();
 
