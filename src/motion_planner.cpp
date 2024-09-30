@@ -18,6 +18,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 
         method_ = method;
         opts_solver_["print_level"] = 0;
+        // opts_solver_["max_iter"] = 50;
         InitializeRK4();
 
         // P2P method attributes
@@ -137,8 +138,11 @@ void MotionPlanner::DumpToJson(const std::string &filename) const {
     j["PlannerMethod"] = PlannerMethodToString();
     if (method_ == PlannerMethod::ARENA){
         j["Parametrization"] = parametrization_.ToJson();
+        // j["Trajectory"] = parametrization_.initialized_trajectory_.ToJson();
+        j["Trajectory"] = last_solution_.ToJson();
+    } else {
+        j["Trajectory"] = last_solution_.ToJson();
     }
-    j["Trajectory"] = last_solution_.ToJson();
 
     // Write the updated content back to the file, creating it if it doesn't exist
     std::ofstream outFile(full_path);
@@ -355,6 +359,10 @@ void MotionPlanner::PlanOCP(){
                 initialization_waypoints[s].x() + 
                 (k - k_offset)*(initialization_waypoints[s+1].x() - 
                 initialization_waypoints[s].x())/nb_points_per_corridor);
+            opti.set_initial(xx(1, k), 
+                initialization_waypoints[s].y() + 
+                (k - k_offset)*(initialization_waypoints[s+1].y() - 
+                initialization_waypoints[s].y())/nb_points_per_corridor);
         }
 
         // the final point of a corridor should also be enforced to be 
@@ -435,7 +443,7 @@ void MotionPlanner::PlanARENA(){
 
     // Update the corridor sequence
     UpdateCorridorSequence();
-    // PrintCorridorSequence();
+    PrintCorridorSequence();
     
     // Try to solve a single arc
     double solver_time = 0.0;
@@ -447,7 +455,7 @@ void MotionPlanner::PlanARENA(){
     if (problematic_corridors.size() > 0){
         // Initialize the parametrization
         parametrization_.UpdateParametrization(parametrization_update_token_);
-        // std::cout << parametrization_ << std::endl;
+        std::cout << parametrization_ << std::endl;
 
         // Start the optimization loop
         bool made_modification = true;
@@ -462,7 +470,8 @@ void MotionPlanner::PlanARENA(){
 
             // TODO: check if these constraints are needed. What if we just sampler a bit more finely?
             if (add_constraints_list_.size() > 0){
-                throw std::runtime_error("Requirement for additional constraints detected. But this is not implemented yet.");
+                return;
+                // throw std::runtime_error("Requirement for additional constraints detected. But this is not implemented yet.");
             }
             made_modification = EliminateSubOptimalParametrization();
 

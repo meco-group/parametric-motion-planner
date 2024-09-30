@@ -8,6 +8,7 @@
 #include "helper_methods.hpp"
 #include "helper_types.hpp"
 #include "corridor.hpp"
+#include "trajectory.hpp"
 
 using json = nlohmann::json;
 
@@ -71,6 +72,8 @@ class Parametrization{
 
         json ToJson() const;
 
+        Trajectory initialized_trajectory_;
+
     private:
         // waypoint with index waypoint_idx is in the overlapping region of 
         // corridor waypoint_idx - 1 and corridor waypoint_idx
@@ -104,6 +107,11 @@ class Parametrization{
         void ApplyOvershootingPreventionConstraint(casadi::Opti &opti, 
                                                    casadi::MX &t_x, 
                                                    casadi::MX &t_y);
+        void InitializeParabolicSegmentConstraintFunction();
+        void ConstrainParabolicSegment(casadi::Opti &opti, casadi::MX T, 
+                                       casadi::MX p0, casadi::MX v0, 
+                                       double alpha, double min_val, 
+                                       double max_val, double offset);
 
 
         // Initialization functions
@@ -169,6 +177,12 @@ class Parametrization{
 
         std::vector<Point2D<casadi::MX>> intermediate_positions_;
         std::vector<Point2D<casadi::MX>> intermediate_velocities_;
+        int nb_fine_grid_samples_ = 0;
+
+        casadi::Function parabolic_segment_extremum_;
+
+        std::vector<casadi::MX> p_extremes_ = {};
+        
 
 };
 

@@ -55,7 +55,7 @@ class Point2D {
         }
         double DistanceToLine(const Point2D<T> &line_start, 
                               const Point2D<T> &line_end) const {
-            double num = abs((line_end.y() - line_start.y()) * x_ - 
+            double num = std::abs((line_end.y() - line_start.y()) * x_ - 
                              (line_end.x() - line_start.x()) * y_ + 
                              line_end.x() * line_start.y() - 
                              line_end.y() * line_start.x());

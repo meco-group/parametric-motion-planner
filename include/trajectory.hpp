@@ -4,7 +4,9 @@
 #include <vector>
 #include <casadi/casadi.hpp>
 
-#include "parametrization.hpp"
+#include "helper_types.hpp"
+#include "corridor.hpp"
+// #include "parametrization.hpp"
 
 using namespace casadi;
 
