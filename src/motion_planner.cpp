@@ -79,6 +79,16 @@ void MotionPlanner::Plan(){
     // Start the clock
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
 
+    // Update the corridor sequence
+    UpdateCorridorSequence();
+    if (!corridor_sequence_.SequenceAvailable()){
+        std::cout << "No corridor sequence found to plan through." << std::endl;
+        last_solution_.Reset(start_);
+        return;
+    }
+
+    PrintCorridorSequence();
+
     switch(method_){
         case P2P:
             PlanP2P();
@@ -277,8 +287,6 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 void MotionPlanner::PlanOCP(){
     std::cout << "Planning using OCP method" << std::endl;
 
-    // Update the corridor sequence
-    UpdateCorridorSequence();
     int nb_points_per_corridor = 30;
     int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor;
 
@@ -439,11 +447,7 @@ void MotionPlanner::PlanOCP(){
 }
 
 void MotionPlanner::PlanARENA(){
-    std::cout << "Planning using ARENA method" << std::endl;
-
-    // Update the corridor sequence
-    UpdateCorridorSequence();
-    PrintCorridorSequence();
+    std::cout << "Planning using ARENA method" << std::endl;    
     
     // Try to solve a single arc
     double solver_time = 0.0;
@@ -455,7 +459,7 @@ void MotionPlanner::PlanARENA(){
     if (problematic_corridors.size() > 0){
         // Initialize the parametrization
         parametrization_.UpdateParametrization(parametrization_update_token_);
-        std::cout << parametrization_ << std::endl;
+        // std::cout << parametrization_ << std::endl;
 
         // Start the optimization loop
         bool made_modification = true;

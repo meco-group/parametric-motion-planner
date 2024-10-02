@@ -54,13 +54,15 @@ class Environment{
             const double &vehicle_length) const;
 
         // Function to print the occupancy grid
-        friend std::ostream& operator<<(std::ostream &out, Environment const &environment);
+        friend std::ostream& operator<<(std::ostream &out, 
+                                        Environment const &environment);
 
         // basic getters
         int NbCellRows() const { return nb_cell_rows_;};
         int NbCellCols() const { return nb_cell_cols_;};
         double CellWidth() const { return cell_width_;};
         double CellHeight() const { return cell_height_;};
+        int GetVersion() const { return version_;};
         
         CellOccupancy GetOccupancy(Point2D<int> cell) const;
         CellOccupancy GetOccupancy(int x, int y) const;
@@ -73,6 +75,10 @@ class Environment{
 
     private:
 
+        // Function to be called whenever a modification is made to the 
+        // environment
+        void UpdateVersion(){ version_++;};
+
         int nb_cell_rows_;
         int nb_cell_cols_;
         double cell_width_;
@@ -80,6 +86,10 @@ class Environment{
 
         // Occupancy grid representing the environment
         std::vector<std::vector<CellOccupancy>> occupancy_grid_;
+
+        // version tracker such that CorridorSequence knows if it needs 
+        // updating
+        int version_ = 0;
 
 };
 

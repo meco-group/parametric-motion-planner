@@ -60,11 +60,11 @@ class Parametrization{
         bool IsWaypointMovable(int idx) const;
         double GetAlphaX(int idx) const { return alpha_x_[idx];};
         double GetAlphaY(int idx) const { return alpha_y_[idx];};
-        std::vector<double>& GetAlphaXSol() { return alpha_x_sol_;};
-        std::vector<double>& GetAlphaYSol() { return alpha_y_sol_;};
-        std::vector<Point2D<double>>& GetWaypointsSol();
-        std::vector<std::vector<double>>& GetTxSol() { return t_x_sol_;};
-        std::vector<std::vector<double>>& GetTySol() { return t_y_sol_;};
+        const std::vector<double>& GetAlphaXSol() const { return alpha_x_sol_;};
+        const std::vector<double>& GetAlphaYSol() const { return alpha_y_sol_;};
+        const std::vector<Point2D<double>>& GetWaypointsSol() const;
+        const std::vector<std::vector<double>>& GetTxSol() const { return t_x_sol_;};
+        const std::vector<std::vector<double>>& GetTySol() const { return t_y_sol_;};
         std::vector<Point2D<double>>& GetWaypointVelocitiesSol();
         double GetSolverTime() const { return solver_time_;};
 
@@ -129,6 +129,9 @@ class Parametrization{
                                  double p0, double pf, double v0);
 
         const CorridorSequence& corridor_sequence_; // Reference to the corridor sequence object
+        bool use_smart_update_ = true;
+        int latest_sequence_version_ = -1;    // version of the corridor sequence when the parametrization was last updated
+
         const Parameters& params_;
 
         const int max_nb_corridors_;

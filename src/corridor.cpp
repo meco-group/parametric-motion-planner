@@ -173,11 +173,23 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
                                       Point2D<double> const &start_vel,
                                       Parameters const &params,
                                       UpdateToken const &token){
+    sequence_available_ = false;
     // Input checks
     if (!environment_.isValidPosition(start) || 
         !environment_.isValidPosition(dest)){
         throw InvalidPositionInEnvironmentException("Invalid starting position or destination");
     }
+
+    // Check if we really need to do update
+    if (use_smart_update_ &&
+            start_ == start && dest_ == dest && start_vel_ == start_vel &&
+            environment_.GetVersion() == latest_envrionment_version_){
+        // No need to update the sequence
+        std::cout << "NOTE: skipped update of corridor sequence." << std::endl;
+        sequence_available_ = true;
+        return;
+    }
+
     start_.CopyValues(start);
     dest_.CopyValues(dest);
     start_vel_.CopyValues(start_vel);
@@ -195,6 +207,10 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
 
     // Compute a path in the cell environment from start to dest
     std::vector<Point2D<int>> path = environment_.PerformBreadthFirstSearch(start_cell, dest_cell);
+    if (path.size() == 0){
+        sequence_available_ = false;
+        return;
+    }
 
     // Add cells to ensure initial footprint of the vehicle is included
     AddInitialFootprint(path);
@@ -224,6 +240,10 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
 
     // Inflate the corridors
     InflateCorridors();
+
+    sequence_available_ = true;
+    latest_envrionment_version_ = environment_.GetVersion();
+    UpdateVersion();
 };
 
 Corridor CorridorSequence::GetCorridor(int idx) const { 
@@ -268,7 +288,7 @@ json CorridorSequence::ToJson() const {
     return corridor_sequence_json;
 }
 
-void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path){
+void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path) const {
     std::vector<Point2D<int>> occupied_cells = 
         environment_.GetOccupiedFootprintCells(start_, params_.GetVehWidth(), 
                                                params_.GetVehHeight());
@@ -312,7 +332,7 @@ void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path){
     }
 }
 
-void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path){
+void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path) const {
     std::vector<Point2D<int>> occupied_cells = 
         environment_.GetOccupiedFootprintCells(dest_, params_.GetVehWidth(), 
                                                params_.GetVehHeight());

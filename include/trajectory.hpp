@@ -45,6 +45,11 @@ class Trajectory{
                              Parameters const &params,
                              double solver_time);
 
+        // Function to reset the trajectory.
+        // To be used when no trajectory is found. The starting position is set
+        // and the total time of the trajectory is set to 0
+        void Reset(Point2D<double> const &start);
+
         // printing
         friend std::ostream& operator<<(std::ostream &out, Trajectory &trajectory);
 

@@ -275,6 +275,22 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     return out_of_corridor_list;
 }
 
+void Trajectory::Reset(Point2D<double> const &start){
+    total_computation_time_ = -1;
+    solver_time_ = -1;
+    tf_ = 0.0;
+    curr_nb_samples_ = 1;
+
+    // initialize the trajectory
+    t_[0] = 0.0;
+    px_[0] = start.x();
+    py_[0] = start.y();
+    vx_[0] = 0.0;
+    vy_[0] = 0.0;
+    ax_[0] = 0.0;
+    ay_[0] = 0.0;
+}
+
 std::ostream& operator<<(std::ostream &out, Trajectory &trajectory){
     out << "t\t\tpx\t\tpy\t\tvx\t\tvy\t\tax\t\tay" << std::endl;
     for (int i = 0; i < trajectory.NbSamples(); i++){

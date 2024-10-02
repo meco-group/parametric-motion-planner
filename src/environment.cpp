@@ -95,6 +95,7 @@ void Environment::DeleteCell(Point2D<int> cell){
         throw InvalidEnvironmentOperationException("Cannot delete a cell outside of the environment");
     }
     occupancy_grid_[cell.x()][cell.y()] = DELETED;
+    UpdateVersion();
 }
 
 void Environment::AddCell(Point2D<int> cell){
@@ -102,6 +103,7 @@ void Environment::AddCell(Point2D<int> cell){
         throw InvalidEnvironmentOperationException("Cannot add a cell outside of the environment");
     }
     occupancy_grid_[cell.x()][cell.y()] = FREE;
+    UpdateVersion();
 }
 
 void Environment::AddObstacle(Point2D<int> cell){
@@ -109,6 +111,7 @@ void Environment::AddObstacle(Point2D<int> cell){
         throw InvalidEnvironmentOperationException("Cannot add an obstacle outside of the environment");
     }
     occupancy_grid_[cell.x()][cell.y()] = OCCUPIED;
+    UpdateVersion();
 }
 
 void Environment::RemoveObstacle(Point2D<int> cell){
@@ -116,6 +119,7 @@ void Environment::RemoveObstacle(Point2D<int> cell){
         throw InvalidEnvironmentOperationException("Cannot remove an obstacle outside of the environment");
     }
     occupancy_grid_[cell.x()][cell.y()] = FREE;
+    UpdateVersion();
 }
 
 void Environment::ClearAllObstacles(){
@@ -126,6 +130,7 @@ void Environment::ClearAllObstacles(){
             }
         }
     }
+    UpdateVersion();
 }
 
 void Environment::AddRandomObstacles(double obstacle_probability){
@@ -145,6 +150,7 @@ void Environment::AddRandomObstacles(double obstacle_probability){
             }
         }
     }
+    UpdateVersion();
 }
 
 std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
@@ -199,7 +205,6 @@ std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
             }
         }
     } 
-
     return std::vector<Point2D<int>>();
 };
 

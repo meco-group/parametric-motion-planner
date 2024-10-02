@@ -151,9 +151,11 @@ class CorridorSequence{
         void GetStart(Point2D<double> &point) const;
         void GetStartVel(Point2D<double> &point) const;
         void GetDest(Point2D<double> &point) const;
+        bool SequenceAvailable() const { return sequence_available_;};
+        int GetVersion() const { return version_;};
 
         // printing
-        friend std::ostream& operator<<(std::ostream &out, CorridorSequence &sequence) {
+        friend std::ostream& operator<<(std::ostream &out, CorridorSequence const &sequence) {
             for (int i = 0; i < sequence.nb_of_corridors_; i++){
                 out << i << ": " << sequence.sequence_[i] << std::endl;
             }
@@ -163,10 +165,12 @@ class CorridorSequence{
         json ToJson() const;
 
     private:
-        void ClearAll(){ nb_of_corridors_ = 0; made_change_ = false;};
+        void UpdateVersion(){version_++;};
 
-        void AddInitialFootprint(std::vector<Point2D<int>> &path);
-        void AddFinalFootprint(std::vector<Point2D<int>> &path);
+        void ClearAll(){ nb_of_corridors_ = 0; UpdateVersion();};
+
+        void AddInitialFootprint(std::vector<Point2D<int>> &path) const;
+        void AddFinalFootprint(std::vector<Point2D<int>> &path) const;
 
         // Inflate corridors as much as possible
         void InflateCorridors();
@@ -193,6 +197,9 @@ class CorridorSequence{
         bool MergeCorridors();
 
         const Environment& environment_;    // Reference to the environment object
+        bool use_smart_update_ = true;
+        int latest_envrionment_version_ = -1; // version of the environment when the sequence was last updated
+
         const Parameters& params_;          // Reference to the parameters object
 
         Point2D<double> start_;
@@ -201,10 +208,11 @@ class CorridorSequence{
 
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors
+        bool sequence_available_;
 
         int nb_of_corridors_ = 0;         // index of the last corridor in the sequence
 
-        bool made_change_ = false;          // flag to indicate if a change was made (since last parametrization update)
+        int version_ = 0;               // version tracker such that the parametrization knows if it needs updating
 
         // scratch space
         std::vector<Point2D<double>> cells_along_corridor_;

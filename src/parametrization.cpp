@@ -64,6 +64,13 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 }
 
 void Parametrization::UpdateParametrization(const UpdateToken&){
+	// Check if the corridor sequence has changed
+	if (use_smart_update_ &&
+			corridor_sequence_.GetVersion() == latest_sequence_version_){
+		std::cout << "NOTE: skipped update of parametrization." << std::endl;
+		return;
+	}
+
 	// take care of the first and the last waypoint (start and dest)
 	waypoints_[0] = corridor_sequence_.GetStart();
 	waypoints_[corridor_sequence_.NbCorridors()] = corridor_sequence_.GetDest();
@@ -99,14 +106,17 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 		UpdateParametrizationWithLineOfSight(i);
 		if (movable_waypoints_[i]){ nb_movable_waypoints_++;}
 	}
+
+	// Update version
+	latest_sequence_version_ = corridor_sequence_.GetVersion();
 };
 
 void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  Dict const &opts_casadi,
-											  Dict const &opts_solver){
+											  Dict const &opts_solver){		
 	// prepare initial guess
 	InitializeOptimization();
-	ShowInitialization();
+	// ShowInitialization();
 
 	// reset mx containers
 	alpha_x_mx_ = MX(max_nb_corridors_ + 1, 1);
@@ -375,7 +385,7 @@ void Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
 
 void Parametrization::OptimizeSingleArc(const UpdateToken&){
 	waypoints_[0].CopyValues(corridor_sequence_.GetStart());
-	waypoints_[1].CopyValues(corridor_sequence_.GetDest());
+	// waypoints_[1].CopyValues(corridor_sequence_.GetDest());
 	waypoints_sol_[0].CopyValues(corridor_sequence_.GetStart());
 	waypoints_sol_[1].CopyValues(corridor_sequence_.GetDest());
 	waypoint_velocities_sol_[0].CopyValues(corridor_sequence_.GetStartVel());
@@ -395,12 +405,12 @@ void Parametrization::OptimizeSingleArc(const UpdateToken&){
 			t_x_sol_[i][j] = 0.0;
 			t_y_sol_[i][j] = 0.0;
 		}
-		waypoints_[i].CopyValues(corridor_sequence_.GetDest());
+		// waypoints_[i].CopyValues(corridor_sequence_.GetDest());
 		waypoints_sol_[i].CopyValues(corridor_sequence_.GetDest());
 		waypoint_velocities_sol_[i].CopyValues(Point2D<double>(0.0, 0.0));
 	}
-	waypoints_[corridor_sequence_.NbCorridors()].CopyValues(
-		corridor_sequence_.GetDest());
+	// waypoints_[corridor_sequence_.NbCorridors()].CopyValues(
+	// 	corridor_sequence_.GetDest());
 	waypoints_sol_[corridor_sequence_.NbCorridors()].CopyValues(
 		corridor_sequence_.GetDest());
 	waypoint_velocities_sol_[corridor_sequence_.NbCorridors()].CopyValues(
@@ -423,7 +433,7 @@ bool Parametrization::IsWaypointMovable(int idx) const {
             return movable_waypoints_[idx];
 };
 
-std::vector<Point2D<double>>& Parametrization::GetWaypointsSol(){
+const std::vector<Point2D<double>>& Parametrization::GetWaypointsSol() const {
 	return waypoints_sol_;
 };
 
@@ -991,12 +1001,12 @@ void Parametrization::Solve(){
 				}
 			}
 		}
-		std::cout << "p_extremes: [";
-		for (auto p : p_extremes_){
-			std::cout << sol_.value().value(p);
-			std::cout << ", ";
-		}
-		std::cout << "]" << std::endl;
+		// std::cout << "p_extremes: [";
+		// for (auto p : p_extremes_){
+		// 	std::cout << sol_.value().value(p);
+		// 	std::cout << ", ";
+		// }
+		// std::cout << "]" << std::endl;
 
 	} catch (std::exception &e){
 		solver_time_ = -1.0;
@@ -1305,10 +1315,10 @@ void Parametrization::ShowInitialization(){
 
 	// Trajectory initialized_trajectory = Trajectory();
 	initialized_trajectory_.Update(corridor_sequence_,
-								  t_x_init_, t_y_init_,
-								  alpha_x_temp, alpha_y_temp,
-								  waypoints_, waypoint_velocities_init_,
-								  params_, 0.0);
+								   t_x_init_, t_y_init_,
+								   alpha_x_temp, alpha_y_temp,
+								   waypoints_, waypoint_velocities_init_,
+								   params_, 0.0);
 		
 	// std::cout << "Initialized trajectory" << std::endl;
 	// std::cout << initialized_trajectory << std::endl;
