@@ -58,6 +58,10 @@ class Corridor{
         Point2D<double> GetCenter() const {
             return Point2D<double>((x_min_ + x_max_)/2, (y_min_ + y_max_)/2);
         };
+        void GetCenter(Point2D<double> &center) const {
+            center.SetX((x_min_ + x_max_)/2);
+            center.SetY((y_min_ + y_max_)/2);
+        };
 
         // Setters
         void SetXmin(double x_min){ x_min_ = x_min; UpdateDirection();};
@@ -66,7 +70,13 @@ class Corridor{
         void SetYmax(double y_max){ y_max_ = y_max; UpdateDirection();};
 
         // printing
-        friend std::ostream& operator<<(std::ostream &out, Corridor &corridor) {
+        // friend std::ostream& operator<<(std::ostream &out, Corridor &corridor) {
+        //     out << "[" << corridor.Xmin() << ", " << 
+        //             corridor.Xmax() << "] x [" << corridor.Ymin() << 
+        //             ", " << corridor.Ymax() << "]";
+        //     return out;
+        // }
+        friend std::ostream& operator<<(std::ostream &out, Corridor corridor) {
             out << "[" << corridor.Xmin() << ", " << 
                     corridor.Xmax() << "] x [" << corridor.Ymin() << 
                     ", " << corridor.Ymax() << "]";

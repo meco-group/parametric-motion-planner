@@ -21,18 +21,9 @@ class Environment{
 
         
         // Validity checks
-        bool isValidCell(Point2D<int> cell) const {
-            return cell.x() >= 0 && cell.x() < nb_cell_cols_ && 
-                   cell.y() >= 0 && cell.y() < nb_cell_rows_;
-        }
-        bool isValidCell(int x, int y) const {
-            return x >= 0 && x < nb_cell_cols_ && 
-                   y >= 0 && y < nb_cell_rows_;
-        }
-        bool isValidPosition(Point2D<double> pos) const {
-            return pos.x() >= 0 && pos.x() < nb_cell_cols_ * cell_width_ && 
-                   pos.y() >= 0 && pos.y() < nb_cell_rows_ * cell_height_;
-        }
+        bool isValidCell(Point2D<int> cell) const;
+        bool isValidCell(int x, int y) const;
+        bool isValidPosition(Point2D<double> pos) const;
         bool isValidVehiclePosition(Point2D<double> pos, double vehicle_width, 
                                     double vehicle_length) const;
 
@@ -46,34 +37,12 @@ class Environment{
         bool IsFree(int x, int y) const;
 
         // Environment operations
-        void DeleteCell(Point2D<int> cell){
-            if (!isValidCell(cell)){
-                throw InvalidEnvironmentOperationException("Cannot delete a cell outside of the environment");
-            }
-            occupancy_grid_[cell.x()][cell.y()] = DELETED;
-        }
-
-        void AddCell(Point2D<int> cell){
-            if (!isValidCell(cell)){
-                throw InvalidEnvironmentOperationException("Cannot add a cell outside of the environment");
-            }
-            occupancy_grid_[cell.x()][cell.y()] = FREE;
-        }
-
-        void AddObstacle(Point2D<int> cell){
-            if (!isValidCell(cell)){
-                throw InvalidEnvironmentOperationException("Cannot add an obstacle outside of the environment");
-            }
-            occupancy_grid_[cell.x()][cell.y()] = OCCUPIED;
-        }
-
-        void RemoveObstacle(Point2D<int> cell){
-            if (!isValidCell(cell)){
-                throw InvalidEnvironmentOperationException("Cannot remove an obstacle outside of the environment");
-            }
-            occupancy_grid_[cell.x()][cell.y()] = FREE;
-        } 
-
+        void DeleteCell(Point2D<int> cell);
+        void AddCell(Point2D<int> cell);
+        void AddObstacle(Point2D<int> cell);
+        void RemoveObstacle(Point2D<int> cell);
+        void ClearAllObstacles();
+        void AddRandomObstacles(double obstacle_probability);
 
         // Function to perform a breadth-first search in the environment
         std::vector<Point2D<int>> PerformBreadthFirstSearch(

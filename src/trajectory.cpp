@@ -33,6 +33,7 @@ void Trajectory::Update(int nb_corridors,
     for (int i = 0; i < 3*nb_corridors+1; i++){
         total_time += time_durations[i];
     }
+    tf_ = total_time;
 
     // compute the number of samples
     curr_nb_samples_ = total_time / dt_ + 1;
@@ -85,8 +86,9 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
                         double solver_time){
     total_computation_time_ = -1;
     solver_time_ = solver_time;
+    tf_ = tt_ocp[tt_ocp.size() - 1];
 
-    curr_nb_samples_ = tt_ocp[tt_ocp.size() - 1] / dt_ + 1;
+    curr_nb_samples_ = tf_ / dt_ + 1;
 
     if (curr_nb_samples_ > max_nb_samples_){
         throw std::runtime_error("Trajectory  is too long to be updated");
@@ -159,10 +161,10 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     for (int i = 0; i < t_y.size(); i++){
         total_time_y += t_y[i][0] + t_y[i][1] + t_y[i][2];
     }
-    double total_time = std::max(total_time_x, total_time_y);
+    tf_ = std::max(total_time_x, total_time_y);
 
     // compute the number of samples
-    curr_nb_samples_ = total_time / dt_ + 1;
+    curr_nb_samples_ = tf_ / dt_ + 1;
 
     if (curr_nb_samples_ > max_nb_samples_){
         throw std::runtime_error("Trajectory  is too long to be updated");

@@ -4,6 +4,7 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 #include <casadi/casadi.hpp>
+#include <optional>
 
 #include "helper_methods.hpp"
 #include "helper_types.hpp"
@@ -47,6 +48,7 @@ class Parametrization{
         void OptimizeParametrization(const UpdateToken&, 
                                      casadi::Dict const &opts_casadi, 
                                      casadi::Dict const &opts_solver);
+        void AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
 
         // basic getters
@@ -110,8 +112,10 @@ class Parametrization{
         void InitializeParabolicSegmentConstraintFunction();
         void ConstrainParabolicSegment(casadi::Opti &opti, casadi::MX T, 
                                        casadi::MX p0, casadi::MX v0, 
-                                       double alpha, double min_val, 
-                                       double max_val, double offset);
+                                       casadi::MX alpha, double min_val, 
+                                       double max_val, double offset,
+                                       MX &obj);
+        void Solve();
 
 
         // Initialization functions
@@ -139,6 +143,11 @@ class Parametrization{
         int nb_movable_waypoints_;
 
         // mx objects to be used in the optimization
+        casadi::Opti opti_;
+        casadi::MX t_x_;
+        casadi::MX t_y_;
+        casadi::MX v_x_;
+        casadi::MX v_y_;
         casadi::MX alpha_x_mx_;
         casadi::MX alpha_y_mx_;
         std::vector<Point2D<casadi::MX>> waypoints_mx_;
@@ -154,6 +163,7 @@ class Parametrization{
         bool RELAX_INITIAL_VELOCITY_ = true;
         
         // optimized values
+        std::optional<casadi::OptiSol> sol_;
         std::vector<double> alpha_x_sol_;
         std::vector<double> alpha_y_sol_;
         std::vector<Point2D<double>> waypoints_sol_;
@@ -164,6 +174,7 @@ class Parametrization{
 
         // scratch space
         Corridor overlap_;
+        Corridor next_overlap_;
         Corridor curr_corridor_;
         Corridor next_corridor_;
 

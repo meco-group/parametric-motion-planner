@@ -459,23 +459,22 @@ void MotionPlanner::PlanARENA(){
 
         // Start the optimization loop
         bool made_modification = true;
-        int iteration_counter = 0;
-        while ((made_modification || add_constraints_list_.size() > 0) && 
-                iteration_counter < max_nb_iterations_){
-            
+        while (made_modification){
+            // Solve the parametrization
             parametrization_.OptimizeParametrization(
                 parametrization_update_token_, opts_casadi_, opts_solver_);
             solver_time += parametrization_.GetSolverTime();
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
 
-            // TODO: check if these constraints are needed. What if we just sampler a bit more finely?
-            if (add_constraints_list_.size() > 0){
-                return;
-                // throw std::runtime_error("Requirement for additional constraints detected. But this is not implemented yet.");
+            // Check if additional constraints are required
+            if (add_constraints_list_.size() > 0 && solver_time > 0){
+                parametrization_.AddOvershootingConstraints(add_constraints_list_);
+                solver_time += parametrization_.GetSolverTime();
+                add_constraints_list_ = CheckOutOfCorridor(solver_time);
             }
-            made_modification = EliminateSubOptimalParametrization();
 
-            iteration_counter++;
+            // Check if the parametrization is still sub-optimal
+            made_modification = EliminateSubOptimalParametrization();
         }
     }
 

@@ -44,6 +44,20 @@ Environment::Environment(int nb_cell_rows, int nb_cell_cols, double cell_width,
             std::vector<CellOccupancy>(nb_cell_rows_, FREE));
 }
 
+bool Environment::isValidCell(Point2D<int> cell) const {
+    return cell.x() >= 0 && cell.x() < nb_cell_cols_ && 
+           cell.y() >= 0 && cell.y() < nb_cell_rows_;
+}
+
+bool Environment::isValidCell(int x, int y) const {
+    return x >= 0 && x < nb_cell_cols_ && y >= 0 && y < nb_cell_rows_;
+}
+
+bool Environment::isValidPosition(Point2D<double> pos) const {
+    return pos.x() >= 0 && pos.x() < nb_cell_cols_ * cell_width_ && 
+           pos.y() >= 0 && pos.y() < nb_cell_rows_ * cell_height_;
+}
+
 bool Environment::isValidVehiclePosition(Point2D<double> pos, 
                                          double vehicle_width, 
                                          double vehicle_length) const {
@@ -62,53 +76,75 @@ bool Environment::isValidVehiclePosition(Point2D<double> pos,
     return true;
 };
 
-std::ostream& operator<<(std::ostream &out, Environment const &environment){
-    out << environment.NbCellRows() << " x " << environment.NbCellCols() 
-        << " environment (" << environment.NbCellRows()*environment.CellWidth() 
-        << " x " << environment.NbCellCols()*environment.CellHeight() << ")" 
-        << std::endl;
-    for (int j = environment.NbCellRows() - 1; j >= 0 ; j--){
-        for (int i = 0; i < environment.NbCellCols() ; i++){
-            switch(environment.GetOccupancy(i, j)){
-                case FREE:
-                    out << ". ";
-                    break;
-                case DELETED:
-                    out << "X ";
-                    break;
-                case OCCUPIED:
-                    out << "# ";
-                    break;
-            }
-        }
-        out << std::endl;
-    }
-    return out;
-}
-
 bool Environment::IsFree(Point2D<int> const  &cell) const {
     if (!isValidCell(cell)){
         throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
     }
     return occupancy_grid_[cell.x()][cell.y()] == FREE;
 }
+
 bool Environment::IsFree(int x, int y) const {
     if (!isValidCell(x, y)){
         throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
     }
     return occupancy_grid_[x][y] == FREE;
 }
-CellOccupancy Environment::GetOccupancy(Point2D<int> cell) const {
+
+void Environment::DeleteCell(Point2D<int> cell){
     if (!isValidCell(cell)){
-        throw InvalidEnvironmentOperationException("Cannot get occupancy of a cell outside of the environment");
+        throw InvalidEnvironmentOperationException("Cannot delete a cell outside of the environment");
     }
-    return occupancy_grid_[cell.x()][cell.y()];
+    occupancy_grid_[cell.x()][cell.y()] = DELETED;
 }
-CellOccupancy Environment::GetOccupancy(int x, int y) const {
-    if (!isValidCell(x, y)){
-        throw InvalidEnvironmentOperationException("Cannot get occupancy of a cell outside of the environment");
+
+void Environment::AddCell(Point2D<int> cell){
+    if (!isValidCell(cell)){
+        throw InvalidEnvironmentOperationException("Cannot add a cell outside of the environment");
     }
-    return occupancy_grid_[x][y];
+    occupancy_grid_[cell.x()][cell.y()] = FREE;
+}
+
+void Environment::AddObstacle(Point2D<int> cell){
+    if (!isValidCell(cell)){
+        throw InvalidEnvironmentOperationException("Cannot add an obstacle outside of the environment");
+    }
+    occupancy_grid_[cell.x()][cell.y()] = OCCUPIED;
+}
+
+void Environment::RemoveObstacle(Point2D<int> cell){
+    if (!isValidCell(cell)){
+        throw InvalidEnvironmentOperationException("Cannot remove an obstacle outside of the environment");
+    }
+    occupancy_grid_[cell.x()][cell.y()] = FREE;
+}
+
+void Environment::ClearAllObstacles(){
+    for (int i = 0; i < nb_cell_cols_; i++){
+        for (int j = 0; j < nb_cell_rows_; j++){
+            if (occupancy_grid_[i][j] == OCCUPIED){
+                occupancy_grid_[i][j] = FREE;
+            }
+        }
+    }
+}
+
+void Environment::AddRandomObstacles(double obstacle_probability){
+    ClearAllObstacles();
+
+    // Initialize the random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dis(0, 1);
+
+    // Add obstacles
+    for (int i = 0; i < nb_cell_cols_; i++){
+        for (int j = 0; j < nb_cell_rows_; j++){
+            if (occupancy_grid_[i][j] == FREE &&
+                    dis(gen) < obstacle_probability){
+                AddObstacle(Point2D<int>(i, j));
+            }
+        }
+    }
 }
 
 std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
@@ -190,6 +226,43 @@ std::vector<Point2D<int>> Environment::GetOccupiedFootprintCells(
     }
 
     return std::vector<Point2D<int>>(occupied_cells.begin(), occupied_cells.end());
+}
+
+std::ostream& operator<<(std::ostream &out, Environment const &environment){
+    out << environment.NbCellRows() << " x " << environment.NbCellCols() 
+        << " environment (" << environment.NbCellRows()*environment.CellWidth() 
+        << " x " << environment.NbCellCols()*environment.CellHeight() << ")" 
+        << std::endl;
+    for (int j = environment.NbCellRows() - 1; j >= 0 ; j--){
+        for (int i = 0; i < environment.NbCellCols() ; i++){
+            switch(environment.GetOccupancy(i, j)){
+                case FREE:
+                    out << ". ";
+                    break;
+                case DELETED:
+                    out << "X ";
+                    break;
+                case OCCUPIED:
+                    out << "# ";
+                    break;
+            }
+        }
+        out << std::endl;
+    }
+    return out;
+}
+
+CellOccupancy Environment::GetOccupancy(Point2D<int> cell) const {
+    if (!isValidCell(cell)){
+        throw InvalidEnvironmentOperationException("Cannot get occupancy of a cell outside of the environment");
+    }
+    return occupancy_grid_[cell.x()][cell.y()];
+}
+CellOccupancy Environment::GetOccupancy(int x, int y) const {
+    if (!isValidCell(x, y)){
+        throw InvalidEnvironmentOperationException("Cannot get occupancy of a cell outside of the environment");
+    }
+    return occupancy_grid_[x][y];
 }
 
 void Environment::GetRandomFreeVehiclePosition(Point2D<double> &pos, 

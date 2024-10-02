@@ -2,6 +2,8 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.patches import Rectangle, FancyBboxPatch
+import shapely.geometry as sg
+import shapely.ops as so
 
 def load_data(output_file):
     with open(output_file) as f:
@@ -64,7 +66,7 @@ def visualize_output(env, params, corridors, planner_methods,
 
         if first_arena_idx >= len(planner_methods):
             first_arena_idx = None
-        break
+            break
 
     colors = []
     for i in range(len(trajectories)):
@@ -127,7 +129,38 @@ def visualize_output(env, params, corridors, planner_methods,
                          [parametrizations[i]["waypoints"][w]["y"]], 'ok', alpha=0.1)
                 plt.plot([parametrizations[i]["waypoints_sol"][w]["x"]], 
                          [parametrizations[i]["waypoints_sol"][w]["y"]], 'ok')
-                
+                           
+    # plot trajectory
+    for i in range(len(trajectories)):
+        # if planner_methods[i] == "ARENA" or planner_methods[i] == "OCP":
+        if planner_methods[i] == "ARENA":
+            footprints = []
+            for j in range(len(trajectories[i]["px"])-1):
+                px = trajectories[i]["px"][j]
+                py = trajectories[i]["py"][j]
+                px_next = trajectories[i]["px"][j+1]
+                py_next = trajectories[i]["py"][j+1]
+
+                for k in range(0, 100, 10):
+                    px = px + k/100*(px_next - px)
+                    py = py + k/100*(py_next - py)            
+                    footprint = sg.box(px - params["veh_width"]/2, 
+                                    py - params["veh_height"]/2,
+                                    px + params["veh_width"]/2, 
+                                    py + params["veh_height"]/2)
+                    footprints.append(footprint)
+            footprint_trace = so.unary_union(footprints)
+            try:
+                x, y = footprint_trace.exterior.xy
+                plt.gca().fill(x, y, color=colors[i], alpha=0.2, edgecolor='none')
+                # plt.gca().fill(x, y, color='none', alpha=0.5, edgecolor=colors[i])
+                # plt.plot(x, y, color=colors[i], linewidth=1)
+            except:
+                print("No footprint to plot")
+ 
+        plt.plot(trajectories[i]["px"], trajectories[i]["py"], 'o-', 
+                 color=colors[i], markersize=1)
+        
     # show vehicle footprint
     plot_vehicle_footprint(plt.gca(), trajectories[0]["px"][0], 
                            trajectories[0]["py"][0], params, 
@@ -135,18 +168,63 @@ def visualize_output(env, params, corridors, planner_methods,
     plot_vehicle_footprint(plt.gca(), trajectories[0]["px"][-1], 
                            trajectories[0]["py"][-1], params, 
                            virtual_position=True)
+ 
+    # pts = [0.511041, 0.172393, 0.511041, 0.177022, 0.54149, 0.1785, 0.84088, 0.178954, 0.953821, 0.155781, 1.01849, 0.1815, 1.24629, 0.181509, 1.25851, 0.30149, 1.25851, 0.30149, 1.29906, 0.3015, 1.29906, 0.3015, 1.29937, 0.336515]
+    # pts_x = [pts[2*i] for i in range(len(pts)//2)]
+    # pts_y = [pts[2*i+1] for i in range(len(pts)//2)]
+    # plt.scatter(pts_x, pts_y)
             
-    # plot trajectory
-    for i in range(len(trajectories)):
-        plt.plot(trajectories[i]["px"], trajectories[i]["py"], 'o-', 
-                 color=colors[i], markersize=1)
-
     plt.xlim([0, cell_width*env["nb_cell_cols"]])
-    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(2*cell_width))
+    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(1*cell_width))
     plt.ylim([0, cell_height*env["nb_cell_rows"]])
-    plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(2*cell_height))
+    plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(1*cell_height))
     plt.gca().set_aspect('equal',adjustable='box')
     plt.savefig(fig_folder + 'traj.png', dpi=300)
+
+
+
+    ### plot positions ###
+    fig, axs = plt.subplots(2, 1)
+    for i in range(len(trajectories)):
+        axs[0].plot(trajectories[i]["t"], trajectories[i]["px"], 'o-', 
+                    color=colors[i], markersize=1)
+        axs[1].plot(trajectories[i]["t"], trajectories[i]["py"], 'o-', 
+                    color=colors[i], markersize=1)
+    
+    if first_arena_idx is not None:
+        t = 0
+        axs[0].axvline(t, linewidth=1, color='k')
+        axs[1].axvline(t, linewidth=1, color='k')
+        for w in range(corridors['nb_of_corridors']+1):
+            if w < corridors['nb_of_corridors']:
+                axs[0].fill([t, t+sum(parametrizations[first_arena_idx]["t_x_sol"][w]),
+                                t+sum(parametrizations[first_arena_idx]["t_x_sol"][w]), t],
+                            [corridors['sequence'][w]['x_min'], 
+                                corridors['sequence'][w]['x_min'],
+                                corridors['sequence'][w]['x_max'],
+                                corridors['sequence'][w]['x_max']],
+                            color='green', alpha=0.2)
+                axs[1].fill([t, t+sum(parametrizations[first_arena_idx]["t_y_sol"][w]),
+                                t+sum(parametrizations[first_arena_idx]["t_y_sol"][w]), t],
+                            [corridors['sequence'][w]['y_min'], 
+                                corridors['sequence'][w]['y_min'],
+                                corridors['sequence'][w]['y_max'],
+                                corridors['sequence'][w]['y_max']],
+                            color='green', alpha=0.2)
+            
+
+            t += sum(parametrizations[first_arena_idx]["t_x_sol"][w])
+            axs[0].axvline(t, linewidth=1, color='k')
+            axs[1].axvline(t, linewidth=1, color='k')
+
+    axs[0].set_ylabel('px')
+    axs[1].set_ylabel('py')
+    axs[1].set_xlabel('t')
+    plt.suptitle('Position')
+
+    plt.savefig(fig_folder + 'positions.png', dpi=300)
+
+
 
     ### plot velocity ###
     fig, axs = plt.subplots(2, 1)
@@ -171,7 +249,23 @@ def visualize_output(env, params, corridors, planner_methods,
     axs[1].set_xlabel('t')
     plt.suptitle('Velocity')
 
+    axs[0].fill_between([-10, 1000], [-params["v_max"], -params["v_max"]],
+                        [-1000, -1000], color='grey')
+    axs[0].fill_between([-10, 1000], [params["v_max"], params["v_max"]],
+                        [1000, 1000], color='grey')
+    axs[0].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
+    axs[0].set_ylim([-1.1*params["v_max"], 1.1*params["v_max"]])
+
+    axs[1].fill_between([-10, 1000], [-params["v_max"], -params["v_max"]],
+                        [-1000, -1000], color='grey')
+    axs[1].fill_between([-10, 1000], [params["v_max"], params["v_max"]],
+                        [1000, 1000], color='grey')
+    axs[1].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
+    axs[1].set_ylim([-1.1*params["v_max"], 1.1*params["v_max"]])
+    
     plt.savefig(fig_folder + 'velocities.png', dpi=300)
+
+
 
     ### plot controls ###
     fig, axs = plt.subplots(2, 1)
@@ -195,6 +289,22 @@ def visualize_output(env, params, corridors, planner_methods,
     axs[0].set_ylabel('ax')
     axs[1].set_ylabel('ay')
     axs[1].set_xlabel('t')
+
+    axs[0].fill_between([-10, 1000], [-params["a_max"], -params["a_max"]],
+                        [-1000, -1000], color='grey')
+    axs[0].fill_between([-10, 1000], [params["a_max"], params["a_max"]],
+                        [1000, 1000], color='grey')
+    axs[0].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
+    axs[0].set_ylim([-1.1*params["a_max"], 1.1*params["a_max"]])
+
+    axs[1].fill_between([-10, 1000], [-params["a_max"], -params["a_max"]],
+                        [-1000, -1000], color='grey')
+    axs[1].fill_between([-10, 1000], [params["a_max"], params["a_max"]],
+                        [1000, 1000], color='grey')
+    axs[1].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
+    axs[1].set_ylim([-1.1*params["a_max"], 1.1*params["a_max"]])
+
+
 
     plt.savefig(fig_folder + 'controls.png', dpi=300)
 
@@ -267,7 +377,7 @@ def visualize_output(env, params, corridors, planner_methods,
 
 
 
-files = ["output/solution_arena.json", "output/solution_ocp.json", "output/solution_p2p.json"]
+files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
 # files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
 # files = ["output/solution_ocp.json"]
 # files = ["output/solution_arena.json"]

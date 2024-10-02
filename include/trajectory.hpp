@@ -49,7 +49,7 @@ class Trajectory{
         friend std::ostream& operator<<(std::ostream &out, Trajectory &trajectory);
 
         // Basic getters
-        double Tf() const { return t_[curr_nb_samples_ - 1];};
+        double Tf() const { return tf_;};
         int NbSamples() const { return curr_nb_samples_;};
         std::vector<double> T() const { return t_;};
         std::vector<double> Px() const { return px_;};
@@ -82,6 +82,7 @@ class Trajectory{
         std::vector<double> vy_;
         std::vector<double> ax_;
         std::vector<double> ay_;
+        double tf_;
 
         double total_computation_time_;     // expressed in ms
         double solver_time_;                // expressed in ms
