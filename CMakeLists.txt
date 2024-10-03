@@ -11,15 +11,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Detect operating system (Windows or Linux/Unix)
 if(WIN32)
     message(STATUS "Configuring for Windows")
+
+    # Find CasADi
+    set(CASADI_DIR "C:/Users/u0143705/Documents/PhD/casadi-installation/casadi")
+    
+    # Include directories for CasADi
+    include_directories(${CASADI_DIR}/include)
+
+    # Link CasADi library
+    link_directories(${CASADI_DIR}/lib)
 else()
     message(STATUS "Configuring for Unix/Linux")
+
+    # Find CasADi package (Assumes CasADi is installed or its path is provided)
+    find_package(CasADi REQUIRED)
+
+    # Specify the include directories for the library
+    include_directories(include ${CASADI_INCLUDE_DIRS})
 endif()
-
-# Find CasADi package (Assumes CasADi is installed or its path is provided)
-find_package(CasADi REQUIRED)
-
-# Specify the include directories for the library
-include_directories(include ${CASADI_INCLUDE_DIRS})
 
 # Collect source files
 file(GLOB SOURCES "src/*.cpp")
@@ -27,8 +36,14 @@ file(GLOB SOURCES "src/*.cpp")
 # Create the library
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
-# Link the CasADi library as a public dependency
-target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARIES})
+if(WIN32)
+    # Link the CasADi library as a public dependency
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_DIR}/lib/casadi.lib)
+else()
+    # Link the CasADi library as a public dependency
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARIES})
+endif()
+
 
 # Install master header
 install(FILES include/${PROJECT_NAME}.hpp
