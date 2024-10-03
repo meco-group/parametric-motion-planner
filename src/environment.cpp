@@ -4,8 +4,8 @@
 #include <nlohmann/json.hpp>
 #include <random>
 
-#include "environment.hpp"
-#include "corridor.hpp"
+#include "core/environment.hpp"
+#include "core/corridor.hpp"
 
 using json = nlohmann::json;
 

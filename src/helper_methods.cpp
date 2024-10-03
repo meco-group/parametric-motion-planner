@@ -1,7 +1,7 @@
 #include <vector>
 
-#include "helper_methods.hpp"
-#include "corridor.hpp"
+#include "core/helper_methods.hpp"
+#include "core/corridor.hpp"
 
 std::vector<Point2D<double>> Helper::GetCorridorOverlapCenters(
         CorridorSequence const &corridor_sequence, 

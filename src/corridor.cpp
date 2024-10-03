@@ -3,7 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-#include "corridor.hpp"
+#include "core/corridor.hpp"
 
 using json = nlohmann::json;
 

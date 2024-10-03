@@ -2,9 +2,9 @@
 #include <casadi/casadi.hpp>
 #include <nlohmann/json.hpp>
 
-#include "motion_planner.hpp"
-#include "corridor.hpp"
-#include "trajectory.hpp"
+#include "core/motion_planner.hpp"
+#include "core/corridor.hpp"
+#include "core/trajectory.hpp"
 
 using namespace casadi;
 using json = nlohmann::json;

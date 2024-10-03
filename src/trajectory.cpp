@@ -2,7 +2,7 @@
 #include <casadi/casadi.hpp>
 #include <nlohmann/json.hpp>
 
-#include "trajectory.hpp"
+#include "core/trajectory.hpp"
 
 using namespace casadi;
 using json = nlohmann::json;

@@ -1,30 +1,60 @@
-# Minimum CMake version required
 cmake_minimum_required(VERSION 3.10)
+project(parametric_motion_planner LANGUAGES CXX)
 
-# Project name and language
-project(parametric-motion-planner LANGUAGES CXX)
+# Specify the version of the library
+set(MY_LIBRARY_VERSION 1.0)
 
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Add include directory (for header files)
-include_directories(${PROJECT_SOURCE_DIR}/include)
-
-# Find the CasADi library (you can specify the path if needed)
+# Find CasADi package
 find_package(CasADi REQUIRED)
 
-# Look for casadi
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
-find_package(CASADI REQUIRED)
-include_directories(${CASADI_INCLUDE_DIR})
+# Specify the include directories for the library
+include_directories(include ${CASADI_INCLUDE_DIRS})
 
-# Collect all the source files in the src directory
-file(GLOB_RECURSE SOURCES "${PROJECT_SOURCE_DIR}/src/*.cpp")
+# Collect source files
+file(GLOB SOURCES "src/*.cpp")
 
-# Add the executable target
-add_executable(${PROJECT_NAME} ${SOURCES})
+# Create the library
+add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
-# Link any libraries here if needed, for example:
-# target_link_libraries(${PROJECT_NAME} <library-name>)
-target_link_libraries(${PROJECT_NAME} ${CASADI_LIBRARIES})
+# Link the CasADi library as a public dependency
+target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARIES})
+
+# Install master header
+install(FILES include/${PROJECT_NAME}.hpp
+    DESTINATION include/${PROJECT_NAME})
+
+# Install core headers
+install(DIRECTORY include/core
+    DESTINATION include/${PROJECT_NAME})
+
+# Specify the installation paths for the library and header files
+install(TARGETS ${PROJECT_NAME}
+    EXPORT ${PROJECT_NAME}Targets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin)
+
+# Export the target for usage in other projects
+install(EXPORT ${PROJECT_NAME}Targets
+    FILE ${PROJECT_NAME}Config.cmake
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION lib/cmake/${PROJECT_NAME})
+
+# Provide a version file for the package
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}Config.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
+)
+
+# Install the config file
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    DESTINATION "lib/cmake/${PROJECT_NAME}")
+
+# Make the package available
+include(CMakePackageConfigHelpers)

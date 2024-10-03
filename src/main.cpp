@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cmath>
 
-#include "motion_planner.hpp"
-#include "environment.hpp"
+#include "core/motion_planner.hpp"
+#include "core/environment.hpp"
 
 void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename){
 	motion_planner.SetMethod(ARENA);
