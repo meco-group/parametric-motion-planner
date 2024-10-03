@@ -8,7 +8,14 @@ set(MY_LIBRARY_VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find CasADi package
+# Detect operating system (Windows or Linux/Unix)
+if(WIN32)
+    message(STATUS "Configuring for Windows")
+else()
+    message(STATUS "Configuring for Unix/Linux")
+endif()
+
+# Find CasADi package (Assumes CasADi is installed or its path is provided)
 find_package(CasADi REQUIRED)
 
 # Specify the include directories for the library
@@ -31,30 +38,33 @@ install(FILES include/${PROJECT_NAME}.hpp
 install(DIRECTORY include/core
     DESTINATION include/${PROJECT_NAME})
 
+set(INSTALL_LIB_DIR lib)
+set(INSTALL_BIN_DIR bin) 
+
 # Specify the installation paths for the library and header files
 install(TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}Targets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin)
+    LIBRARY DESTINATION ${INSTALL_LIB_DIR}
+    ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+    RUNTIME DESTINATION ${INSTALL_BIN_DIR})
 
 # Export the target for usage in other projects
 install(EXPORT ${PROJECT_NAME}Targets
     FILE ${PROJECT_NAME}Config.cmake
     NAMESPACE ${PROJECT_NAME}::
-    DESTINATION lib/cmake/${PROJECT_NAME})
+    DESTINATION ${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME})
 
 # Provide a version file for the package
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}Config.cmake.in
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
+    INSTALL_DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}"
 )
 
 # Install the config file
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    DESTINATION "lib/cmake/${PROJECT_NAME}")
+    DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}")
 
 # Make the package available
 include(CMakePackageConfigHelpers)
