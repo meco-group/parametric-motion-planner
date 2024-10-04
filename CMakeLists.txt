@@ -8,21 +8,19 @@ set(MY_LIBRARY_VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Detect operating system (Windows or Linux/Unix)
-if(WIN32)
-    message(STATUS "Configuring for Windows")
-else()
-    message(STATUS "Configuring for Unix/Linux")
-endif()
-
 # Find CasADi package (Assumes CasADi is installed or its path is provided)
 find_package(CasADi REQUIRED)
 
 # Specify the include directories for the library
-include_directories(include ${CASADI_INCLUDE_DIRS})
+include_directories(include ${CASADI_INCLUDE_DIRS}/casadi)
 
 # Collect source files
 file(GLOB SOURCES "src/*.cpp")
+
+### Create example
+add_executable(my_executable ${SOURCES})
+target_link_libraries(my_executable casadi)
+###
 
 # Create the library
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
