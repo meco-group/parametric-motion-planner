@@ -25,8 +25,14 @@ target_link_libraries(my_executable casadi)
 # Create the library
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
-# Link the CasADi library as a public dependency
-target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARIES})
+if(WIN32)
+    # Link the CasADi library as a public dependency
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_DIR}/lib/casadi.lib)
+else()
+    # Link the CasADi library as a public dependency
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARIES})
+endif()
+
 
 # Install master header
 install(FILES include/${PROJECT_NAME}.hpp
