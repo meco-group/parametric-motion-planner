@@ -8,7 +8,6 @@ set(MY_LIBRARY_VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-<<<<<<< HEAD
 # Detect operating system (Windows or Linux/Unix)
 if(WIN32)
     message(STATUS "Configuring for Windows")
@@ -92,30 +91,20 @@ else()
     find_package(CasADi REQUIRED)
 
     # Specify the include directories for the library
-    include_directories(include ${CASADI_INCLUDE_DIRS})
-=======
-# Find CasADi package (Assumes CasADi is installed or its path is provided)
-find_package(CasADi REQUIRED)
-
-# Specify the include directories for the library
-include_directories(include ${CASADI_INCLUDE_DIRS}/casadi)
->>>>>>> 085c6ccd7826bdfc2ed432567bcabd9addbb97f5
+    include_directories(include ${CASADI_INCLUDE_DIRS}/casadi)
 
     # Collect source files
     file(GLOB SOURCES "src/*.cpp")
 
-<<<<<<< HEAD
+
     # Create the library
     add_library(${PROJECT_NAME} STATIC ${SOURCES})
-=======
-### Create example
-add_executable(my_executable ${SOURCES})
-target_link_libraries(my_executable casadi)
-###
 
-# Create the library
-add_library(${PROJECT_NAME} STATIC ${SOURCES})
->>>>>>> 085c6ccd7826bdfc2ed432567bcabd9addbb97f5
+    ### Create example
+    add_executable(my_executable ${SOURCES})
+    target_link_libraries(my_executable casadi)
+    ###
+
 
     # Link the CasADi library as a public dependency
     target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARIES})
