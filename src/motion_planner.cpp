@@ -16,21 +16,25 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         corridor_sequence_(environment_, params),
         parametrization_(corridor_sequence_, params) {
 
-        method_ = method;
-        opts_solver_["print_level"] = 0;
-        // opts_solver_["max_iter"] = 50;
-        InitializeRK4();
+	std::cout << "creating motion planner" << std::endl;
 
-        // P2P method attributes
-        int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
-        p2p_waypoints_ = std::vector<Point2D<double>>(max_nb_corridors + 1);
-        coarse_samples_position_ = 
-            std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
-        coarse_samples_velocity_ =
-            std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
-        coarse_samples_acceleration_ =
-            std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
-        coarse_samples_time_ = std::vector<double>(1 + 3*max_nb_corridors);
+	method_ = method;
+	opts_solver_["print_level"] = 0;
+	// opts_solver_["max_iter"] = 50;
+	InitializeRK4();
+
+	// P2P method attributes
+	int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
+	p2p_waypoints_ = std::vector<Point2D<double>>(max_nb_corridors + 1);
+	coarse_samples_position_ = 
+		std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
+	coarse_samples_velocity_ =
+		std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
+	coarse_samples_acceleration_ =
+		std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
+	coarse_samples_time_ = std::vector<double>(1 + 3*max_nb_corridors);
+
+	std::cout << "done creating motion planner" << std::endl;
 
 }
 

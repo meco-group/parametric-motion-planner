@@ -10,6 +10,7 @@
 using json = nlohmann::json;
 
 Environment::Environment(){
+    std::cout << "Creating environment" << std::endl;
     nb_cell_rows_ = 10;
     nb_cell_cols_ = 12;
     cell_width_ = 0.120;
@@ -30,6 +31,7 @@ Environment::Environment(){
             DeleteCell(Point2D<int>(i, j));
         }
     }
+    std::cout << "Done creating environment" << std::endl;
 }
 
 Environment::Environment(int nb_cell_rows, int nb_cell_cols, double cell_width, 

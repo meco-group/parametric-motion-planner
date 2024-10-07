@@ -16,7 +16,7 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 	  params_(params),
       max_nb_corridors_(corridor_sequence.MaxNbCorridors())
 	  {
-
+	std::cout << "created parametrization" << std::endl;
 	// true parameter variables
 	alpha_x_ = std::vector<double>(max_nb_corridors_ + 1),
 	alpha_y_ = std::vector<double>(max_nb_corridors_ + 1);
@@ -61,6 +61,8 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 
 	intermediate_positions_ = std::vector<Point2D<MX>>(3 + 2*nb_fine_grid_samples_);
 	intermediate_velocities_ = std::vector<Point2D<MX>>(3);
+
+	std::cout << "done creating parametrization" << std::endl;
 }
 
 void Parametrization::UpdateParametrization(const UpdateToken&){
