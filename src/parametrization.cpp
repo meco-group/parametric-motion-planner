@@ -638,9 +638,9 @@ void Parametrization::ApplyHeuristic(int waypoint_idx,
 	// rotate line of sight 90 degrees
 	double temp;
 	if (transformed_center.y() < 0.0){ // left turn
-		line_of_sight.Rotate(M_PI/2);
+		line_of_sight.Rotate(3.1415926535 /2);
 	} else { // right turn
-		line_of_sight.Rotate(-M_PI/2);
+		line_of_sight.Rotate(-3.1415926535/2);
 	}
 
 	double norm = std::sqrt(line_of_sight.x()*line_of_sight.x() + 
