@@ -11,15 +11,79 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Detect operating system (Windows or Linux/Unix)
 if(WIN32)
     message(STATUS "Configuring for Windows")
-
-    # Find CasADi
-    set(CASADI_DIR "C:/Users/u0143705/Documents/PhD/casadi-installation/casadi")
     
-    # Include directories for CasADi
-    include_directories(${CASADI_DIR}/include)
+    #### Find CasADi
+    # Set the path to CasADi library and build directories
+    set(CASADI_DIR "C:/Users/u0143705/Documents/PhD/casadi-build-windows/casadi/build/Release")
+    find_library(CASADI_LIBRARY NAMES casadi PATHS "${CASADI_DIR}")
 
-    # Link CasADi library
-    link_directories(${CASADI_DIR}/lib)
+    # Include CasADi headers
+    set(CASADI_INCLUDE "C:/Users/u0143705/Documents/PhD/casadi-build-windows/casadi")
+    include_directories("${CASADI_INCLUDE}")
+
+    # Include the build directory where casadi_export.h is generated
+    include_directories("${CASADI_INCLUDE}/build/")
+
+
+    #### Collect source files
+    file(GLOB SOURCES "src/*.cpp")
+    include_directories(include)
+
+
+    #### Create the library
+    add_library(${PROJECT_NAME} STATIC ${SOURCES})
+
+
+    #### Link the CasADi library as a public dependency
+    target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARY})
+
+
+    #### Installation
+    # Install master header
+    install(FILES include/${PROJECT_NAME}.hpp
+        DESTINATION include/${PROJECT_NAME})
+
+    # Install core headers
+    install(DIRECTORY include/core
+        DESTINATION include/${PROJECT_NAME})
+
+    set(INSTALL_LIB_DIR lib)
+    set(INSTALL_BIN_DIR bin) 
+
+    # Specify the installation paths for the library and header files
+    install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION ${INSTALL_LIB_DIR}
+        ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+        RUNTIME DESTINATION ${INSTALL_BIN_DIR})
+
+    # Export the target for usage in other projects
+    install(EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Config.cmake
+        NAMESPACE ${PROJECT_NAME}::
+        DESTINATION ${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME})
+
+    # Provide a version file for the package
+    include(CMakePackageConfigHelpers)
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}Config.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+        INSTALL_DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}"
+    )
+
+    # Install the config file
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+        DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}")
+
+    # Make the package available
+    include(CMakePackageConfigHelpers)
+
+    # Copy the casadi.dll to the output directory after building (Windows specific)
+    set(CASADI_DLL "C:/Users/u0143705/Documents/PhD/casadi-build-windows/casadi/out/build/debug/casadi.dll")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CASADI_DLL}"
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 else()
     message(STATUS "Configuring for Unix/Linux")
 
@@ -28,58 +92,52 @@ else()
 
     # Specify the include directories for the library
     include_directories(include ${CASADI_INCLUDE_DIRS})
-endif()
 
-# Collect source files
-file(GLOB SOURCES "src/*.cpp")
+    # Collect source files
+    file(GLOB SOURCES "src/*.cpp")
 
-# Create the library
-add_library(${PROJECT_NAME} STATIC ${SOURCES})
+    # Create the library
+    add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
-if(WIN32)
-    # Link the CasADi library as a public dependency
-    target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_DIR}/lib/casadi.lib)
-else()
     # Link the CasADi library as a public dependency
     target_link_libraries(${PROJECT_NAME} PUBLIC ${CASADI_LIBRARIES})
+
+    # Install master header
+    install(FILES include/${PROJECT_NAME}.hpp
+        DESTINATION include/${PROJECT_NAME})
+
+    # Install core headers
+    install(DIRECTORY include/core
+        DESTINATION include/${PROJECT_NAME})
+
+    set(INSTALL_LIB_DIR lib)
+    set(INSTALL_BIN_DIR bin) 
+
+    # Specify the installation paths for the library and header files
+    install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION ${INSTALL_LIB_DIR}
+        ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+        RUNTIME DESTINATION ${INSTALL_BIN_DIR})
+
+    # Export the target for usage in other projects
+    install(EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Config.cmake
+        NAMESPACE ${PROJECT_NAME}::
+        DESTINATION ${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME})
+
+    # Provide a version file for the package
+    include(CMakePackageConfigHelpers)
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}Config.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+        INSTALL_DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}"
+    )
+
+    # Install the config file
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+        DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}")
+
+    # Make the package available
+    include(CMakePackageConfigHelpers)
 endif()
-
-
-# Install master header
-install(FILES include/${PROJECT_NAME}.hpp
-    DESTINATION include/${PROJECT_NAME})
-
-# Install core headers
-install(DIRECTORY include/core
-    DESTINATION include/${PROJECT_NAME})
-
-set(INSTALL_LIB_DIR lib)
-set(INSTALL_BIN_DIR bin) 
-
-# Specify the installation paths for the library and header files
-install(TARGETS ${PROJECT_NAME}
-    EXPORT ${PROJECT_NAME}Targets
-    LIBRARY DESTINATION ${INSTALL_LIB_DIR}
-    ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
-    RUNTIME DESTINATION ${INSTALL_BIN_DIR})
-
-# Export the target for usage in other projects
-install(EXPORT ${PROJECT_NAME}Targets
-    FILE ${PROJECT_NAME}Config.cmake
-    NAMESPACE ${PROJECT_NAME}::
-    DESTINATION ${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME})
-
-# Provide a version file for the package
-include(CMakePackageConfigHelpers)
-configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}Config.cmake.in
-    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    INSTALL_DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}"
-)
-
-# Install the config file
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-    DESTINATION "${INSTALL_LIB_DIR}/cmake/${PROJECT_NAME}")
-
-# Make the package available
-include(CMakePackageConfigHelpers)
