@@ -14,7 +14,8 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 								 Parameters const &params)
     : corridor_sequence_(corridor_sequence),
 	  params_(params),
-      max_nb_corridors_(corridor_sequence.MaxNbCorridors())
+      max_nb_corridors_(corridor_sequence.MaxNbCorridors()),
+	  opti_(Opti())
 	  {
 	std::cout << "created parametrization" << std::endl;
 	// true parameter variables
