@@ -18,22 +18,17 @@ enum PlannerMethod{
 enum CellOccupancy{
     FREE = 0,
     DELETED = 1,
-    OCCUPIED = 2
+    OCCUPIED_STATIC = 2,
+    OCCUPIED_DYNAMIC = 3,
+    OCCUPIED_STATIC_AND_DYNAMIC = 4
 };
 
 // Class for a 2D point (world coordinates (double) or grid cell (int))
 template<typename T>
 class Point2D {
     public:
-        Point2D(){
-            x_ = 0.0;
-            y_ = 0.0;
-        };
-
-        Point2D(T x, T y){
-            x_ = x;
-            y_ = y;
-        };
+        Point2D(){x_ = 0.0; y_ = 0.0;};
+        Point2D(T x, T y){ x_ = x; y_ = y;};
         
         // getters
         T x() const { return x_;};
@@ -140,6 +135,14 @@ class Point2D {
     private:
         T x_;
         T y_;
+};
+
+template <typename T>
+struct Point2DHash {
+    std::size_t operator()(const Point2D<T>& obj) const {
+        // Example hash function combining x and y
+        return std::hash<T>()(obj.x()) + 10000 * std::hash<T>()(obj.y());
+    }
 };
 
 #endif

@@ -120,6 +120,14 @@ bool Corridor::IsCompletelyWithin(Corridor* const &other1,
     return false;
 }
 
+bool Corridor::ContainsPoint(Point2D<double> const &point) const {
+    double tolerance = 1.0e-4;
+    return point.x() >= x_min_ - tolerance && 
+           point.x() <= x_max_ + tolerance &&
+           point.y() >= y_min_ - tolerance && 
+           point.y() <= y_max_ + tolerance;
+}
+
 bool Corridor::ContainsVehicle(const Point2D<double> &vehicle_position, 
                                const Parameters &params) const {
     std::vector<double> violations(4);
@@ -246,6 +254,18 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     UpdateVersion();
 };
 
+bool CorridorSequence::ContainsPoint(const Point2D<double> &point) const {
+    if (!sequence_available_){
+        throw std::runtime_error("Corridor sequence not available");
+    }
+    for (int i = 0; i < nb_of_corridors_; i++){
+        if (sequence_[i].ContainsPoint(point)){
+            return true;
+        }
+    }
+    return false;
+};
+
 Corridor CorridorSequence::GetCorridor(int idx) const { 
     if (idx < 0 || idx >= nb_of_corridors_){
         throw std::out_of_range("Invalid index of corridor to get");
@@ -289,9 +309,12 @@ json CorridorSequence::ToJson() const {
 }
 
 void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path) const {
-    std::vector<Point2D<int>> occupied_cells = 
+    std::unordered_set<Point2D<int>, Point2DHash<int>> occupied_cells_set = 
         environment_.GetOccupiedFootprintCells(start_, params_.GetVehWidth(), 
                                                params_.GetVehHeight());
+
+    std::vector<Point2D<int>> occupied_cells(occupied_cells_set.begin(), 
+                                             occupied_cells_set.end());    
     
     // Filter out cells that are in the path
     for (int i =  occupied_cells.size()-1; i >= 0; i--){
@@ -333,9 +356,12 @@ void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path) cons
 }
 
 void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path) const {
-    std::vector<Point2D<int>> occupied_cells = 
+    std::unordered_set<Point2D<int>, Point2DHash<int>> occupied_cells_set = 
         environment_.GetOccupiedFootprintCells(dest_, params_.GetVehWidth(), 
                                                params_.GetVehHeight());
+
+    std::vector<Point2D<int>> occupied_cells(occupied_cells_set.begin(),
+                                             occupied_cells_set.end());
 
     // Filter out cells that are in the path
     for (int i =  occupied_cells.size()-1; i >= 0; i--){

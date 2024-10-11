@@ -2,6 +2,7 @@
 #define __ENVIRONMENT__
 
 #include <vector>
+#include <unordered_set>
 #include <nlohmann/json.hpp>
 
 #include "helper_types.hpp"
@@ -13,6 +14,7 @@ using json = nlohmann::json;
 class CorridorSequence;
 
 // Class representing the environment
+// Environments are always time-invariant. All obstacles are static.
 class Environment{
     public:
         Environment();
@@ -26,7 +28,6 @@ class Environment{
         bool isValidPosition(Point2D<double> pos) const;
         bool isValidVehiclePosition(Point2D<double> pos, double vehicle_width, 
                                     double vehicle_length) const;
-
 
         bool IsFree(Point2D<double> const &pos) const {
             if (!isValidPosition(pos)){ return false;}
@@ -44,18 +45,30 @@ class Environment{
         void ClearAllObstacles();
         void AddRandomObstacles(double obstacle_probability);
 
+        // Moving obstacle operations
+        class MovingObstacleOperationsToken {
+            friend class DynamicSimulator;
+            private: MovingObstacleOperationsToken() {};
+        };
+        void AddMovingObstacle(MovingObstacleOperationsToken&, 
+                               const Point2D<int> &cell);
+        void RemoveMovingObstacle(MovingObstacleOperationsToken&, 
+                                  const Point2D<int> &cell);
+        void ClearAllMovingObstacles();
+
         // Function to perform a breadth-first search in the environment
         std::vector<Point2D<int>> PerformBreadthFirstSearch(
             const Point2D<int> &start,const Point2D<int> &dest) const;
 
         // Return the cells that are occupied by the footprint of the vehicle
-        std::vector<Point2D<int>> GetOccupiedFootprintCells(
+        std::unordered_set<Point2D<int>, Point2DHash<int>> GetOccupiedFootprintCells(
             const Point2D<double> &start, const double &vehicle_width,
             const double &vehicle_length) const;
 
         // Function to print the occupancy grid
         friend std::ostream& operator<<(std::ostream &out, 
                                         Environment const &environment);
+        bool operator==(const Environment &other) const;
 
         // basic getters
         int NbCellRows() const { return nb_cell_rows_;};
@@ -74,7 +87,6 @@ class Environment{
         json ToJson() const;
 
     private:
-
         // Function to be called whenever a modification is made to the 
         // environment
         void UpdateVersion(){ version_++;};

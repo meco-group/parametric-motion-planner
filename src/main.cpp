@@ -1,8 +1,9 @@
 #include <iostream>
 #include <cmath>
 
-#include "core/motion_planner.hpp"
-#include "core/environment.hpp"
+// #include "core/motion_planner.hpp"
+// #include "core/environment.hpp"
+#include "parametric_motion_planner.hpp"
 
 void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename){
 	motion_planner.SetMethod(ARENA);
@@ -55,7 +56,7 @@ void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename)
 	std::cout << std::endl;
 }
 
-int main(){
+void SolveRandomProblem(){
     Environment environment = Environment();
     Parameters params = Parameters();
 
@@ -103,7 +104,67 @@ int main(){
 
 	// my_motion_planner.Plan();
 	// my_motion_planner.Plan();
+}
 
+void SolveDynamicProblem(){
+    // TODO: check why this gets stuck in an initialization loop
+    // Environment environment = Environment();
+    // std::cout << "Created environment " << environment << std::endl;
+    // Parameters params = Parameters();
+    // MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    // DynamicSimulator dynamic_simulator = DynamicSimulator(environment, my_motion_planner);
+
+    // Point2D<int> p1(5, 0); Point2D<int> p2(5, 4);
+    // double width = environment.CellWidth();
+    // double height = environment.CellHeight();
+    
+    // std::shared_ptr<MovingObstacle> moving_obstacle_ptr = 
+    //     std::make_shared<LinearMovingObstacle>(0.01, 0.01,
+    //         p1.ConvertCellToWorld(width, height), 
+    //         p2.ConvertCellToWorld(width, height), 0.5, true);
+    // dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr);
+
+    // Point2D<double> start(0.75, 1.08);
+    // Point2D<double> dest(1.33, 0.24);
+    // Point2D<double> start_vel(0, 0);
+    // dynamic_simulator.Plan(start, dest, start_vel);
+
+    // dynamic_simulator.DumpToJson("dynamic_solution.json");
+
+        Environment environment = Environment();
+    std::cout << "Created environment " << environment << std::endl;
+    Parameters params = Parameters();
+    MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    DynamicSimulator dynamic_simulator = DynamicSimulator(environment, my_motion_planner);
+
+    Point2D<int> p1(7, -1); Point2D<int> p2(7, -1); double duration = 5.0;
+    double width = environment.CellWidth();
+    double height = environment.CellHeight();
+    
+    std::shared_ptr<MovingObstacle> moving_obstacle_ptr = 
+        std::make_shared<LinearMovingObstacle>(0.1, 0.1,
+            p1.ConvertCellToWorld(width, height), 
+            p2.ConvertCellToWorld(width, height), duration, true);
+    dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr);
+
+    p1 = Point2D<int>(3, 4); p2 = Point2D<int>(3, 2); duration = 1.5;
+    std::shared_ptr<MovingObstacle> moving_obstacle_ptr2 = 
+        std::make_shared<LinearMovingObstacle>(0.1, 0.1,
+            p1.ConvertCellToWorld(width, height), 
+            p2.ConvertCellToWorld(width, height), duration, false);
+    dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr2);
+
+    Point2D<double> start(0.75, 1.08);
+    Point2D<double> dest(1.33, 0.24);
+    Point2D<double> start_vel(0, 0);
+    dynamic_simulator.Plan(start, dest, start_vel);
+
+    dynamic_simulator.DumpToJson("dynamic_solution.json");
+}
+
+int main(){
+    // SolveRandomProblem();
+    SolveDynamicProblem();
 }
 
 

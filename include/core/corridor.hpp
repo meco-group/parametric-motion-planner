@@ -39,6 +39,7 @@ class Corridor{
         bool IsCompletelyWithin(Corridor* const &other) const;
         bool IsCompletelyWithin(Corridor* const &other1, 
                                 Corridor* const &other2) const;
+        bool ContainsPoint(Point2D<double> const &point) const;
         bool ContainsVehicle(const Point2D<double> &vehicle_position, 
                              const Parameters &params) const;
 
@@ -138,6 +139,10 @@ class CorridorSequence{
                             Point2D<double> const &start_vel,
                             Parameters const &params,
                             UpdateToken const &token);
+
+        // Function to check if a given point is within the current corridor
+        // sequence
+        bool ContainsPoint(Point2D<double> const &point) const;
 
         // Getters
         int MaxNbCorridors() const { return max_len_;};

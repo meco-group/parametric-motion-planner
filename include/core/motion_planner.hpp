@@ -58,6 +58,7 @@ class MotionPlanner{
         
         // Basic getters
         const Environment& GetEnvironment() const { return environment_;};
+        const CorridorSequence& GetCorridorSequence() const { return corridor_sequence_;};
         Point2D<double> GetStart() const { return start_;};
         Point2D<double> GetDest() const { return dest_;};
         Point2D<double> GetStart_vel() const { return start_vel_;};
@@ -76,6 +77,7 @@ class MotionPlanner{
             std::cout << corridor_sequence_ << std::endl;
         };
 
+        json ToJson() const;
         void DumpToJson(const std::string &filename) const;
 
 

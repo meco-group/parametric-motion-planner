@@ -9,5 +9,7 @@
 #include "parameters.hpp"
 #include "parametrization.hpp"
 #include "trajectory.hpp"
+#include "moving_obstacle.hpp"
+#include "dynamic_simulator.hpp"
 
 #endif

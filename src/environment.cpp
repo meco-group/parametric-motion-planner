@@ -1,5 +1,6 @@
 #include <queue>
 #include <set>
+#include <unordered_set>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <random>
@@ -10,7 +11,6 @@
 using json = nlohmann::json;
 
 Environment::Environment(){
-    std::cout << "Creating environment" << std::endl;
     nb_cell_rows_ = 10;
     nb_cell_cols_ = 12;
     cell_width_ = 0.120;
@@ -31,7 +31,6 @@ Environment::Environment(){
             DeleteCell(Point2D<int>(i, j));
         }
     }
-    std::cout << "Done creating environment" << std::endl;
 }
 
 Environment::Environment(int nb_cell_rows, int nb_cell_cols, double cell_width, 
@@ -112,7 +111,13 @@ void Environment::AddObstacle(Point2D<int> cell){
     if (!isValidCell(cell)){
         throw InvalidEnvironmentOperationException("Cannot add an obstacle outside of the environment");
     }
-    occupancy_grid_[cell.x()][cell.y()] = OCCUPIED;
+
+    // Do not add obstacles in deleted parts
+    if (occupancy_grid_[cell.x()][cell.y()] == DELETED){
+        return;
+    }
+
+    occupancy_grid_[cell.x()][cell.y()] = OCCUPIED_STATIC;
     UpdateVersion();
 }
 
@@ -127,7 +132,7 @@ void Environment::RemoveObstacle(Point2D<int> cell){
 void Environment::ClearAllObstacles(){
     for (int i = 0; i < nb_cell_cols_; i++){
         for (int j = 0; j < nb_cell_rows_; j++){
-            if (occupancy_grid_[i][j] == OCCUPIED){
+            if (occupancy_grid_[i][j] == OCCUPIED_STATIC){
                 occupancy_grid_[i][j] = FREE;
             }
         }
@@ -149,6 +154,57 @@ void Environment::AddRandomObstacles(double obstacle_probability){
             if (occupancy_grid_[i][j] == FREE &&
                     dis(gen) < obstacle_probability){
                 AddObstacle(Point2D<int>(i, j));
+            }
+        }
+    }
+    UpdateVersion();
+}
+
+void Environment::AddMovingObstacle(MovingObstacleOperationsToken&, 
+                                    const Point2D<int> &cell){
+    if (!isValidCell(cell)){
+        // We allow the user to place dynamic obstacles outside of the environment
+        // In that case, this operation is just ignored
+        return;
+        // throw InvalidEnvironmentOperationException("Cannot add a moving obstacle outside of the environment");
+    }
+
+    // Do not add obstacles in deleted parts
+    if (occupancy_grid_[cell.x()][cell.y()] == DELETED){
+        return;
+    }
+
+    if (occupancy_grid_[cell.x()][cell.y()] == OCCUPIED_STATIC){
+        occupancy_grid_[cell.x()][cell.y()] = OCCUPIED_STATIC_AND_DYNAMIC;
+    } else {
+        occupancy_grid_[cell.x()][cell.y()] = OCCUPIED_DYNAMIC;
+    }
+    UpdateVersion();
+}
+
+void Environment::RemoveMovingObstacle(MovingObstacleOperationsToken&, 
+                                       const Point2D<int> &cell){
+    if (!isValidCell(cell)){
+        // We allow the user to remove dynamic obstacles outside of the environment
+        // In that case, this operation is just ignored
+        return;
+        // throw InvalidEnvironmentOperationException("Cannot remove a moving obstacle outside of the environment");
+    }
+    if (occupancy_grid_[cell.x()][cell.y()] == OCCUPIED_STATIC_AND_DYNAMIC){
+        occupancy_grid_[cell.x()][cell.y()] = OCCUPIED_STATIC;
+    } else {
+        occupancy_grid_[cell.x()][cell.y()] = FREE;
+    }
+    UpdateVersion();
+}
+
+void Environment::ClearAllMovingObstacles(){
+    for (int i = 0; i < nb_cell_cols_; i++){
+        for (int j = 0; j < nb_cell_rows_; j++){
+            if (occupancy_grid_[i][j] == OCCUPIED_DYNAMIC){
+                occupancy_grid_[i][j] = FREE;
+            } else if (occupancy_grid_[i][j] == OCCUPIED_STATIC_AND_DYNAMIC){
+                occupancy_grid_[i][j] = OCCUPIED_STATIC;
             }
         }
     }
@@ -210,11 +266,12 @@ std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
     return std::vector<Point2D<int>>();
 };
 
-std::vector<Point2D<int>> Environment::GetOccupiedFootprintCells(
+std::unordered_set<Point2D<int>, Point2DHash<int>> Environment::GetOccupiedFootprintCells(
     const Point2D<double> &point, const double &vehicle_width,
     const double &vehicle_length) const {
     // Initialize the set of occupied cells
-    std::set<Point2D<int>> occupied_cells;
+    std::unordered_set<Point2D<int>, Point2DHash<int>> occupied_cells = 
+        std::unordered_set<Point2D<int>, Point2DHash<int>>();
 
     // Compute the occupied cells
     Point2D<double> vehicle_edge_point;
@@ -232,7 +289,7 @@ std::vector<Point2D<int>> Environment::GetOccupiedFootprintCells(
         }
     }
 
-    return std::vector<Point2D<int>>(occupied_cells.begin(), occupied_cells.end());
+    return occupied_cells;
 }
 
 std::ostream& operator<<(std::ostream &out, Environment const &environment){
@@ -249,14 +306,24 @@ std::ostream& operator<<(std::ostream &out, Environment const &environment){
                 case DELETED:
                     out << "X ";
                     break;
-                case OCCUPIED:
+                case OCCUPIED_STATIC:
                     out << "# ";
+                    break;
+                case OCCUPIED_STATIC_AND_DYNAMIC:
+                    out << "#";
+                    break;
+                case OCCUPIED_DYNAMIC:
+                    out << "= ";
                     break;
             }
         }
         out << std::endl;
     }
     return out;
+}
+
+bool Environment::operator==(const Environment &other) const {
+    return this == &other;
 }
 
 CellOccupancy Environment::GetOccupancy(Point2D<int> cell) const {

@@ -16,8 +16,6 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         corridor_sequence_(environment_, params),
         parametrization_(corridor_sequence_, params) {
 
-	std::cout << "creating motion planner" << std::endl;
-
 	method_ = method;
 	opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
@@ -33,9 +31,6 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 	coarse_samples_acceleration_ =
 		std::vector<Point2D<double>>(1 + 3*max_nb_corridors);
 	coarse_samples_time_ = std::vector<double>(1 + 3*max_nb_corridors);
-
-	std::cout << "done creating motion planner" << std::endl;
-
 }
 
 void MotionPlanner::SetStart(Point2D<double> start){
@@ -129,6 +124,21 @@ void MotionPlanner::Plan(const Point2D<double> &start,
     Plan();
 }
 
+json MotionPlanner::ToJson() const {
+    json motion_planner_json;
+    motion_planner_json["environment"] = environment_.ToJson();
+    motion_planner_json["parameters"] = params_.ToJson();
+    motion_planner_json["corridor_sequence"] = corridor_sequence_.ToJson();
+    motion_planner_json["planner_method"] = PlannerMethodToString();
+    if (method_ == ARENA){
+        motion_planner_json["parametrization"] = parametrization_.ToJson();
+        motion_planner_json["trajectory"] = last_solution_.ToJson();
+    } else {
+        motion_planner_json["trajectory"] = last_solution_.ToJson();
+    }
+
+    return motion_planner_json;
+}
 
 void MotionPlanner::DumpToJson(const std::string &filename) const {
     // Create output directory if it doesn't exist
@@ -137,26 +147,7 @@ void MotionPlanner::DumpToJson(const std::string &filename) const {
     // Define the full path
     std::string full_path = "output/" + filename;
 
-    json j;
-    // Read existing content from the file if it exists
-    // std::ifstream inFile(full_path);
-    // if (inFile) {
-    //     inFile >> j;
-    //     inFile.close();
-    // }
-
-    // Add all elements
-    j["Environment"] = environment_.ToJson();
-    j["Parameters"] = params_.ToJson();
-    j["CorridorSequence"] = corridor_sequence_.ToJson();
-    j["PlannerMethod"] = PlannerMethodToString();
-    if (method_ == PlannerMethod::ARENA){
-        j["Parametrization"] = parametrization_.ToJson();
-        // j["Trajectory"] = parametrization_.initialized_trajectory_.ToJson();
-        j["Trajectory"] = last_solution_.ToJson();
-    } else {
-        j["Trajectory"] = last_solution_.ToJson();
-    }
+    json j = ToJson();
 
     // Write the updated content back to the file, creating it if it doesn't exist
     std::ofstream outFile(full_path);
@@ -458,7 +449,6 @@ void MotionPlanner::PlanARENA(){
     parametrization_.OptimizeSingleArc(parametrization_update_token_);
     std::set<int> problematic_corridors = CheckOutOfCorridor(solver_time);
 
-
     // only continue if that didn't work
     if (problematic_corridors.size() > 0){
         // Initialize the parametrization
@@ -467,11 +457,12 @@ void MotionPlanner::PlanARENA(){
 
         // Start the optimization loop
         bool made_modification = true;
-        while (made_modification){
+        // while (made_modification){
             // Solve the parametrization
             parametrization_.OptimizeParametrization(
                 parametrization_update_token_, opts_casadi_, opts_solver_);
             solver_time += parametrization_.GetSolverTime();
+
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
 
             // Check if additional constraints are required
@@ -483,7 +474,7 @@ void MotionPlanner::PlanARENA(){
 
             // Check if the parametrization is still sub-optimal
             made_modification = EliminateSubOptimalParametrization();
-        }
+        // }
     }
 
     // Update the solution

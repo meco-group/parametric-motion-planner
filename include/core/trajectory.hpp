@@ -6,7 +6,11 @@
 
 #include "helper_types.hpp"
 #include "corridor.hpp"
+#include "parameters.hpp"
 // #include "parametrization.hpp"
+
+// forward declaration
+class CorridorSequence;
 
 using namespace casadi;
 
@@ -50,10 +54,36 @@ class Trajectory{
         // and the total time of the trajectory is set to 0
         void Reset(Point2D<double> const &start);
 
+        // Function to append single data elements to a trajectory
+        // To be used as a recording of a travelled trajectory
+        void Append(double t, double px, double py, double vx, double vy, 
+                    double ax, double ay);
+
         // printing
         friend std::ostream& operator<<(std::ostream &out, Trajectory &trajectory);
 
+        // Define the copy assignment operator
+        Trajectory& operator=(const Trajectory& other) {
+            if (this == &other) return *this;  // Check for self-assignment
+
+            // Copy the data
+            curr_nb_samples_ = other.curr_nb_samples_;
+            t_ = other.t_;
+            px_ = other.px_;
+            py_ = other.py_;
+            vx_ = other.vx_;
+            vy_ = other.vy_;
+            ax_ = other.ax_;
+            ay_ = other.ay_;
+            tf_ = other.tf_;
+            total_computation_time_ = other.total_computation_time_;
+            solver_time_ = other.solver_time_;
+
+            return *this;
+        }
+
         // Basic getters
+        double Dt() const { return dt_;};
         double Tf() const { return tf_;};
         int NbSamples() const { return curr_nb_samples_;};
         std::vector<double> T() const { return t_;};
@@ -80,17 +110,17 @@ class Trajectory{
         const int max_nb_samples_;
         int curr_nb_samples_ = 0;
 
-        std::vector<double> t_;
-        std::vector<double> px_;
-        std::vector<double> py_;
-        std::vector<double> vx_;
-        std::vector<double> vy_;
-        std::vector<double> ax_;
-        std::vector<double> ay_;
-        double tf_;
+        std::vector<double> t_ = {};
+        std::vector<double> px_ = {};
+        std::vector<double> py_ = {};
+        std::vector<double> vx_ = {};
+        std::vector<double> vy_ = {};
+        std::vector<double> ax_ = {};
+        std::vector<double> ay_ = {};
+        double tf_ = 0;
 
-        double total_computation_time_;     // expressed in ms
-        double solver_time_;                // expressed in ms
+        double total_computation_time_ = 0;     // expressed in ms
+        double solver_time_ = 0;                // expressed in ms
 };
 
 #endif

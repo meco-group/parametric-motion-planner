@@ -1,56 +1,5 @@
-import json
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-from matplotlib.patches import Rectangle, FancyBboxPatch
-import shapely.geometry as sg
-import shapely.ops as so
-
-def load_data(output_file):
-    with open(output_file) as f:
-        data = json.load(f)
-
-    env = data['Environment']
-    params = data['Parameters']
-    corridors = data['CorridorSequence']
-    planner_method = data['PlannerMethod']
-    trajectory = data['Trajectory']
-
-    if planner_method == "ARENA":
-        parametrization = data['Parametrization']
-        return (env, params, corridors, planner_method, trajectory, parametrization)
-    else:
-        return (env, params, corridors, planner_method, trajectory, None)
-
-def plot_vehicle_footprint(ax, px, py, params, virtual_position=False):
-    veh_width = params["veh_width"]
-    veh_height = params["veh_height"]
-    alpha = 1.0 if not virtual_position else 1.0
-    anchor = (px-veh_width/2, py-veh_height/2)
-    width = veh_width
-    height = veh_height
-    boxstyle = "round,pad=0.0, rounding_size=0.015"
-    color = 'black' if not virtual_position else 'lightgray'
-    linestyle = '-' if not virtual_position else '--'
-
-    inner_factor = 0.8
-    alpha_inner = 1.0 if not virtual_position else 1.0
-    anchor_inner = (px-inner_factor*veh_width/2, 
-                    py-inner_factor*veh_height/2)
-    width_inner = inner_factor*veh_width
-    height_inner = inner_factor*veh_height
-    boxstyle_inner = "round,pad=0.0, rounding_size=0.002"
-    color_inner = 'gainsboro' if not virtual_position else 'whitesmoke'
-
-    # create a fancybox with rounded corners
-    rect = FancyBboxPatch(anchor, width, height, boxstyle=boxstyle, 
-                            fill=True, facecolor=color, 
-                            edgecolor='k', linestyle=linestyle, alpha=alpha)
-    ax.add_patch(rect)
-    rect = FancyBboxPatch(anchor_inner, width_inner, height_inner, 
-                            boxstyle=boxstyle_inner, fill=True, 
-                            facecolor=color_inner, edgecolor=color_inner, 
-                            alpha=alpha_inner)
-    ax.add_patch(rect)
+from visualization_helpers import *
 
 def visualize_output(env, params, corridors, planner_methods, 
                      trajectories, parametrizations=[]):
@@ -83,104 +32,30 @@ def visualize_output(env, params, corridors, planner_methods,
     plt.figure()
 
     # show environment
-    occupancy = env["occupancy_grid"]
-    cell_width = env["cell_width"]
-    cell_height = env["cell_height"]
-    for i in range(len(occupancy)):
-        for j in range(len(occupancy[i])):
-            if occupancy[i][j] == 1:
-                color = 'k'
-            elif occupancy[i][j] == 2:
-                color = 'firebrick'
-            else:
-                color = 'white'
-            
-            plt.gca().add_patch(Rectangle((i*cell_width, j*cell_height), 
-                                          cell_width, cell_height, fill=True,
-                                          facecolor=color, edgecolor=None))
-
-    # plot a light grid showing the cell
-    for i in range(env["nb_cell_cols"]):
-        plt.plot([i*cell_width, i*cell_width], 
-                 [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
-                 color='k', zorder=1)
-    for j in range(env["nb_cell_rows"]):
-        plt.plot([0, cell_width*env["nb_cell_cols"]], 
-                 [j*cell_height, j*cell_height], linewidth=0.1, \
-                 color='k', zorder=1)
+    show_environment(env)
 
     # plot corridors
-    for c in corridors["sequence"]:
-        plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
-                                      c["x_max"]-c["x_min"], 
-                                      c["y_max"]-c["y_min"], 
-                            fill=True, facecolor="green", alpha=0.2, 
-                            edgecolor=None))
-        plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
-                                      c["x_max"]-c["x_min"], 
-                                      c["y_max"]-c["y_min"], 
-                            fill=False, edgecolor='green', linewidth=1))
+    show_corridors(corridors)
         
     # plot waypoints
     for i in range(len(trajectories)):
         if planner_methods[i] == "ARENA":
-            for w in range(0, parametrizations[i]["nb_corridors"] + 1):
-                plt.plot([parametrizations[i]["waypoints"][w]["x"]], 
-                         [parametrizations[i]["waypoints"][w]["y"]], 'ok', alpha=0.1)
-                plt.plot([parametrizations[i]["waypoints_sol"][w]["x"]], 
-                         [parametrizations[i]["waypoints_sol"][w]["y"]], 'ok')
+            show_waypoints(parametrizations[i])
                            
     # plot trajectory
     for i in range(len(trajectories)):
-        # if planner_methods[i] == "ARENA" or planner_methods[i] == "OCP":
-        if planner_methods[i] == "ARENA":
-            footprints = []
-            for j in range(len(trajectories[i]["px"])-1):
-                px = trajectories[i]["px"][j]
-                py = trajectories[i]["py"][j]
-                px_next = trajectories[i]["px"][j+1]
-                py_next = trajectories[i]["py"][j+1]
+        show_trajectory(trajectories[i], colors[i], 
+                        planner_methods[i] == "ARENA", params["veh_width"], 
+                        params["veh_height"], i == 0)
 
-                for k in range(0, 100, 10):
-                    px = px + k/100*(px_next - px)
-                    py = py + k/100*(py_next - py)            
-                    footprint = sg.box(px - params["veh_width"]/2, 
-                                    py - params["veh_height"]/2,
-                                    px + params["veh_width"]/2, 
-                                    py + params["veh_height"]/2)
-                    footprints.append(footprint)
-            footprint_trace = so.unary_union(footprints)
-            try:
-                x, y = footprint_trace.exterior.xy
-                plt.gca().fill(x, y, color=colors[i], alpha=0.2, edgecolor='none')
-                # plt.gca().fill(x, y, color='none', alpha=0.5, edgecolor=colors[i])
-                # plt.plot(x, y, color=colors[i], linewidth=1)
-            except:
-                print("No footprint to plot")
- 
-        plt.plot(trajectories[i]["px"], trajectories[i]["py"], 'o-', 
-                 color=colors[i], markersize=1)
-        
-    # show vehicle footprint
-    plot_vehicle_footprint(plt.gca(), trajectories[0]["px"][0], 
-                           trajectories[0]["py"][0], params, 
-                           virtual_position=False)
-    plot_vehicle_footprint(plt.gca(), trajectories[0]["px"][-1], 
-                           trajectories[0]["py"][-1], params, 
-                           virtual_position=True)
  
     # pts = [0.511041, 0.172393, 0.511041, 0.177022, 0.54149, 0.1785, 0.84088, 0.178954, 0.953821, 0.155781, 1.01849, 0.1815, 1.24629, 0.181509, 1.25851, 0.30149, 1.25851, 0.30149, 1.29906, 0.3015, 1.29906, 0.3015, 1.29937, 0.336515]
     # pts_x = [pts[2*i] for i in range(len(pts)//2)]
     # pts_y = [pts[2*i+1] for i in range(len(pts)//2)]
     # plt.scatter(pts_x, pts_y)
-            
-    plt.xlim([0, cell_width*env["nb_cell_cols"]])
-    plt.gca().xaxis.set_major_locator(ticker.MultipleLocator(1*cell_width))
-    plt.ylim([0, cell_height*env["nb_cell_rows"]])
-    plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(1*cell_height))
-    plt.gca().set_aspect('equal',adjustable='box')
+    
+    set_env_plot_limits(env)
     plt.savefig(fig_folder + 'traj.png', dpi=300)
-
 
 
     ### plot positions ###
@@ -223,7 +98,6 @@ def visualize_output(env, params, corridors, planner_methods,
     plt.suptitle('Position')
 
     plt.savefig(fig_folder + 'positions.png', dpi=300)
-
 
 
     ### plot velocity ###
