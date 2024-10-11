@@ -26,29 +26,32 @@ LinearMovingObstacle::LinearMovingObstacle(double width, double height,
 }
 
 void LinearMovingObstacle::Update(double dt) {
-    current_time_ += dt;
-    if (current_time_ > movement_duration_){
-        if (loop_){
-            // revert the movement
-            Point2D<double> temp = start_;
-            start_ = end_;
-            end_ = temp;
-        } else {
-            position_ = end_;
-            AppendToTravelledTrajectory(current_time_, position_.x(), 
-                                        position_.y(), 0, 0, 0, 0);
-            return;
-        }
-    }
-
     // compute remainder of time divided by movement duration
     double t = current_time_;
     while (t > movement_duration_){
         t -= movement_duration_;
     }
+
+    // Update time
+    current_time_ += dt;
+    t += dt;
+
+    // looping logic
+    if (t > movement_duration_){
+        if (loop_){
+            // revert the movement
+            Point2D<double> temp = start_;
+            start_ = end_;
+            end_ = temp;
+            t -= movement_duration_;
+        } else {
+            start_ = end_;
+            position_ = end_;
+        }
+    }
+
     t = t/movement_duration_;
     position_ = start_ + (end_ - start_)*t;
-
     // Append the new position to the travelled trajectory
     AppendToTravelledTrajectory(current_time_, position_.x(), position_.y(), 
                                 0, 0, 0, 0);

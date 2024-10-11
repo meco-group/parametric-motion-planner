@@ -59,6 +59,7 @@ class MotionPlanner{
         // Basic getters
         const Environment& GetEnvironment() const { return environment_;};
         const CorridorSequence& GetCorridorSequence() const { return corridor_sequence_;};
+        const Parametrization& GetParametrization() const { return parametrization_;};
         Point2D<double> GetStart() const { return start_;};
         Point2D<double> GetDest() const { return dest_;};
         Point2D<double> GetStart_vel() const { return start_vel_;};

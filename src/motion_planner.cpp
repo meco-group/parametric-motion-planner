@@ -85,9 +85,7 @@ void MotionPlanner::Plan(){
         last_solution_.Reset(start_);
         return;
     }
-
     PrintCorridorSequence();
-
     switch(method_){
         case P2P:
             PlanP2P();
@@ -453,7 +451,7 @@ void MotionPlanner::PlanARENA(){
     if (problematic_corridors.size() > 0){
         // Initialize the parametrization
         parametrization_.UpdateParametrization(parametrization_update_token_);
-        // std::cout << parametrization_ << std::endl;
+        std::cout << parametrization_ << std::endl;
 
         // Start the optimization loop
         bool made_modification = true;
@@ -511,6 +509,7 @@ void MotionPlanner::InitializeRK4(){
 }
 
 std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){
+    last_solution_.Reset(start_);
     return last_solution_.Update(corridor_sequence_,
                                  parametrization_.GetTxSol(), 
                                  parametrization_.GetTySol(), 

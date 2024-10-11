@@ -91,7 +91,7 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 		ComputeSingleWaypoint(i, true);
 	}
 
-	// Update accelerations at start and dest
+	// Update accelerations at start and dest based on distance only
 	alpha_x_[0] = sign(waypoints_[1].x() - waypoints_[0].x());
 	alpha_y_[0] = sign(waypoints_[1].y() - waypoints_[0].y());
 	int final_idx = corridor_sequence_.NbCorridors();
@@ -99,6 +99,23 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 							    waypoints_[final_idx - 1].x());
 	alpha_y_[final_idx] = -sign(waypoints_[final_idx].y() -
 							    waypoints_[final_idx - 1].y());
+
+	// For the initial acceleration, consider the single arc solution
+	OptimizeSingleArc1D(t_x_sol_[0], alpha_x_sol_, 
+						waypoints_[0].x(), waypoints_[1].x(),
+						corridor_sequence_.GetStartVel().x());
+	OptimizeSingleArc1D(t_y_sol_[0], alpha_y_sol_,
+						waypoints_[0].x(), waypoints_[1].x(),
+						corridor_sequence_.GetStartVel().y());
+	double t_x = t_x_sol_[0][0] + t_x_sol_[0][1] + t_x_sol_[0][2];
+	double t_y = t_y_sol_[0][0] + t_y_sol_[0][1] + t_y_sol_[0][2];
+	if (t_x > t_y){
+		initial_bottleneck_direction_ = 0;
+		alpha_x_[0] = alpha_x_sol_[0];
+	} else {
+		initial_bottleneck_direction_ = 1;
+		alpha_y_[0] = alpha_y_sol_[0];
+	}
 
 	// Update the parametrization based on line of sights
 	nb_movable_waypoints_ = 0;
@@ -129,7 +146,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	opti_ = Opti();
 
 	////////////////////////////////////////////
-	/// Definition of opti_mization variables ///
+	/// Definition of optimization variables ///
 	////////////////////////////////////////////
 	//	time durations	
 	t_x_ = opti_.variable(3, corridor_sequence_.NbCorridors());
@@ -1060,9 +1077,13 @@ void Parametrization::InitializeOptimization(){
 		for (int w = 0; w < corridor_sequence_.NbCorridors(); w++){
 			success = InitializeArc(w, v_des, curr_vel);			
 			if (!success){
-				// try again with lower velocity
-				v_des *= 0.7;
-				break;
+				if (v_des <= 0.1){
+					success = true;
+				} else {
+					// try again with lower velocity
+					v_des *= 0.7;
+					break;
+				}
 			}
 
 			curr_vel.CopyValues(waypoint_velocities_init_[w+1]);
@@ -1100,7 +1121,8 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 	double a_max = params_.GetAmax();
 
 	// Compute the bottleneck direction
-	if (std::abs(p0.x() - pf.x()) < std::abs(p0.y() - pf.y())){
+	if (corridor_idx == 0 && initial_bottleneck_direction_ == 0 ||
+	  		corridor_idx > 0 && std::abs(p0.x() - pf.x()) < std::abs(p0.y() - pf.y())){
 		p0_bd = p0.y(); pf_bd = pf.y(); v0_bd = start_vel.y();
 		alpha_bd = alpha_y_[corridor_idx];
 		alpha_next_bd = alpha_y_[corridor_idx + 1];

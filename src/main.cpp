@@ -131,13 +131,14 @@ void SolveDynamicProblem(){
 
     // dynamic_simulator.DumpToJson("dynamic_solution.json");
 
-        Environment environment = Environment();
+    Environment environment = Environment();
     std::cout << "Created environment " << environment << std::endl;
     Parameters params = Parameters();
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
     DynamicSimulator dynamic_simulator = DynamicSimulator(environment, my_motion_planner);
 
-    Point2D<int> p1(7, -1); Point2D<int> p2(7, -1); double duration = 5.0;
+    // Create first moving obstacle
+    Point2D<int> p1(5, 6); Point2D<int> p2(3, 6); double duration = 1.0;
     double width = environment.CellWidth();
     double height = environment.CellHeight();
     
@@ -147,7 +148,8 @@ void SolveDynamicProblem(){
             p2.ConvertCellToWorld(width, height), duration, true);
     dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr);
 
-    p1 = Point2D<int>(3, 4); p2 = Point2D<int>(3, 2); duration = 1.5;
+    // Create second moving obstacle
+    p1 = Point2D<int>(7, -1); p2 = Point2D<int>(7, 2); duration = 1.0;
     std::shared_ptr<MovingObstacle> moving_obstacle_ptr2 = 
         std::make_shared<LinearMovingObstacle>(0.1, 0.1,
             p1.ConvertCellToWorld(width, height), 

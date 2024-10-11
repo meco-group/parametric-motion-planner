@@ -37,7 +37,8 @@ class Parametrization{
                 void Invalidate(){is_valid_ = false;};
                 void Validate(){is_valid_ = true;};
 
-            friend class MotionPlanner; 
+            friend class MotionPlanner;
+            friend class Parametrization; 
             private: 
                 UpdateToken() {};
                 bool is_valid_ = true;
@@ -144,6 +145,7 @@ class Parametrization{
         std::vector<Point2D<double>> max_waypoint_offsets_; // maximum waypoint offsets
         std::vector<WaypointLocation> waypoint_locations_;  // naming (debugging purposes)
         int nb_movable_waypoints_;
+        int initial_bottleneck_direction_ = 0;
 
         // mx objects to be used in the optimization
         casadi::Opti opti_;

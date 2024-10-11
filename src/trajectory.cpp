@@ -154,11 +154,11 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     
     // compute the total time
     double total_time_x = 0.0;
-    for (int i = 0; i < t_x.size(); i++){
+    for (int i = 0; i < corridor_sequence.NbCorridors(); i++){
         total_time_x += t_x[i][0] + t_x[i][1] + t_x[i][2];
     }
     double total_time_y = 0.0;
-    for (int i = 0; i < t_y.size(); i++){
+    for (int i = 0; i < corridor_sequence.NbCorridors(); i++){
         total_time_y += t_y[i][0] + t_y[i][1] + t_y[i][2];
     }
     tf_ = std::max(total_time_x, total_time_y);

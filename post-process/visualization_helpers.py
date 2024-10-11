@@ -77,7 +77,9 @@ def show_waypoints(parametrization):
                     [parametrization["waypoints_sol"][w]["y"]], 'ok')
 
 def show_trajectory(trajectory, color, with_trace=False, width=0, height=0, 
-                    with_footprints=False, nb_samples_to_show=-1):
+                    with_footprints=False, nb_samples_to_show=-1,
+                    virtual_initial_footprint=False,
+                    virtual_final_footprint=True):
     if nb_samples_to_show == -1:
         nb_samples_to_show = len(trajectory["px"])
 
@@ -114,11 +116,11 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
         # show vehicle footprint
         plot_vehicle_footprint(plt.gca(), trajectory["px"][0], 
                                trajectory["py"][0], width, height, 
-                               virtual_position=False)
+                               virtual_position=virtual_initial_footprint)
         final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
         plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
                                trajectory["py"][final_ind], width, height,
-                               virtual_position=True)
+                               virtual_position=virtual_final_footprint)
         
 def show_moving_obstacle(obstacle, sample_idx, color):
     x = obstacle["travelled_trajectory"]["px"][sample_idx]

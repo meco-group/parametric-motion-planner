@@ -30,8 +30,8 @@ void DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
     Point2D<double> replan_velocity;
     double replan_time = 0.0;
     while (current_trajectory_sample_idx < curr_trajectory.NbSamples()){
-        std::cout << curr_trajectory.Px()[current_trajectory_sample_idx] << ", " <<
-                     curr_trajectory.Py()[current_trajectory_sample_idx] << std::endl;
+        // std::cout << curr_trajectory.Px()[current_trajectory_sample_idx] << ", " <<
+        //              curr_trajectory.Py()[current_trajectory_sample_idx] << std::endl;
 
         // Update the recording
         travelled_trajectory_.Append(
@@ -63,7 +63,7 @@ void DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
                 curr_trajectory.Vy()[current_trajectory_sample_idx]);
 
             // Update the time of replan
-            replan_time = curr_trajectory.T()[current_trajectory_sample_idx];
+            replan_time += curr_trajectory.T()[current_trajectory_sample_idx];
             replanning_times_.push_back(replan_time);
 
             // Replan
