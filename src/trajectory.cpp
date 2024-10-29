@@ -272,6 +272,14 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
         }
     }
 
+    // The last sample should be steady-state
+    px_[curr_nb_samples_ - 1] = px_[curr_nb_samples_ - 2];
+    py_[curr_nb_samples_ - 1] = py_[curr_nb_samples_ - 2];
+    vx_[curr_nb_samples_ - 1] = 0.0;
+    vy_[curr_nb_samples_ - 1] = 0.0;
+    ax_[curr_nb_samples_ - 1] = 0.0;
+    ay_[curr_nb_samples_ - 1] = 0.0;
+
     return out_of_corridor_list;
 }
 

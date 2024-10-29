@@ -57,17 +57,17 @@ def set_env_plot_limits(env):
     plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(1*cell_height))
     plt.gca().set_aspect('equal',adjustable='box')
 
-def show_corridors(corridors):
+def show_corridors(corridors, color='green', max_alpha=1):
     for c in corridors["sequence"]:
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
-                            fill=True, facecolor="green", alpha=0.2, 
+                            fill=True, facecolor=color, alpha=0.2*max_alpha, 
                             edgecolor=None))
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
-                            fill=False, edgecolor='green', linewidth=1))
+                            fill=False, edgecolor=color, linewidth=1))
         
 def show_waypoints(parametrization):
     for w in range(0, parametrization["nb_corridors"] + 1):
@@ -79,7 +79,8 @@ def show_waypoints(parametrization):
 def show_trajectory(trajectory, color, with_trace=False, width=0, height=0, 
                     with_footprints=False, nb_samples_to_show=-1,
                     virtual_initial_footprint=False,
-                    virtual_final_footprint=True):
+                    virtual_final_footprint=True,
+                    show_markers=True, linewidth=1, with_line=True):
     if nb_samples_to_show == -1:
         nb_samples_to_show = len(trajectory["px"])
 
@@ -108,9 +109,18 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
         except:
             print("No footprint to plot")
 
-    plt.plot(trajectory["px"][:nb_samples_to_show], 
-             trajectory["py"][:nb_samples_to_show], 'o-', color=color, 
-             markersize=1)
+    if show_markers and with_line:
+        plt.plot(trajectory["px"][:nb_samples_to_show], 
+                trajectory["py"][:nb_samples_to_show], 'o-', color=color, 
+                markersize=1, linewidth=linewidth)
+    elif show_markers:
+        plt.plot(trajectory["px"][:nb_samples_to_show], 
+                trajectory["py"][:nb_samples_to_show], 'o', color=color, 
+                markersize=1, linewidth=linewidth)
+    elif with_line:
+        plt.plot(trajectory["px"][:nb_samples_to_show], 
+                trajectory["py"][:nb_samples_to_show], '-', color=color, 
+                linewidth=linewidth)
     
     if with_footprints:
         # show vehicle footprint

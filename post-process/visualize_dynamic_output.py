@@ -3,20 +3,30 @@ from visualization_helpers import *
 
 
 def visualize_dynamic_solution(data, T=-1, counter=0):
-    if T == -1:
-        T = data["travelled_trajectory"]["Tf"]
+    DPI = 300
+
+    if T == -1 or T > data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]:
+        T = data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]
     
     # find the index of the last trajectory to (at least partially) show
     traj_idx = 0
     while len(data["replanning_times"]) > traj_idx and T > data["replanning_times"][traj_idx]:
         traj_idx += 1
 
+    local_replanning_times = [0] + data["replanning_times"]
+
     # find the index in the travelled trajectory
-    travelled_traj_sample_idx = int(T/data["travelled_trajectory"]["dt"])
+    travelled_traj_sample_idx = int(min(T/data["travelled_trajectory"]["dt"],
+                                    data["travelled_trajectory"]["nb_samples"]))
+    print(f"travelled_traj_sample_idx: {travelled_traj_sample_idx}")
+    print(f"total number of samples: {data['travelled_trajectory']['nb_samples']}")
 
     print(f"traj_idx = {traj_idx}")
     print(f"travelled_traj_sample_idx = {travelled_traj_sample_idx}")
 
+    ###############################
+    ### Make environment figure ###
+    ###############################
     plt.figure()
 
     # Show the environment
@@ -29,22 +39,36 @@ def visualize_dynamic_solution(data, T=-1, counter=0):
 
     # Show traces of moving obstacles
     for obs in data["moving_obstacles"]:
-        # show_trajectory(obs["travelled_trajectory"], 'darkred', True, 
-        #                 obs["width"], obs["height"])
-        show_moving_obstacle(obs, travelled_traj_sample_idx, 'darkred')
+        if counter is None:
+            show_trajectory(obs["travelled_trajectory"], 'darkred',
+                            with_trace=True, 
+                            width=obs["width"], height=obs["height"], with_footprints=False, with_line=False,
+                            show_markers=False)
+            plt.gca().add_patch(Rectangle((obs["travelled_trajectory"]["px"][travelled_traj_sample_idx]-obs["width"]/2, 
+                                           obs["travelled_trajectory"]["py"][travelled_traj_sample_idx]-obs["height"]/2),
+                                          obs["width"], obs["height"], fill=True, 
+                                          facecolor='darkred', edgecolor=None))
+            
+        else:
+            show_moving_obstacle(obs, travelled_traj_sample_idx, 'darkred')
         
     # show all previously computed trajectories
     for i in range(min(len(data["previous_trajectories"]), traj_idx)):
-        show_trajectory(data["previous_trajectories"][i], 'gray', True, 
+        show_trajectory(data["previous_trajectories"][i], 'gray', False, 
                         data["motion_planner"]["parameters"]["veh_width"], 
                         data["motion_planner"]["parameters"]["veh_height"],
-                        with_footprints=True, 
+                        with_footprints=False, 
                         virtual_initial_footprint=True,
-                        virtual_final_footprint=True)
-    show_trajectory(data["previous_trajectories"][traj_idx], 'gray', True, 
+                        virtual_final_footprint=True,
+                        show_markers=False, linewidth=0.5 + 0.5*(i==traj_idx))
+        plt.plot(data["previous_trajectories"][i]["px"][0],
+                 data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
+    show_trajectory(data["previous_trajectories"][traj_idx], 'gray', False, 
                     data["motion_planner"]["parameters"]["veh_width"], 
                     data["motion_planner"]["parameters"]["veh_height"],
                     with_footprints=False)
+    plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
+                data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
 
     # Show the trajectory of the mover
     show_trajectory(data["travelled_trajectory"], 'blue', True, 
@@ -59,23 +83,301 @@ def visualize_dynamic_solution(data, T=-1, counter=0):
     if counter is None:
         plt.savefig(f"../post-process/figures/dynamic_solution_traj.png", dpi=200)
     else:
-        plt.savefig(f"../post-process/figures/animation/dynamic_solution_traj_{counter}.png", dpi=300)
+        plt.savefig(f"../post-process/figures/animation/traj_frames/dynamic_solution_traj_{counter}.png", dpi=DPI)
+    plt.close()
+
+    ############################
+    ### Make velocity figure ###
+    ############################
+    fig, axs = plt.subplots(2, 1)
+    # for i in range(min(len(data["previous_trajectories"]), traj_idx+1)):
+    #     axs[0].plot([t + local_replanning_times[i] for t in data["previous_trajectories"][i]["t"]],
+    #                 data["previous_trajectories"][i]["vx"], '-', 
+    #                 color='gray', linewidth=0.5 + 0.5*(i==traj_idx))
+    #     axs[1].plot([t + local_replanning_times[i] for t in data["previous_trajectories"][i]["t"]],
+    #                 data["previous_trajectories"][i]["vy"], '-', 
+    #                 color='gray', linewidth=0.5 + 0.5*(i==traj_idx))
+    axs[0].plot([t + local_replanning_times[traj_idx] for t in data["previous_trajectories"][traj_idx]["t"]],
+                data["previous_trajectories"][traj_idx]["vx"], '-', 
+                color='gray', linewidth=1.0)
+    axs[1].plot([t + local_replanning_times[traj_idx] for t in data["previous_trajectories"][traj_idx]["t"]],
+                data["previous_trajectories"][traj_idx]["vy"], '-', 
+                color='gray', linewidth=1.0)
+    
+    axs[0].plot(data["travelled_trajectory"]["t"][:travelled_traj_sample_idx],
+                data["travelled_trajectory"]["vx"][:travelled_traj_sample_idx],
+                '-', color='blue')
+    axs[1].plot(data["travelled_trajectory"]["t"][:travelled_traj_sample_idx],
+                data["travelled_trajectory"]["vy"][:travelled_traj_sample_idx],
+                '-', color='blue')
+        
+    axs[0].set_ylabel('vx')
+    axs[1].set_ylabel('vy')
+    axs[1].set_xlabel('t')
+    plt.suptitle('Velocity')
+
+    vmax = data["motion_planner"]["parameters"]["v_max"]
+    axs[0].fill_between([-10, 1000], [-vmax, -vmax],
+                        [-1000, -1000], color='lightgrey')
+    axs[0].fill_between([-10, 1000], [vmax, vmax],
+                        [1000, 1000], color='lightgrey')
+    axs[0].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    axs[0].set_ylim([-1.1*vmax, 1.1*vmax])
+
+    axs[1].fill_between([-10, 1000], [-vmax, -vmax],
+                        [-1000, -1000], color='lightgrey')
+    axs[1].fill_between([-10, 1000], [vmax, vmax],
+                        [1000, 1000], color='lightgrey')
+    axs[1].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    axs[1].set_ylim([-1.1*vmax, 1.1*vmax])
+    
+    if counter is None:
+        plt.savefig(f"../post-process/figures/dynamic_solution_vel.png", dpi=200)
+    else:
+        plt.savefig(f"../post-process/figures/animation/vel_frames/dynamic_solution_vel_{counter}.png", dpi=DPI)
+    plt.close()
+
+    ################################
+    ### Make acceleration figure ###
+    ################################
+    fig, axs = plt.subplots(2, 1)
+    # for i in range(min(len(data["previous_trajectories"]), traj_idx+1)):
+    #     axs[0].plot([t + local_replanning_times[i] for t in data["previous_trajectories"][i]["t"]],
+    #                 data["previous_trajectories"][i]["ax"], '-', 
+    #                 color='gray', linewidth=0.5 + 0.5*i==traj_idx)
+    #     axs[1].plot([t + local_replanning_times[i] for t in data["previous_trajectories"][i]["t"]],
+    #                 data["previous_trajectories"][i]["ay"], '-', 
+    #                 color='gray', linewidth=0.5 + 0.5*i==traj_idx)
+    axs[0].plot([t + local_replanning_times[traj_idx] for t in data["previous_trajectories"][traj_idx]["t"]],
+                data["previous_trajectories"][traj_idx]["ax"], '-', 
+                color='gray', linewidth=1.0)
+    axs[1].plot([t + local_replanning_times[traj_idx] for t in data["previous_trajectories"][traj_idx]["t"]],
+                data["previous_trajectories"][traj_idx]["ay"], '-', 
+                color='gray', linewidth=1.0)
+
+    axs[0].plot(data["travelled_trajectory"]["t"][:travelled_traj_sample_idx],
+                data["travelled_trajectory"]["ax"][:travelled_traj_sample_idx],
+                '-', color='blue')
+    axs[1].plot(data["travelled_trajectory"]["t"][:travelled_traj_sample_idx],
+                data["travelled_trajectory"]["ay"][:travelled_traj_sample_idx],
+                '-', color='blue')
+        
+    axs[0].set_ylabel('ax')
+    axs[1].set_ylabel('ay')
+    axs[1].set_xlabel('t')
+    plt.suptitle('Acceleration')
+
+    amax = data["motion_planner"]["parameters"]["a_max"]
+    axs[0].fill_between([-10, 1000], [-amax, -amax],
+                        [-1000, -1000], color='lightgrey')
+    axs[0].fill_between([-10, 1000], [amax, amax],
+                        [1000, 1000], color='lightgrey')
+    axs[0].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    axs[0].set_ylim([-1.1*amax, 1.1*amax])
+
+    axs[1].fill_between([-10, 1000], [-amax, -amax],
+                        [-1000, -1000], color='lightgrey')
+    axs[1].fill_between([-10, 1000], [amax, amax],
+                        [1000, 1000], color='lightgrey')
+    axs[1].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    axs[1].set_ylim([-1.1*amax, 1.1*amax])
+
+    if counter is None:
+        plt.savefig(f"../post-process/figures/dynamic_solution_accel.png", dpi=200)
+    else:
+        plt.savefig(f"../post-process/figures/animation/accel_frames/dynamic_solution_accel_{counter}.png", dpi=DPI)
+    plt.close()
+
+def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0):
+    DPI = 300
+
+    if T == -1 or T > max(data_arena["travelled_trajectory"]["Tf"], data_ocp["travelled_trajectory"]["Tf"]):
+        T_arena = data_arena["travelled_trajectory"]["Tf"]
+        T_ocp = data_ocp["travelled_trajectory"]["Tf"]
+    else:
+        T_arena = T
+        T_ocp = T
+    
+    # find the index of the last trajectory to (at least partially) show
+    traj_idx_arena = 0
+    while len(data_arena["replanning_times"]) > traj_idx_arena and T_arena > data_arena["replanning_times"][traj_idx_arena]:
+        traj_idx_arena += 1
+
+    traj_idx_ocp = 0
+    while len(data_ocp["replanning_times"]) > traj_idx_ocp and T_ocp > data_ocp["replanning_times"][traj_idx_ocp]:
+        traj_idx_ocp += 1
+
+    # find the index in the travelled trajectory
+    travelled_traj_sample_idx_arena = int(min(T_arena/data_arena["travelled_trajectory"]["dt"],
+                                    data_arena["travelled_trajectory"]["nb_samples"]))
+    travelled_traj_sample_idx_ocp = int(min(T_ocp/data_ocp["travelled_trajectory"]["dt"],
+                                    data_ocp["travelled_trajectory"]["nb_samples"]))
+
+    ###############################
+    ### Make environment figure ###
+    ###############################
+    plt.figure()
+
+    # Show the environment
+    env = data_arena["environment"]
+    show_environment(env)
+
+    # Show the corridor sequence
+    corridors = data_arena["previous_corridor_sequences"][traj_idx_arena]
+    show_corridors(corridors, color='cornflowerblue', max_alpha=1.0)
+    corridors = data_ocp["previous_corridor_sequences"][traj_idx_ocp]
+    show_corridors(corridors, color='lightcoral', max_alpha=1.0)
+
+    # Show traces of moving obstacles
+    for obs in data_arena["moving_obstacles"]:
+        if counter is None:
+            show_trajectory(obs["travelled_trajectory"], 'darkred',
+                            with_trace=True, 
+                            width=obs["width"], height=obs["height"], with_footprints=False, with_line=False,
+                            show_markers=False)
+            plt.gca().add_patch(Rectangle((obs["travelled_trajectory"]["px"][travelled_traj_sample_idx_arena]-obs["width"]/2, 
+                                           obs["travelled_trajectory"]["py"][travelled_traj_sample_idx_arena]-obs["height"]/2),
+                                          obs["width"], obs["height"], fill=True, 
+                                          facecolor='darkred', edgecolor=None))
+            
+        else:
+            show_moving_obstacle(obs, travelled_traj_sample_idx_arena, 'darkred')
+        
+    # show current trajectory plans
+    for data, traj_idx, color in zip([data_ocp, data_arena], [traj_idx_ocp, traj_idx_arena], ['red', 'blue']):
+        for i in range(min(len(data["previous_trajectories"]), traj_idx)):
+            plt.plot(data["previous_trajectories"][i]["px"][0],
+                    data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
+        show_trajectory(data["previous_trajectories"][traj_idx], color, False, 
+                data["motion_planner"]["parameters"]["veh_width"], 
+                data["motion_planner"]["parameters"]["veh_height"],
+                with_footprints=False, 
+                virtual_initial_footprint=True,
+                virtual_final_footprint=True,
+                show_markers=False, linewidth=0.5)
+        plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
+                    data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
+
+    # Show the trajectory of the mover
+    for data, travelled_traj_sample_idx, color in zip([data_ocp, data_arena], 
+                                                      [travelled_traj_sample_idx_ocp, travelled_traj_sample_idx_arena], 
+                                                      ['red', 'blue']):
+        show_trajectory(data["travelled_trajectory"], color, True, 
+                        data["motion_planner"]["parameters"]["veh_width"], 
+                        data["motion_planner"]["parameters"]["veh_height"],
+                        with_footprints=True, 
+                        nb_samples_to_show=travelled_traj_sample_idx,
+                        virtual_initial_footprint=True, 
+                        virtual_final_footprint=False)
+    
+    set_env_plot_limits(env)
+    if counter is None:
+        plt.savefig(f"../post-process/figures/dynamic_solution_traj.png", dpi=200)
+    else:
+        plt.savefig(f"../post-process/figures/animation/traj_frames/dynamic_solution_traj_{counter}.png", dpi=DPI)
     plt.close()
 
 
-file = "output/dynamic_solution.json"
-with open(file) as f:
-    data = json.load(f)
 
-visualize_dynamic_solution(data, -1, None)
 
-total_time = data["travelled_trajectory"]["Tf"]
-counter = 0
-curr_time = 0.0
-while curr_time < total_time:
-    print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%)")
-    visualize_dynamic_solution(data, curr_time, counter)
-    counter += 1
-    curr_time += data["travelled_trajectory"]["dt"]
+PLOT_COMPARISON = True
 
-print(f"Last figure has count: {counter- 1}")
+
+if PLOT_COMPARISON:
+    file_arena = "output/dynamic_solution.json"
+    file_ocp = "output/dynamic_solution_ocp.json"
+
+    with open(file_arena) as f:
+        data_arena = json.load(f)
+
+    with open(file_ocp) as f:
+        data_ocp = json.load(f)
+
+    ### Make summary figures
+    visualize_dynamic_solution_comparison(data_arena, data_ocp, -1, None)
+
+    ### plot computation times
+    plt.figure()
+    offset = 0.006*max(data_arena["replanning_times"])
+    s = 0
+    lw = 2
+    for i in range(len(data_arena["replanning_times"])):
+        plt.plot([data_arena["replanning_times"][i], data_arena["replanning_times"][i]], 
+                  [0, data_arena["previous_trajectories"][i]["total_computation_time"]], 
+                  'o-', color='blue', markersize=s, lw=lw)
+        plt.plot([data_arena["replanning_times"][i], data_arena["replanning_times"][i]], 
+                 [0, data_arena["previous_trajectories"][i]["solver_time"]], 
+                 'o-', color='midnightblue', markersize=s, lw=lw)
+    
+    for i in range(len(data_ocp["replanning_times"])):
+        plt.plot([data_ocp["replanning_times"][i] + offset, data_ocp["replanning_times"][i] + offset], 
+                 [0, data_ocp["previous_trajectories"][i]["total_computation_time"]], 
+                 'o-', color='red', markersize=s, lw=lw)
+        plt.plot([data_ocp["replanning_times"][i] + offset, data_ocp["replanning_times"][i] + offset], 
+                 [0, data_ocp["previous_trajectories"][i]["solver_time"]], 
+                 'o-', color='maroon', markersize=s, lw=lw)
+
+    plt.xlabel('t')
+    plt.ylabel('solver time [ms]')
+    print(f'max_arena: {max(data_arena["previous_trajectories"][i]["total_computation_time"] for i in range(len(data_arena["replanning_times"])))*1.1}')
+    print(f'max_ocp: {max(data_ocp["previous_trajectories"][i]["total_computation_time"] for i in range(len(data_ocp["replanning_times"])))*1.1}')
+
+    plt.ylim([0, max(max(data_arena["previous_trajectories"][i]["total_computation_time"] for i in range(len(data_arena["replanning_times"])))*1.1,
+                     max(data_ocp["previous_trajectories"][i]["total_computation_time"] for i in range(len(data_ocp["replanning_times"])))*1.1)])
+    plt.title('Solver time at replanning times')
+    plt.savefig(f"../post-process/figures/solver_time.png", dpi=300)
+
+    ### Make animation frames
+    total_time_arena = data_arena["travelled_trajectory"]["Tf"]
+    total_time_ocp = data_ocp["travelled_trajectory"]["Tf"]
+    counter = 0
+    curr_time = 0.0
+    step_size = 1
+    while curr_time < max(total_time_arena, total_time_ocp) + data_arena["travelled_trajectory"]["dt"]:
+        print(f"creating figure at t = {curr_time:.3f} ({curr_time/max(total_time_arena, total_time_ocp)*100:.2f}%) with counter = {counter}")
+        visualize_dynamic_solution_comparison(data_arena, data_ocp, curr_time, counter)
+        counter += 1
+        curr_time += step_size * data_arena["travelled_trajectory"]["dt"]
+
+    visualize_dynamic_solution_comparison(data_arena, data_ocp, max(total_time_arena, total_time_ocp), counter)
+    print(f"Last figure has count: {counter}")
+
+
+
+
+
+
+
+else:
+    file = "output/dynamic_solution_ocp.json"
+    with open(file) as f:
+        data = json.load(f)
+
+    ### Make summary figures
+    visualize_dynamic_solution(data, -1, None)
+
+    ### plot computation times
+    plt.figure()
+    for i in range(len(data["replanning_times"])):
+        plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["total_computation_time"]], 'o-', color='gray')
+        plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["solver_time"]], 'o-k')
+
+    plt.xlabel('t')
+    plt.ylabel('solver time [ms]')
+    plt.ylim([0, max(data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"])))*1.1])
+    plt.title('Solver time at replanning times')
+    plt.savefig(f"../post-process/figures/solver_time.png", dpi=300)
+
+    ### Make animation frames
+    total_time = data["travelled_trajectory"]["Tf"]
+    counter = 0
+    curr_time = 0.0
+    step_size = 1
+    while curr_time < total_time + data["travelled_trajectory"]["dt"]:
+        print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%) with counter = {counter}")
+        visualize_dynamic_solution(data, curr_time, counter)
+        counter += 1
+        curr_time += step_size * data["travelled_trajectory"]["dt"]
+
+    visualize_dynamic_solution(data, total_time, counter)
+    print(f"Last figure has count: {counter}")

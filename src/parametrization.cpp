@@ -105,7 +105,7 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 						waypoints_[0].x(), waypoints_[1].x(),
 						corridor_sequence_.GetStartVel().x());
 	OptimizeSingleArc1D(t_y_sol_[0], alpha_y_sol_,
-						waypoints_[0].x(), waypoints_[1].x(),
+						waypoints_[0].y(), waypoints_[1].y(),
 						corridor_sequence_.GetStartVel().y());
 	double t_x = t_x_sol_[0][0] + t_x_sol_[0][1] + t_x_sol_[0][2];
 	double t_y = t_y_sol_[0][0] + t_y_sol_[0][1] + t_y_sol_[0][2];
@@ -247,7 +247,9 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 
 	// add free initial velocity
 	MX obj = 1.0e3*pow(s_0, 2) + 1.0e3*pow(s_N, 2);
-	if (RELAX_INITIAL_VELOCITY_){
+	if (RELAX_INITIAL_VELOCITY_ && 
+			std::abs(corridor_sequence_.GetStartVel().x()) > 1.0e-3 &&
+			std::abs(corridor_sequence_.GetStartVel().y()) > 1.0e-3){
 		MX s_x = opti_.variable(); MX s_y = opti_.variable();
 		curr_v_x += s_x; curr_v_y += s_y;
 		obj += 1.0e2*(pow(s_x, 2) + pow(s_y, 2));

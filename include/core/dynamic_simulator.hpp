@@ -21,7 +21,7 @@ class DynamicSimulator{
             }
         };
 
-        void Plan(const Point2D<double> &start, const Point2D<double> &dest, 
+        bool Plan(const Point2D<double> &start, const Point2D<double> &dest, 
                   const Point2D<double> &start_vel);
 
         void AddMovingObstacle(std::shared_ptr<MovingObstacle> obstacle);

@@ -94,6 +94,8 @@ class MotionPlanner{
         // Plan a trajectory using the ARENA method
         void PlanARENA();
 
+        void ComputeEmergencyBrakingTrajectory();
+
         // Initialize the rk4 integrator
         void InitializeRK4();
 

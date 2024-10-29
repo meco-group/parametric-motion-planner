@@ -56,3 +56,30 @@ void LinearMovingObstacle::Update(double dt) {
     AppendToTravelledTrajectory(current_time_, position_.x(), position_.y(), 
                                 0, 0, 0, 0);
 }
+
+// Appearing obstacle
+AppearingStaticObstacle::AppearingStaticObstacle(double width, double height, 
+                                                 Point2D<double> position, 
+                                                 double appearance_time, 
+                                                 double disappearance_time) : 
+                                                 MovingObstacle() {
+    position_ = Point2D<double>(-1000, -1000);
+    width_ = width;
+    height_ = height;
+    position_to_appear_at_ = position;
+    appearance_time_ = appearance_time;
+    disappearance_time_ = disappearance_time;
+}
+
+void AppearingStaticObstacle::Update(double dt) {
+    current_time_ += dt;
+    if (current_time_ >= appearance_time_ && 
+        current_time_ <= disappearance_time_){
+        position_ = position_to_appear_at_;
+    } else {
+        position_.SetX(-1000);
+        position_.SetY(-1000);
+    }
+    AppendToTravelledTrajectory(current_time_, position_.x(), 
+                                position_.y(), 0, 0, 0, 0);
+}

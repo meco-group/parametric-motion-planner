@@ -17,7 +17,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         parametrization_(corridor_sequence_, params) {
 
 	method_ = method;
-	opts_solver_["print_level"] = 0;
+	opts_solver_["print_level"] = 5;
 	// opts_solver_["max_iter"] = 50;
 	InitializeRK4();
 
@@ -451,7 +451,7 @@ void MotionPlanner::PlanARENA(){
     if (problematic_corridors.size() > 0){
         // Initialize the parametrization
         parametrization_.UpdateParametrization(parametrization_update_token_);
-        std::cout << parametrization_ << std::endl;
+        // std::cout << parametrization_ << std::endl;
 
         // Start the optimization loop
         bool made_modification = true;
@@ -485,6 +485,41 @@ void MotionPlanner::PlanARENA(){
     //                       parametrization_.GetWaypointsSol(),
     //                       parametrization_.GetWaypointVelocitiesSol(),
     //                       params_);
+}
+
+
+void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
+    double T_x = std::abs(start_vel_.x()) / params_.GetAmax();
+    double T_y = std::abs(start_vel_.y()) / params_.GetAmax();
+
+    double T = std::max(T_x, T_y);
+    double v0; double p0;
+    if (T_x <= T_y){
+        p0 = start_.x();
+        v0 = start_vel_.x();
+    } else {
+        p0 = start_.y();
+        v0 = start_vel_.y();   
+    }
+
+    double tau = 0.5*(T-std::abs(v0)/params_.GetAmax()); // duration of switched arc
+    int s = v0 >= 0 ? 1 : -1;
+    double a = s*params_.GetAmax();
+
+    double p1 = p0 + v0*(T - tau) - a*std::pow(T - tau, 2)/2 + 
+                (v0 - a*(T - tau))*tau + a*std::pow(tau, 2)/2;
+    double p2 = p0 + v0*tau + a*std::pow(tau, 2)/2 +
+                (v0 + a*tau)*(T - tau) - a*std::pow(T - tau, 2)/2;
+    
+    double p_min = std::min(p1, p2);
+    double p_max = std::max(p1, p2);
+
+    // g can be computed using the formula g = (p - C)/B where
+    double B = -2*a*T*tau;
+    double C = p0 + v0*tau + a*std::pow(tau, 2)/2 + (v0 + a*tau)*(T - tau) - 
+               a*std::pow(T - tau, 2)/2;
+
+    // select a feasible final point
 }
 
 void MotionPlanner::InitializeRK4(){

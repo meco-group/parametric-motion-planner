@@ -51,5 +51,19 @@ class LinearMovingObstacle : public MovingObstacle {
         bool loop_;
 };
 
+// Appearing obstacle
+class AppearingStaticObstacle : public MovingObstacle {
+    public:
+        AppearingStaticObstacle(double width, double height, 
+                                Point2D<double> position, 
+                                double appearance_time, double disappearance_time);
+
+        void Update(double dt) override;
+
+    private:
+        Point2D<double> position_to_appear_at_ = Point2D<double>(-1000, -1000);
+        double appearance_time_ = 1000;
+        double disappearance_time_ = 1000;
+};
 
 #endif

@@ -131,42 +131,66 @@ void SolveDynamicProblem(){
 
     // dynamic_simulator.DumpToJson("dynamic_solution.json");
 
-    Environment environment = Environment();
+    // Environment environment = Environment();
+    Environment environment = Environment(10, 12, 0.12, 0.12);
     std::cout << "Created environment " << environment << std::endl;
     Parameters params = Parameters();
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
     DynamicSimulator dynamic_simulator = DynamicSimulator(environment, my_motion_planner);
 
-    // Create first moving obstacle
-    Point2D<int> p1(5, 6); Point2D<int> p2(3, 6); double duration = 1.0;
+    params.SetVmax(1.0);
+
+    // Create moving obstacles
     double width = environment.CellWidth();
     double height = environment.CellHeight();
-    
-    std::shared_ptr<MovingObstacle> moving_obstacle_ptr = 
-        std::make_shared<LinearMovingObstacle>(0.1, 0.1,
-            p1.ConvertCellToWorld(width, height), 
-            p2.ConvertCellToWorld(width, height), duration, true);
-    dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr);
+    std::vector<Point2D<double>> starting_positions = {
+        Point2D<int>(3, 9).ConvertCellToWorld(width, height), 
+        Point2D<int>(8, 0).ConvertCellToWorld(width, height), 
+    };
+    std::vector<Point2D<double>> ending_positions = {
+        Point2D<int>(3, -1).ConvertCellToWorld(width, height), 
+        Point2D<int>(8, 5).ConvertCellToWorld(width, height), };
+    std::vector<double> durations = {0.8, 1.65, 1.6};
+    std::vector<bool> loops = {false, true, true};
+    std::shared_ptr<MovingObstacle> moving_obstacle_ptr;
+    for (int i = 0; i < starting_positions.size(); i++){
+        moving_obstacle_ptr = std::make_shared<LinearMovingObstacle>(0.1, 0.1,
+                starting_positions[i], ending_positions[i], durations[i], loops[i]);
+        dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr);
+    }
 
-    // Create second moving obstacle
-    p1 = Point2D<int>(7, -1); p2 = Point2D<int>(7, 2); duration = 1.0;
-    std::shared_ptr<MovingObstacle> moving_obstacle_ptr2 = 
-        std::make_shared<LinearMovingObstacle>(0.1, 0.1,
-            p1.ConvertCellToWorld(width, height), 
-            p2.ConvertCellToWorld(width, height), duration, false);
-    dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr2);
+    // Create appearing obstacle
+    std::vector<Point2D<double>> appearing_positions = {
+        Point2D<int>(10, 4).ConvertCellToWorld(width, height), 
+        Point2D<int>(7, 2).ConvertCellToWorld(width, height), 
+        Point2D<int>(9, 0).ConvertCellToWorld(width, height), 
+        Point2D<int>(9, 1).ConvertCellToWorld(width, height), 
+        Point2D<int>(9, 2).ConvertCellToWorld(width, height), 
+        Point2D<int>(9, 3).ConvertCellToWorld(width, height), 
+    };
+    std::vector<double> appearance_times = {2.45, 1.2, 1.4, 1.4, 1.4, 1.4};
+    std::vector<double> disappearance_times = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
+    std::shared_ptr<MovingObstacle> appearing_obstacle_ptr;
+    for (int i = 0; i < appearing_positions.size(); i++){
+        appearing_obstacle_ptr = 
+            std::make_shared<AppearingStaticObstacle>(0.1, 0.1 + 0.6*(i==2),
+                appearing_positions[i], appearance_times[i], 
+                disappearance_times[i]);
+        dynamic_simulator.AddMovingObstacle(appearing_obstacle_ptr);
+    }
 
-    Point2D<double> start(0.75, 1.08);
+    my_motion_planner.SetMethod(OCP);
+    Point2D<double> start(0.15, 1.08);
     Point2D<double> dest(1.33, 0.24);
     Point2D<double> start_vel(0, 0);
     dynamic_simulator.Plan(start, dest, start_vel);
 
-    dynamic_simulator.DumpToJson("dynamic_solution.json");
+    dynamic_simulator.DumpToJson("dynamic_solution_ocp.json");
 }
 
 int main(){
-    // SolveRandomProblem();
-    SolveDynamicProblem();
+    SolveRandomProblem();
+    // SolveDynamicProblem();
 }
 
 

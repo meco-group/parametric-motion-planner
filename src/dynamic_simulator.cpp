@@ -2,7 +2,7 @@
 #include "core/environment.hpp"
 #include "core/corridor.hpp"
 
-void DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> &dest, 
+bool DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> &dest, 
                         const Point2D<double> &start_vel){
     // Update the environment with the movable obstacles
     UpdateEnvironment();
@@ -29,6 +29,7 @@ void DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
     Point2D<double> replan_position;
     Point2D<double> replan_velocity;
     double replan_time = 0.0;
+    bool aborted = false;
     while (current_trajectory_sample_idx < curr_trajectory.NbSamples()){
         // std::cout << curr_trajectory.Px()[current_trajectory_sample_idx] << ", " <<
         //              curr_trajectory.Py()[current_trajectory_sample_idx] << std::endl;
@@ -44,13 +45,16 @@ void DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
             curr_trajectory.Ay()[current_trajectory_sample_idx]);
 
         // Update the moving obstacle positions
+        // std::cout << "updating moving obstacles" << std::endl;
         UpdateMovingObstacles(curr_trajectory.Dt());
 
         // Update the environment
-        UpdateEnvironment();
+        // UpdateEnvironment();
 
         // Check if we need to replan
+        // std::cout << "checking replan trigger" << std::endl;
         need_to_replan = CheckReplanTrigger();
+        // std::cout << "done" << std::endl;
 
         if (need_to_replan){
             std::cout << "REPLANNING" << std::endl;
@@ -66,20 +70,36 @@ void DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
             replan_time += curr_trajectory.T()[current_trajectory_sample_idx];
             replanning_times_.push_back(replan_time);
 
+            // Update the environment
+            UpdateEnvironment();
+
             // Replan
-            motion_planner_.Plan(replan_position, dest, replan_velocity);
-            curr_trajectory.Reset(replan_position);
-            curr_trajectory = motion_planner_.GetLastSolution();
-            previous_trajectories_.push_back(curr_trajectory);
-            previous_corridor_sequences_.push_back(motion_planner_.GetCorridorSequence());
+            Environment env = motion_planner_.GetEnvironment();
+            try{
+                motion_planner_.Plan(replan_position, dest, replan_velocity);
+                curr_trajectory.Reset(replan_position);
+                curr_trajectory = motion_planner_.GetLastSolution();
+                previous_trajectories_.push_back(curr_trajectory);
+                previous_corridor_sequences_.push_back(motion_planner_.GetCorridorSequence());
+                if (curr_trajectory.SolverTime() == -1){
+                    // The planner was aborted
+                    return true;
+                }
+            } catch (std::runtime_error &e){
+                std::cerr << "Something unexpected happened during replanning" << std::endl;
+                std::cerr << e.what() << std::endl;
+                return true;
+            }
 
             // Reset the current trajectory sample index
-            current_trajectory_sample_idx = 0;
+            current_trajectory_sample_idx = 1;
         } else {
             // Update the mover state
             current_trajectory_sample_idx++;
         }
     }
+
+    return false;
 }
 
 void DynamicSimulator::AddMovingObstacle(std::shared_ptr<MovingObstacle> obstacle){
@@ -180,6 +200,8 @@ bool DynamicSimulator::CheckReplanTrigger(){
             point = cell.ConvertCellToWorld(environment_.CellWidth(), 
                                             environment_.CellHeight());
             if (curr_sequence.ContainsPoint(point)){
+                std::cout << "Obstacle at " << point << " is in corridor" << std::endl;
+                std::cout << "cell occupancy: " << environment_.GetOccupancy(cell) << std::endl;
                 return true;
             }
         }

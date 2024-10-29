@@ -278,6 +278,7 @@ std::unordered_set<Point2D<int>, Point2DHash<int>> Environment::GetOccupiedFootp
     Point2D<int> vehicle_edge_cell;
     for (int i = -1; i <= 1; i++){
         for (int j = -1; j <= 1; j++){
+            //TODO: In some cases, the point grid must be finer than this (large obstacles)
             vehicle_edge_point.SetX(point.x() + i*vehicle_width/2);
             vehicle_edge_point.SetY(point.y() + j*vehicle_length/2);
             vehicle_edge_point.ConvertWorldToCell(cell_width_, cell_height_, 
