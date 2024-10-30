@@ -93,16 +93,24 @@ else()
     # Specify the include directories for the library
     include_directories(include ${CASADI_INCLUDE_DIRS}/casadi)
 
+    # find Pybind11 package
+    find_package(pybind11 REQUIRED PATHS ~/.local/lib/python3.10/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake)
+
     # Collect source files
     file(GLOB SOURCES "src/*.cpp")
 
-
     # Create the library
     add_library(${PROJECT_NAME} STATIC ${SOURCES})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${pybind11_INCLUDE_DIRS})
 
     ### Create example
     add_executable(my_executable ${SOURCES})
-    target_link_libraries(my_executable casadi)
+    target_link_libraries(my_executable casadi ${PROJECT_NAME} pybind11::embed)
+    ###
+
+    ### Create pybind module
+    pybind11_add_module(parametric_motion_planner_module MODULE ${SOURCES})
+    target_link_libraries(parametric_motion_planner_module PRIVATE casadi ${PROJECT_NAME} pybind11::module)
     ###
 
 

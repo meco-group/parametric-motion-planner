@@ -38,7 +38,9 @@ void Trajectory::Update(int nb_corridors,
     // compute the number of samples
     curr_nb_samples_ = total_time / dt_ + 1;
     if (curr_nb_samples_ > max_nb_samples_){
-        throw std::runtime_error("Trajectory  is too long to be updated");
+        // throw std::runtime_error("Trajectory  is too long to be updated");
+        curr_nb_samples_ = 0;
+        return;
     }
 
     // initialize time-grid
@@ -91,7 +93,9 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     curr_nb_samples_ = tf_ / dt_ + 1;
 
     if (curr_nb_samples_ > max_nb_samples_){
-        throw std::runtime_error("Trajectory  is too long to be updated");
+        // throw std::runtime_error("Trajectory  is too long to be updated");
+        curr_nb_samples_ = 0;
+        return;
     }
 
     // initialize time-grid
@@ -167,7 +171,9 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     curr_nb_samples_ = tf_ / dt_ + 1;
 
     if (curr_nb_samples_ > max_nb_samples_){
-        throw std::runtime_error("Trajectory  is too long to be updated");
+        // throw std::runtime_error("Trajectory  is too long to be updated");
+        curr_nb_samples_ = 0;
+        return out_of_corridor_list;
     }
 
     // initialize time-grid

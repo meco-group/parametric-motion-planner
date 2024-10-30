@@ -220,11 +220,54 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
         return;
     }
 
+    // std::vector<Point2D<int>> obstacles = {};
+    // Point2D<int> obstacle;
+    // for (int i = 0; i < environment_.NbCellCols(); i++){
+    //     for (int j = 0; j < environment_.NbCellRows(); j++){
+    //         obstacle.SetX(i); obstacle.SetY(j);
+    //         // std::cout << "checking obstacle: " << obstacle << std::endl;
+    //         if (!environment_.IsFree(obstacle)){
+    //             // std::cout << "obstacle!" << std::endl;
+    //             obstacles.push_back(obstacle);
+    //         }
+    //     }
+    // }
+
+    // std::cout << "start = " << start << std::endl;
+    // std::cout << "dest = " << dest << std::endl;
+
+    // std::cout << "number_of_rows = " << environment_.NbCellRows() << std::endl;
+    // std::cout << "number_of_columns = " << environment_.NbCellCols() << std::endl;
+
+    // std::cout << "obstacles = [";
+    // if (obstacles.size() > 0){
+    //     for (int i = 0; i < obstacles.size()-1; i++){
+    //         std::cout << obstacles[i] << ", ";
+    //     }
+    //     std::cout << obstacles[obstacles.size()-1];
+    // }
+    // std::cout << "]" << std::endl;
+
+    // std::cout << "cell_width = " << environment_.CellWidth() << std::endl;
+    // std::cout << "cell_height = " << environment_.CellHeight() << std::endl;
+
+    // std::cout << "path = [";
+    // for (int i = 0; i < path.size()-1; i++){
+    //     std::cout << path[i] << ", ";
+    // }
+    // std::cout << path[path.size()-1] << "]" << std::endl;
+
     // Add cells to ensure initial footprint of the vehicle is included
     AddInitialFootprint(path);
 
     // Add cells to ensure final footprint of the vehicle is included
     AddFinalFootprint(path);
+
+    // std::cout << "path_prime = [";
+    // for (int i = 0; i < path.size()-1; i++){
+    //     std::cout << path[i] << ", ";
+    // }
+    // std::cout << path[path.size()-1] << "]" << std::endl;
 
     // Loop over path and add corridors
     Point2D<int> curr_start_cell = path[0];
@@ -232,6 +275,13 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     Point2D<int> curr_direction = 
                         Point2D<int>(curr_end_cell.x() - curr_start_cell.x(), 
                                      curr_end_cell.y() - curr_start_cell.y());
+    // std::cout << "corridors_before = [";
+    // for (int i = 0; i < nb_of_corridors_-1; i++){
+    //     std::cout << sequence_[i] << ", ";
+    // }
+    // std::cout << sequence_[nb_of_corridors_-1] << "]" << std::endl;
+
+    
     Point2D<int> next_direction;
     for (int i = 2; i < path.size(); i++){
         Point2D<int> next_cell = path[i];
@@ -244,10 +294,23 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
         }
         curr_end_cell.CopyValues(next_cell);
     }
+
     AddCorridorFromCells(curr_start_cell, curr_end_cell);
+
+    // std::cout << "corridors_narrow = [";
+    // for (int i = 0; i < nb_of_corridors_-1; i++){
+    //     std::cout << sequence_[i] << ", ";
+    // }
+    // std::cout << sequence_[nb_of_corridors_-1] << "]" << std::endl;
 
     // Inflate the corridors
     InflateCorridors();
+
+    // std::cout << "corridors_final = [";
+    // for (int i = 0; i < nb_of_corridors_-1; i++){
+    //     std::cout << sequence_[i] << ", ";
+    // }
+    // std::cout << sequence_[nb_of_corridors_-1] << "]" << std::endl;
 
     sequence_available_ = true;
     latest_envrionment_version_ = environment_.GetVersion();

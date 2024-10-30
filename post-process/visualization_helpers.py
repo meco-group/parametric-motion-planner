@@ -9,14 +9,14 @@ def load_data(output_file):
     with open(output_file) as f:
         data = json.load(f)
 
-    env = data['Environment']
-    params = data['Parameters']
-    corridors = data['CorridorSequence']
-    planner_method = data['PlannerMethod']
-    trajectory = data['Trajectory']
+    env = data['environment']
+    params = data['parameters']
+    corridors = data['corridor_sequence']
+    planner_method = data['planner_method']
+    trajectory = data['trajectory']
 
     if planner_method == "ARENA":
-        parametrization = data['Parametrization']
+        parametrization = data['parametrization']
         return (env, params, corridors, planner_method, trajectory, parametrization)
     else:
         return (env, params, corridors, planner_method, trajectory, None)

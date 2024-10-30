@@ -1,6 +1,7 @@
 #include <iostream>
 #include <casadi/casadi.hpp>
 #include <nlohmann/json.hpp>
+#include <pybind11/pybind11.h>
 
 #include "core/motion_planner.hpp"
 #include "core/corridor.hpp"
@@ -17,7 +18,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         parametrization_(corridor_sequence_, params) {
 
 	method_ = method;
-	opts_solver_["print_level"] = 5;
+	opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
 	InitializeRK4();
 
@@ -280,8 +281,7 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 void MotionPlanner::PlanOCP(){
     std::cout << "Planning using OCP method" << std::endl;
 
-    int nb_points_per_corridor = 30;
-    int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor;
+    int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor_;
 
     // Construct OCP
     Opti opti = Opti(); 
@@ -326,14 +326,18 @@ void MotionPlanner::PlanOCP(){
         opti.set_initial(tt(s), initialization_distance/params_.GetVmax());
 
         // loop over time-steps
-        k_offset = s * nb_points_per_corridor;
-        for (int k = k_offset; k < k_offset + nb_points_per_corridor; k++){
+        k_offset = s * nb_points_per_corridor_;
+        for (int k = k_offset; k < k_offset + nb_points_per_corridor_; k++){
             // add dynamics
-            rk4_arguments_[0] = xx(Slice(), k);
-            rk4_arguments_[1] = uu(Slice(), k);
-            rk4_arguments_[2] = tt(s)/nb_points_per_corridor;
-            rk4_outputs_ = rk4_(rk4_arguments_);
-            opti.subject_to(xx(Slice(), k + 1) == rk4_outputs_[0]);
+            // rk4_arguments_[0] = xx(Slice(), k);
+            // rk4_arguments_[1] = uu(Slice(), k);
+            // rk4_arguments_[2] = tt(s)/nb_points_per_corridor_;
+            // rk4_outputs_ = rk4_(rk4_arguments_);
+            // opti.subject_to(xx(Slice(), k + 1) == rk4_outputs_[0]);
+            opti.subject_to(xx(0, k+1) == xx(0, k) + xx(2, k)*tt(s)/nb_points_per_corridor_);
+            opti.subject_to(xx(1, k+1) == xx(1, k) + xx(3, k)*tt(s)/nb_points_per_corridor_);
+            opti.subject_to(xx(2, k+1) == xx(2, k) + uu(0, k)*tt(s)/nb_points_per_corridor_);
+            opti.subject_to(xx(3, k+1) == xx(3, k) + uu(1, k)*tt(s)/nb_points_per_corridor_);
             
             // enforce corner points to be inside the current corridor
             corners[0].SetValues(xx(0, k) - width_offset, 
@@ -359,18 +363,18 @@ void MotionPlanner::PlanOCP(){
             opti.set_initial(xx(0, k), 
                 initialization_waypoints[s].x() + 
                 (k - k_offset)*(initialization_waypoints[s+1].x() - 
-                initialization_waypoints[s].x())/nb_points_per_corridor);
+                initialization_waypoints[s].x())/nb_points_per_corridor_);
             opti.set_initial(xx(1, k), 
                 initialization_waypoints[s].y() + 
                 (k - k_offset)*(initialization_waypoints[s+1].y() - 
-                initialization_waypoints[s].y())/nb_points_per_corridor);
+                initialization_waypoints[s].y())/nb_points_per_corridor_);
         }
 
         // the final point of a corridor should also be enforced to be 
         // within the next corridor to prevent corner cutting (if there 
         // exists a next corridor)
         if (s < corridor_sequence_.NbCorridors() - 1){
-            int k = k_offset + nb_points_per_corridor;
+            int k = k_offset + nb_points_per_corridor_;
             // current_corridor = corridor_sequence_.GetCorridor(s+1);
             corners[0].SetValues(xx(0, k) - width_offset, 
                                  xx(1, k) - height_offset);
@@ -420,9 +424,9 @@ void MotionPlanner::PlanOCP(){
     double accumulated_time = 0.0;
     double local_dt = 0.0;
     for (int s = 0; s < corridor_sequence_.NbCorridors(); s++){
-        local_dt = double(tt_sol(s)) / nb_points_per_corridor;
-        for (int i = 0; i < nb_points_per_corridor; i++){
-            t[s*nb_points_per_corridor + i] = accumulated_time + local_dt * i;
+        local_dt = double(tt_sol(s)) / nb_points_per_corridor_;
+        for (int i = 0; i < nb_points_per_corridor_; i++){
+            t[s*nb_points_per_corridor_ + i] = accumulated_time + local_dt * i;
         }
         accumulated_time += double(tt_sol(s));
     }

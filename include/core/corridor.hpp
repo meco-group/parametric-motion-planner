@@ -78,8 +78,11 @@ class Corridor{
         //     return out;
         // }
         friend std::ostream& operator<<(std::ostream &out, Corridor corridor) {
+            // out << "[" << corridor.Xmin() << ", " << 
+            //         corridor.Xmax() << "] x [" << corridor.Ymin() << 
+            //         ", " << corridor.Ymax() << "]";
             out << "[" << corridor.Xmin() << ", " << 
-                    corridor.Xmax() << "] x [" << corridor.Ymin() << 
+                    corridor.Xmax() << ", " << corridor.Ymin() << 
                     ", " << corridor.Ymax() << "]";
             return out;
         }

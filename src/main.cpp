@@ -57,40 +57,23 @@ void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename)
 }
 
 void SolveRandomProblem(){
-    Environment environment = Environment();
+    // Environment environment = Environment();
+    Environment environment = Environment(10, 12, 0.12, 0.12);
     Parameters params = Parameters();
-
-    // Add some obstacles
-    // environment.AddObstacle(Point2D<int>(6, 9));
-    // environment.AddObstacle(Point2D<int>(3, 3));
-    // environment.AddObstacle(Point2D<int>(0, 6));
-    // environment.AddObstacle(Point2D<int>(1, 6));
-    // environment.AddObstacle(Point2D<int>(2, 6));
-
-    // environment.AddObstacle(Point2D<int>(5, 0));
-    // environment.AddObstacle(Point2D<int>(7, 2));
-    // environment.AddObstacle(Point2D<int>(7, 3));
-    // environment.AddObstacle(Point2D<int>(9, 3));
-
-    
-	// environment.AddObstacle(Point2D<int>(2, 6));
-    // environment.AddObstacle(Point2D<int>(7, 1));
-
-
-	// environment.AddObstacle(Point2D<int>(0, 4));
-	// environment.AddObstacle(Point2D<int>(1, 4));
-	// environment.AddObstacle(Point2D<int>(2, 4));
-	// environment.AddObstacle(Point2D<int>(3, 4));
-
 
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
-	environment.AddRandomObstacles(0.05);
+	environment.AddRandomObstacles(0.25);
+    // std::vector<int> rr = {0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 6, 6, 7, 8, 8, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11};
+    // std::vector<int> cc = {1, 2, 4, 8, 5, 7, 0, 4, 7, 1, 8, 1, 4, 6, 9, 4, 8, 9, 1, 3, 9, 3, 4, 5, 6, 7, 1, 4, 7, 3, 6, 7, 6};
+    // for (int i = 0; i < rr.size(); i++){
+    //     environment.AddObstacle(Point2D<int>(rr[i], cc[i]));
+    // }
 
     std::cout << "Created motion planner in environment " << environment << std::endl;
 
-	Point2D<double> start = Point2D<double>(1.3, 0.24);
-    Point2D<double> dest = Point2D<double>(0.75, 1.08);
+	Point2D<double> start = Point2D<double>(0.46475, 0.374562);
+    Point2D<double> dest = Point2D<double>(0.945187, 0.249773);
     Point2D<double> start_vel = Point2D<double>(0, 0);
 
     my_motion_planner.SetStart(start);
@@ -101,36 +84,9 @@ void SolveRandomProblem(){
     my_motion_planner.SetRandomDest();
 
     SolveAllMethods(my_motion_planner, "solution");
-
-	// my_motion_planner.Plan();
-	// my_motion_planner.Plan();
 }
 
 void SolveDynamicProblem(){
-    // TODO: check why this gets stuck in an initialization loop
-    // Environment environment = Environment();
-    // std::cout << "Created environment " << environment << std::endl;
-    // Parameters params = Parameters();
-    // MotionPlanner my_motion_planner = MotionPlanner(params, environment);
-    // DynamicSimulator dynamic_simulator = DynamicSimulator(environment, my_motion_planner);
-
-    // Point2D<int> p1(5, 0); Point2D<int> p2(5, 4);
-    // double width = environment.CellWidth();
-    // double height = environment.CellHeight();
-    
-    // std::shared_ptr<MovingObstacle> moving_obstacle_ptr = 
-    //     std::make_shared<LinearMovingObstacle>(0.01, 0.01,
-    //         p1.ConvertCellToWorld(width, height), 
-    //         p2.ConvertCellToWorld(width, height), 0.5, true);
-    // dynamic_simulator.AddMovingObstacle(moving_obstacle_ptr);
-
-    // Point2D<double> start(0.75, 1.08);
-    // Point2D<double> dest(1.33, 0.24);
-    // Point2D<double> start_vel(0, 0);
-    // dynamic_simulator.Plan(start, dest, start_vel);
-
-    // dynamic_simulator.DumpToJson("dynamic_solution.json");
-
     // Environment environment = Environment();
     Environment environment = Environment(10, 12, 0.12, 0.12);
     std::cout << "Created environment " << environment << std::endl;
@@ -195,7 +151,12 @@ int main(){
 
 
 /*
-// TODO: fix these cases!
+# TODO: fix these cases
+
+
+
+
+
 Created motion planner in environment 10 x 12 environment (1.2 x 1.44)
 # . . . . . . . X X X X 
 . . . . . . . . X X X X 

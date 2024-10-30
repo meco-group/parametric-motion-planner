@@ -132,10 +132,10 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  Dict const &opts_casadi,
 											  Dict const &opts_solver){		
 	// prepare initial guess
-	std::cout << "initializing" << std::endl;
+	// std::cout << "initializing" << std::endl;
 	InitializeOptimization();
 	// ShowInitialization();
-	std::cout << "done" << std::endl;
+	// std::cout << "done" << std::endl;
 
 	// reset mx containers
 	alpha_x_mx_ = MX(max_nb_corridors_ + 1, 1);
@@ -1077,12 +1077,13 @@ void Parametrization::InitializeOptimization(){
 		// start initializing
 		bool success;
 		for (int w = 0; w < corridor_sequence_.NbCorridors(); w++){
-			success = InitializeArc(w, v_des, curr_vel);			
+			success = InitializeArc(w, v_des, curr_vel);	
 			if (!success){
 				if (v_des <= 0.1){
 					success = true;
 				} else {
 					// try again with lower velocity
+					std::cout << "Starting over!" << std::endl;
 					v_des *= 0.7;
 					break;
 				}
@@ -1123,7 +1124,7 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 	double a_max = params_.GetAmax();
 
 	// Compute the bottleneck direction
-	if (corridor_idx == 0 && initial_bottleneck_direction_ == 0 ||
+	if (corridor_idx == 0 && initial_bottleneck_direction_ == 1 ||
 	  		corridor_idx > 0 && std::abs(p0.x() - pf.x()) < std::abs(p0.y() - pf.y())){
 		p0_bd = p0.y(); pf_bd = pf.y(); v0_bd = start_vel.y();
 		alpha_bd = alpha_y_[corridor_idx];

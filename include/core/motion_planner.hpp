@@ -66,9 +66,14 @@ class MotionPlanner{
         double GetVehWidth() const { return params_.GetVehWidth();};
         double GetVehHeight() const { return params_.GetVehHeight();};
         const Trajectory& GetLastSolution() const { return last_solution_;};
+        double GetTotalComputationTime() const { return last_solution_.TotalComputationTime();};
+        double GetSolverTime() const { return last_solution_.SolverTime();};
+        double GetTravelTime() const { return last_solution_.Tf();};
 
         // Basic setters
         void SetPrintLevel(int print_level) { opts_solver_["print_level"] = print_level;};
+        void SetOCPNumberOfPointsPerCorridor(int nb_points_per_corridor){ 
+            nb_points_per_corridor_ = nb_points_per_corridor;};
 
         // Printing
         void PrintEnvironment(){
@@ -140,6 +145,7 @@ class MotionPlanner{
         Function rk4_;
         std::vector<MX> rk4_arguments_ = std::vector<MX>(3);
         std::vector<MX> rk4_outputs_ = std::vector<MX>(1);
+        int nb_points_per_corridor_ = 5;
 
         // ARENA method attributes
         std::set<int> add_constraints_list_;
