@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # with open('python-benchmark/files/results.json', 'r') as f:
-with open('python-benchmark/files/results_cell.json', 'r') as f:
-# with open('python-benchmark/files/results_double.json', 'r') as f:
+# with open('python-benchmark/files/results_cell.json', 'r') as f:
+with open('python-benchmark/files/results_double.json', 'r') as f:
     results = json.load(f)
 
 def scatter(results, method, x, y, color):
@@ -40,6 +40,7 @@ def optimality_comparison(results, method1, method2, color1, color2):
     max_idx = np.argmax(diff)
     print("max suboptimality at: ", max_idx)
     print("Tf_2: ", Tf_2[max_idx])
+    print("Tf_1: ", Tf_1[max_idx])
     # print(Tf_2)
 
     # get indices where both methods are succesfull
@@ -107,6 +108,9 @@ def computation_time_comparison(results, method1, method2, color1, color2):
 
 import matplotlib.pyplot as plt
 plt.figure()
+optimality_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
+
+plt.figure()
 # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
 # scatter(results, "OCP-10", "t_comp_total", "Tf", "red")
 # scatter(results, "OCP-20", "t_comp_total", "Tf", "red")
@@ -126,8 +130,6 @@ scatter(results, "ARENA", "t_comp_solver", "Tf", "royalblue")
 scatter(results, "P2P", "t_comp_solver", "Tf", "orange")
 plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
 
-plt.figure()
-optimality_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
 
 plt.figure()
 computation_time_comparison(results, "OCP-30", "ARENA", "red", "royalblue")

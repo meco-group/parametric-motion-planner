@@ -21,6 +21,11 @@ def extract_data(file_name_appendix):
 
         envs.append(env)
 
+    local_env = pmp.Environment(data['envs'][0]['nb_cell_rows'], 
+                                data['envs'][0]['nb_cell_cols'],
+                                data['envs'][0]['cell_width'], 
+                                data['envs'][0]['cell_height'])
+
     # load random parameters
     params = []
     for params_json in data['params']:
@@ -29,6 +34,12 @@ def extract_data(file_name_appendix):
                             params_json['margin'])
         params.append(param)
 
+    local_param = pmp.Parameters(data['params'][0]['v_max'], 
+                                 data['params'][0]['a_max'],
+                                 data['params'][0]['veh_width'], 
+                                 data['params'][0]['veh_height'],
+                                 data['params'][0]['margin'])
+
     # load random start and destination points
     starts = []
     dests = []
@@ -36,7 +47,7 @@ def extract_data(file_name_appendix):
         starts.append(pmp.Point2Dd(start[0], start[1]))
         dests.append(pmp.Point2Dd(dest[0], dest[1]))
 
-    return envs, params, starts, dests
+    return envs, params, starts, dests, local_env, local_param
 
 # # show some environments
 # import sys

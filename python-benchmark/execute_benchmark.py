@@ -6,9 +6,9 @@ import json
 
 # Extract the data
 # file_name_appendix = ""
-file_name_appendix = "_cell"
-# file_name_appendix = "_double"
-envs, params, starts, dests = extract_data(file_name_appendix)
+# file_name_appendix = "_cell"
+file_name_appendix = "_double"
+envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
 methods = [pmp.PlannerMethod.ARENA, 
@@ -28,7 +28,7 @@ method_names = ["ARENA",
 assert len(methods) == len(method_names)
 
 # Create motion planner
-motion_planner = pmp.MotionPlanner(methods[0], params[0], envs[0])
+motion_planner = pmp.MotionPlanner(methods[0], local_param, local_env)
 
 # create containers for results
 results = {}
@@ -49,46 +49,45 @@ for method, method_name in zip(methods, method_names):
 
     # loop over all environments
     for i in range(len(envs)):
-        # if (i == 7):
-        #     print(f"Start: {starts[i].x()}, {starts[i].y()}")
-        #     print(f"Dest: {dests[i].x()}, {dests[i].y()}")
-        #     print(f"VehWidth: {params[i].GetVehWidth()}")
-        #     print(f"VehHeight: {params[i].GetVehHeight()}")
-        #     print(f"Margin: {params[i].GetMargin()}")
-        #     print(f"Vmax: {params[i].GetVmax()}")
-        #     print(f"Amax: {params[i].GetAmax()}")
-        #     env = json.loads(envs[i].ToJson())
-        #     print(env)
-        #     grid = env["occupancy_grid"]
-        #     rr = []
-        #     cc = []
-        #     for ii in range(len(grid)):
-        #         for jj in range(len(grid[i])):
-        #     #         print(i, j)
-        #             if grid[ii][jj] != 0:
-        #                 rr.append(ii)
-        #                 cc.append(jj)
-        #     print(f"rr_test: {rr}")
-        #     print(f"cc_test: {cc}")
+        idx_to_show = 60
+        if (i == idx_to_show):
+            print(f"Start: {starts[i].x()}, {starts[i].y()}")
+            print(f"Dest: {dests[i].x()}, {dests[i].y()}")
+            print(f"VehWidth: {params[i].GetVehWidth()}")
+            print(f"VehHeight: {params[i].GetVehHeight()}")
+            print(f"Margin: {params[i].GetMargin()}")
+            print(f"Vmax: {params[i].GetVmax()}")
+            print(f"Amax: {params[i].GetAmax()}")
+            env = json.loads(envs[i].ToJson())
+            print(env)
+            grid = env["occupancy_grid"]
+            rr = []
+            cc = []
+            for ii in range(len(grid)):
+                for jj in range(len(grid[ii])):
+            #         print(i, j)
+                    if grid[ii][jj] != 0:
+                        rr.append(ii)
+                        cc.append(jj)
+            print(f"rr_test: {rr}")
+            print(f"cc_test: {cc}")
 
-        # if (i == 7+1):
-        #     exit()
-        #     # break
+        if (i == idx_to_show+1):
+            exit()
+            # break
 
         motion_planner.SetStart(starts[i])
         motion_planner.SetDest(dests[i])
-        if i > 0:
-            params[0].SetVmax(params[i].GetVmax())
-            params[0].SetAmax(params[i].GetAmax())
-            params[0].SetVehWidth(params[i].GetVehWidth())
-            params[0].SetVehHeight(params[i].GetVehHeight())
-            params[0].SetMargin(params[i].GetMargin())
-            envs[0].CopyObstacles(envs[i])
-            # print(f"v_max: {params[0].GetVmax()}")
-            # print(f"a_max: {params[0].GetAmax()}")
-        
+
+        local_param.SetVmax(params[i].GetVmax())
+        local_param.SetAmax(params[i].GetAmax())
+        local_param.SetVehWidth(params[i].GetVehWidth())
+        local_param.SetVehHeight(params[i].GetVehHeight())
+        local_param.SetMargin(params[i].GetMargin())
+        local_env.CopyObstacles(envs[i])
+
         motion_planner.Plan()
-        # print("Travel time: ", motion_planner.GetTravelTime())
+        print("Travel time: ", motion_planner.GetTravelTime())
 
         # store results
         results[method_name]["Tf"].append(motion_planner.GetTravelTime())
