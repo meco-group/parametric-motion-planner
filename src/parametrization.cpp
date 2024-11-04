@@ -437,7 +437,7 @@ void Parametrization::OptimizeSingleArc(const UpdateToken&){
 						corridor_sequence_.GetStartVel().y());
 
 	// empty the solution of the subsequent corridors
-	for (int i = 2; i < corridor_sequence_.NbCorridors(); i++){
+	for (int i = 1; i < corridor_sequence_.NbCorridors()+1; i++){
 		for (int j = 0; j < 3; j++){
 			t_x_sol_[i][j] = 0.0;
 			t_y_sol_[i][j] = 0.0;
@@ -452,6 +452,10 @@ void Parametrization::OptimizeSingleArc(const UpdateToken&){
 		corridor_sequence_.GetDest());
 	waypoint_velocities_sol_[corridor_sequence_.NbCorridors()].CopyValues(
 		Point2D<double>(0.0, 0.0));
+
+	// std::cout << "solved single arc case" << std::endl;
+	// std::cout << "tx_sol: " << GetTxSol() << std::endl;
+	// std::cout << "ty_sol: " << GetTySol() << std::endl;
 }
 
 bool Parametrization::FlipAccelerationAtWaypoint(const UpdateToken&, 
