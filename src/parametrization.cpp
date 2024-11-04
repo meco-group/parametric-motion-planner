@@ -124,16 +124,24 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 		if (movable_waypoints_[i]){ nb_movable_waypoints_++;}
 	}
 
+	flipped_acceleration_ = std::vector<bool>(corridor_sequence_.NbCorridors() + 1, false);
+	added_constraints_list_.clear();
+
 	// Update version
 	latest_sequence_version_ = corridor_sequence_.GetVersion();
 };
 
 void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  Dict const &opts_casadi,
-											  Dict const &opts_solver){		
+											  Dict const &opts_solver,
+											  bool use_prev_sol_as_init_guess){		
 	// prepare initial guess
 	// std::cout << "initializing" << std::endl;
-	InitializeOptimization();
+	if (use_prev_sol_as_init_guess){
+		opti_.set_initial(opti_.x(), sol_.value().value(opti_.x()));
+	} else {
+		InitializeOptimization();
+	}
 	// ShowInitialization();
 	// std::cout << "done" << std::endl;
 
@@ -170,7 +178,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		waypoints_mx_[i].CopyValues(waypoints_[i]);
 	
 		// if the waypoint is movable, make it so
-		if (movable_waypoints_[i]){
+		if (movable_waypoints_[i] && i > 0 && i < corridor_sequence_.NbCorridors() - 1){
 			// Check horizontal moving range
 			if (max_waypoint_offsets_[i].x() > 0){
 				opti_.subject_to(0 <= (offsets(0, offset_idx) <= 
@@ -300,6 +308,10 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		opti_.subject_to(next_waypoint.y() - position_tolerance <=
 					   (intermediate_positions_[2].y() <=
 						next_waypoint.y() + position_tolerance));
+		// opti_.subject_to(next_waypoint.x() ==
+		// 			   (intermediate_positions_[2].x()));
+		// opti_.subject_to(next_waypoint.y() ==
+		// 			   (intermediate_positions_[2].y()));
 
 		// constrain equal time
 		opti_.subject_to(t_x_(0, w) + t_x_(1, w) + t_x_(2, w) == 
@@ -353,15 +365,19 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 };
 
 void Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
-	// set the previous solution as initial guess
-	opti_.set_initial(opti_.x(), sol_.value().value(opti_.x()));
-	
 	MX t_extreme;
 	MX p_extreme;
 	double lb;
 	double ub;
 	p_extremes_ = {};
 	for (int w : add_list){
+		// only process corridors for which constraints have not yet been added
+		if (added_constraints_list_.count(w) > 0){
+			continue;
+		}
+
+		added_constraints_list_.insert(w);
+
 		if (std::abs(waypoints_[w+1].x() - waypoints_[w].x()) >
 				std::abs(waypoints_[w+1].y() - waypoints_[w].y())){
 			lb = corridor_sequence_.GetCorridor(w).Ymin() +
@@ -401,7 +417,7 @@ void Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
 		}
 	}
 
-	Solve();
+	// Solve();
 }
 
 void Parametrization::OptimizeSingleArc(const UpdateToken&){
@@ -436,6 +452,37 @@ void Parametrization::OptimizeSingleArc(const UpdateToken&){
 		corridor_sequence_.GetDest());
 	waypoint_velocities_sol_[corridor_sequence_.NbCorridors()].CopyValues(
 		Point2D<double>(0.0, 0.0));
+}
+
+bool Parametrization::FlipAccelerationAtWaypoint(const UpdateToken&, 
+												 int waypoint_idx){
+	if (waypoint_idx < 1 || waypoint_idx >= corridor_sequence_.NbCorridors()){
+		throw std::runtime_error("Invalid waypoint index for flipping the acceleration.");
+	}
+
+	// If this one has been flipped already, ignore this request
+	if (flipped_acceleration_[waypoint_idx]){
+		return false;
+	}
+
+	// flip the acceleration
+	alpha_x_[waypoint_idx] = -alpha_x_[waypoint_idx];
+	alpha_y_[waypoint_idx] = -alpha_y_[waypoint_idx];
+
+	// flip the movable distances
+	max_waypoint_offsets_[waypoint_idx].SetX(-max_waypoint_offsets_[waypoint_idx].x());
+	max_waypoint_offsets_[waypoint_idx].SetY(-max_waypoint_offsets_[waypoint_idx].y());
+
+	flipped_acceleration_[waypoint_idx] = true;
+
+	return true;
+}
+
+void Parametrization::FilterAddConstraintsList(const UpdateToken&, 
+										std::set<int> &add_list) const {
+	for (int w : added_constraints_list_){
+		add_list.erase(w);
+	}
 }
 
 Point2D<double> Parametrization::GetWaypoint(int idx) const {
@@ -1121,6 +1168,14 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 	t1_bd = 0; t2_bd = 0; t3_bd = 0;
 	t1_fd = 0; t2_fd = 0; t3_fd = 0;
 
+	// std::cout << "Initializing arc" << std::endl;
+	// std::cout << "v_des: " << v_des << std::endl;
+	// std::cout << "start_vel: " << start_vel << std::endl;
+	// std::cout << "p0: " << p0 << std::endl;
+	// std::cout << "pf: " << pf << std::endl;
+	// std::cout << "alpha_x: " << alpha_x_[corridor_idx] << std::endl;
+	// std::cout << "alpha_y: " << alpha_y_[corridor_idx] << std::endl;
+
 	double a_max = params_.GetAmax();
 
 	// Compute the bottleneck direction
@@ -1153,7 +1208,7 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 
 	// Compute timings in the free direction
 	if (corridor_idx == 0){
-		double t_accel = std::sqrt(2*std::abs(p0_fd - pf_fd)/a_max);
+		double t_accel = std::sqrt(2*std::abs(p0_bd - pf_bd)/a_max);
 		if (t1_bd >= t_accel){
 			t1_bd = t_accel;
 			t2_bd = 0;
@@ -1178,7 +1233,6 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 		}
 
 		alpha_fd = alpha_0_init_;
-
 	} else {
 		// in subsequent corridors, make sure the next waypoint is reached at 
 		// the exact same time as in the bottleneck direction
@@ -1288,6 +1342,8 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 		waypoint_velocities_init_[corridor_idx + 1].SetY(v0_fd +
 			alpha_fd*a_max*t1_fd + alpha_next_fd*a_max*t3_fd);
 	}
+
+	// std::cout << "" << std::endl;
 
 	return succesfull_initialization;	
 }

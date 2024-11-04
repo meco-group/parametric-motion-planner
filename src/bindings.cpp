@@ -60,6 +60,7 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("AddObstacle", &Environment::AddObstacle)
         .def("AddRandomObstacles", &Environment::AddRandomObstacles)
         .def("GetRandomFreeVehiclePosition", &Environment::GetRandomFreeVehiclePosition)
+        .def("GetRandomFreeCellPosition", &Environment::GetRandomFreeCellPosition)
         .def("ToJson", [](const Environment& self){
             return self.ToJson().dump();
         })
@@ -98,5 +99,6 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("GetTotalComputationTime", &MotionPlanner::GetTotalComputationTime)
         .def("GetSolverTime", &MotionPlanner::GetSolverTime)
         .def("GetTravelTime", &MotionPlanner::GetTravelTime)
+        .def("CorridorInfeasibilitiesDetected", &MotionPlanner::CorridorInfeasibilitiesDetected)
         ;
 }

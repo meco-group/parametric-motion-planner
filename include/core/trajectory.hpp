@@ -33,7 +33,9 @@ class Trajectory{
 
         // Update the trajectory with the ocp solution
         void Update(DM const  &xx_ocp, DM const &uu_ocp, 
-                    std::vector<double> const &tt_ocp, double solver_time);
+                    std::vector<double> const &tt_ocp, double solver_time,
+                    CorridorSequence const &corridor_sequence,
+                    Parameters const &params);
 
         // Update the trajectory with the arena solution
         // returns false (and aborts update) if a point is found that does
@@ -95,6 +97,8 @@ class Trajectory{
         std::vector<double> Ay() const { return ay_;};
         double TotalComputationTime() const { return total_computation_time_;};
         double SolverTime() const { return solver_time_;};
+        bool CorridorInfeasibilitiesDetected() const { 
+            return corridor_infeasibilities_detected_;};
 
         // basic setters
         void SetTotalComputationTime(double total_computation_time){
@@ -105,6 +109,10 @@ class Trajectory{
 
 
     private:
+        bool CheckPointInCorridors(Point2D<double> const &point, 
+                            CorridorSequence const &corridor_sequence,
+                            int corridor_idx, Parameters const &params) const;
+
         const double dt_;
         const double max_trajectory_time_;
         const int max_nb_samples_;
@@ -121,6 +129,7 @@ class Trajectory{
 
         double total_computation_time_ = 0;     // expressed in ms
         double solver_time_ = 0;                // expressed in ms
+        bool corridor_infeasibilities_detected_ = false;
 };
 
 #endif

@@ -74,7 +74,7 @@ bool DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
             UpdateEnvironment();
 
             // Replan
-            Environment env = motion_planner_.GetEnvironment();
+            const Environment& env = motion_planner_.GetEnvironment();
             try{
                 motion_planner_.Plan(replan_position, dest, replan_velocity);
                 curr_trajectory.Reset(replan_position);

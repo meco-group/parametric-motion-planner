@@ -4,9 +4,9 @@ sys.path.append('build/')
 import json
 import parametric_motion_planner_module as pmp
 
-def extract_data():
+def extract_data(file_name_appendix):
     # read random environments from file
-    with open('python-benchmark/files/random_environments.json', 'r') as f:
+    with open('python-benchmark/files/random_environments' + file_name_appendix + '.json', 'r') as f:
         data = json.load(f)
 
     # load random environments

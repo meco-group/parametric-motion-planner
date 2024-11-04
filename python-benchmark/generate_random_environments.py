@@ -18,6 +18,8 @@ v_max_ub = 2.0
 a_max_lb = 2.0
 a_max_ub = 6.5
 
+USE_CELL_POSITIONS = True
+
 # create random parameters and environments
 N = 100
 env = pmp.Environment(15, 15, 0.12, 0.12)
@@ -34,13 +36,18 @@ for i in range(N):
     j['envs'].append(json.loads(env.ToJson()))
 
     # randomize start and destination points
-    env.GetRandomFreeVehiclePosition(point, params.GetVehWidth(), 
-                                     params.GetVehHeight())
-    j['starts'].append([point.x(), point.y()])
-
-    env.GetRandomFreeVehiclePosition(point, params.GetVehWidth(),
-                                     params.GetVehHeight())
-    j['dests'].append([point.x(), point.y()])
+    if USE_CELL_POSITIONS:
+        env.GetRandomFreeCellPosition(point)
+        j['starts'].append([point.x(), point.y()])
+        env.GetRandomFreeCellPosition(point)
+        j['dests'].append([point.x(), point.y()])
+    else:
+        env.GetRandomFreeVehiclePosition(point, params.GetVehWidth(), 
+                                        params.GetVehHeight(), params.GetMargin())
+        j['starts'].append([point.x(), point.y()])
+        env.GetRandomFreeVehiclePosition(point, params.GetVehWidth(),
+                                        params.GetVehHeight(), params.GetMargin())
+        j['dests'].append([point.x(), point.y()])
 
 
 # write to file

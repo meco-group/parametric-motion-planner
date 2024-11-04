@@ -48,9 +48,13 @@ class Parametrization{
         void UpdateParametrization(const UpdateToken&);
         void OptimizeParametrization(const UpdateToken&, 
                                      casadi::Dict const &opts_casadi, 
-                                     casadi::Dict const &opts_solver);
+                                     casadi::Dict const &opts_solver,
+                                     bool use_prev_sol_as_init_guess);
         void AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
+
+        bool FlipAccelerationAtWaypoint(const UpdateToken&, int waypoint_idx);
+        void FilterAddConstraintsList(const UpdateToken&, std::set<int> &add_list) const;
 
         // basic getters
         int MaxNbCorridors() const {return max_nb_corridors_;};
@@ -146,6 +150,8 @@ class Parametrization{
         std::vector<WaypointLocation> waypoint_locations_;  // naming (debugging purposes)
         int nb_movable_waypoints_;
         int initial_bottleneck_direction_ = 0;
+        std::vector<bool> flipped_acceleration_;
+        std::set<int> added_constraints_list_;
 
         // mx objects to be used in the optimization
         casadi::Opti opti_;

@@ -43,7 +43,8 @@ void MotionPlanner::SetStart(Point2D<double> start){
 
 void MotionPlanner::SetRandomStart(){
     environment_.GetRandomFreeVehiclePosition(start_, params_.GetVehWidth(),
-                                              params_.GetVehHeight());
+                                              params_.GetVehHeight(),
+                                              params_.GetMargin());
 }
 
 void MotionPlanner::SetDest(Point2D<double> dest){
@@ -55,7 +56,8 @@ void MotionPlanner::SetDest(Point2D<double> dest){
 
 void MotionPlanner::SetRandomDest(){
     environment_.GetRandomFreeVehiclePosition(dest_, params_.GetVehWidth(),
-                                              params_.GetVehHeight());
+                                              params_.GetVehHeight(),
+                                              params_.GetMargin());
 }
 
 void MotionPlanner::UpdateCorridorSequence(){
@@ -334,8 +336,8 @@ void MotionPlanner::PlanOCP(){
             // rk4_arguments_[2] = tt(s)/nb_points_per_corridor_;
             // rk4_outputs_ = rk4_(rk4_arguments_);
             // opti.subject_to(xx(Slice(), k + 1) == rk4_outputs_[0]);
-            opti.subject_to(xx(0, k+1) == xx(0, k) + xx(2, k)*tt(s)/nb_points_per_corridor_);
-            opti.subject_to(xx(1, k+1) == xx(1, k) + xx(3, k)*tt(s)/nb_points_per_corridor_);
+            opti.subject_to(xx(0, k+1) == xx(0, k) + xx(2, k)*tt(s)/nb_points_per_corridor_ + 0.5*uu(0, k)*tt(s)*tt(s)/(nb_points_per_corridor_*nb_points_per_corridor_));
+            opti.subject_to(xx(1, k+1) == xx(1, k) + xx(3, k)*tt(s)/nb_points_per_corridor_ + 0.5*uu(1, k)*tt(s)*tt(s)/(nb_points_per_corridor_*nb_points_per_corridor_));
             opti.subject_to(xx(2, k+1) == xx(2, k) + uu(0, k)*tt(s)/nb_points_per_corridor_);
             opti.subject_to(xx(3, k+1) == xx(3, k) + uu(1, k)*tt(s)/nb_points_per_corridor_);
             
@@ -440,7 +442,8 @@ void MotionPlanner::PlanOCP(){
     uu_sol = horzcat(uu_sol, last_controls);
 
     // Construct trajectory
-    last_solution_.Update(xx_sol, uu_sol, t, solver_time);
+    last_solution_.Update(xx_sol, uu_sol, t, solver_time, corridor_sequence_, 
+                          params_);
 }
 
 void MotionPlanner::PlanARENA(){
@@ -459,24 +462,38 @@ void MotionPlanner::PlanARENA(){
 
         // Start the optimization loop
         bool made_modification = true;
-        // while (made_modification){
+        bool first = true;
+        while (made_modification){
+            made_modification = false;
+
             // Solve the parametrization
             parametrization_.OptimizeParametrization(
-                parametrization_update_token_, opts_casadi_, opts_solver_);
-            solver_time += parametrization_.GetSolverTime();
+                parametrization_update_token_, opts_casadi_, opts_solver_,
+                !first);
+            first = false;
+            if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
+            } else { solver_time += parametrization_.GetSolverTime();}
 
+            // Sample the trajectory and check if extra constraints are needed
+            // TODO: instead of checking the samples, the parabolic extremes can be checked
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
+            parametrization_.FilterAddConstraintsList(parametrization_update_token_,
+                                                      add_constraints_list_);
 
-            // Check if additional constraints are required
+            // Add extra constraints
             if (add_constraints_list_.size() > 0 && solver_time > 0){
                 parametrization_.AddOvershootingConstraints(add_constraints_list_);
-                solver_time += parametrization_.GetSolverTime();
-                add_constraints_list_ = CheckOutOfCorridor(solver_time);
+                made_modification = true;
+                // solver_time += parametrization_.GetSolverTime();
+                // add_constraints_list_ = CheckOutOfCorridor(solver_time);
             }
 
-            // Check if the parametrization is still sub-optimal
-            made_modification = EliminateSubOptimalParametrization();
-        // }
+            // If no modification was made, check if the parametrization is 
+            // still sub-optimal
+            if (!made_modification){
+                made_modification = EliminateSubOptimalParametrization();
+            } 
+        }
     }
 
     // Update the solution
@@ -561,7 +578,25 @@ std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){
 }
 
 bool MotionPlanner::EliminateSubOptimalParametrization(){
-    return false;
+    // return false;
+
+    bool made_modification = false;
+    double tolerance = 1e-4;
+
+    for (int w = 0; w < corridor_sequence_.NbCorridors()-1; w++){
+        if (parametrization_.GetTxSol()[w][2] < tolerance && 
+            parametrization_.GetTxSol()[w+1][0] < tolerance &&
+            parametrization_.GetTySol()[w][2] < tolerance &&
+            parametrization_.GetTySol()[w+1][0] < tolerance){
+            
+            std::cout << "Flipping acceleration at waypoint " << w << std::endl;
+            made_modification = made_modification ||
+                parametrization_.FlipAccelerationAtWaypoint(
+                                            parametrization_update_token_, w+1);
+        }
+    }
+
+    return made_modification;
 }
 
 std::string MotionPlanner::PlannerMethodToString() const {

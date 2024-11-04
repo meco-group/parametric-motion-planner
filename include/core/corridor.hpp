@@ -53,8 +53,8 @@ class Corridor{
         Point2D<int> Direction() const { return direction_;};
         int GetCellLength(double cell_width, double cell_height) const {
             return direction_.y() == 0 ? 
-                    std::abs(x_max_ - x_min_)/cell_width :
-                    std::abs(y_max_ - y_min_)/cell_height;
+                    std::abs(x_max_ - x_min_ + 1.0e-3)/cell_width :
+                    std::abs(y_max_ - y_min_ + 1.0e-3)/cell_height;
         };
         Point2D<double> GetCenter() const {
             return Point2D<double>((x_min_ + x_max_)/2, (y_min_ + y_max_)/2);

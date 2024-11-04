@@ -51,6 +51,7 @@ void Trajectory::Update(int nb_corridors,
     int p2p_sol_idx = 0; // we will interpolate between idx and idx + 1
     double alpha, beta;
     double accumulated_time = 0.0; // sum of completely sampled durations
+    corridor_infeasibilities_detected_ = false;
     for (int i = 0; i < curr_nb_samples_; i++){
 
         // for every sample, figure out the value of p2p_sol_idx
@@ -85,7 +86,9 @@ void Trajectory::Update(int nb_corridors,
 
 void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp, 
                         std::vector<double> const &tt_ocp,
-                        double solver_time){
+                        double solver_time, 
+                        CorridorSequence const &corridor_sequence,
+                        Parameters const &params){
     total_computation_time_ = -1;
     solver_time_ = solver_time;
     tf_ = tt_ocp[tt_ocp.size() - 1];
@@ -105,6 +108,11 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
 
     int ocp_sol_idx = 0;
     double alpha, beta;
+
+    corridor_infeasibilities_detected_ = false;
+    Point2D<double> point_to_check;
+    int corridor_idx = 0;
+    
     for (int i = 0; i < curr_nb_samples_; i++){
         // Figure out where to linearly interpolate
         while (ocp_sol_idx < tt_ocp.size() - 2 && 
@@ -119,10 +127,21 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
                 (tt_ocp[ocp_sol_idx] - double(tt_ocp[ocp_sol_idx - 1]));
         beta = 1 - alpha;
 
-        px_[i] = beta * double(xx_ocp(0, ocp_sol_idx - 1)) + 
-                 alpha * double(xx_ocp(0, ocp_sol_idx));
-        py_[i] = beta * double(xx_ocp(1, ocp_sol_idx - 1)) +
-                 alpha * double(xx_ocp(1, ocp_sol_idx));
+        // px_[i] = beta * double(xx_ocp(0, ocp_sol_idx - 1)) + 
+        //          alpha * double(xx_ocp(0, ocp_sol_idx));
+        // py_[i] = beta * double(xx_ocp(1, ocp_sol_idx - 1)) +
+        //          alpha * double(xx_ocp(1, ocp_sol_idx));
+        if (i == 0){
+            px_[i] = double(xx_ocp(0, ocp_sol_idx - 1));
+            py_[i] = double(xx_ocp(1, ocp_sol_idx - 1));
+        } else {
+            px_[i] = double(xx_ocp(0, ocp_sol_idx-1) + 
+                     xx_ocp(2, ocp_sol_idx-1)*(t_[i] - tt_ocp[ocp_sol_idx-1]) + 
+                     0.5*uu_ocp(0, ocp_sol_idx-1)*std::pow(t_[i] - tt_ocp[ocp_sol_idx-1], 2));
+            py_[i] = double(xx_ocp(1, ocp_sol_idx-1) + 
+                     xx_ocp(3, ocp_sol_idx-1)*(t_[i] - tt_ocp[ocp_sol_idx-1]) + 
+                     0.5*uu_ocp(1, ocp_sol_idx-1)*std::pow(t_[i] - tt_ocp[ocp_sol_idx-1], 2));
+        }
         vx_[i] = beta * double(xx_ocp(2, ocp_sol_idx - 1)) +
                  alpha * double(xx_ocp(2, ocp_sol_idx));
         vy_[i] = beta * double(xx_ocp(3, ocp_sol_idx - 1)) +
@@ -131,6 +150,20 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
                  alpha * double(uu_ocp(0, ocp_sol_idx));
         ay_[i] = beta * double(uu_ocp(1, ocp_sol_idx - 1)) +
                  alpha * double(uu_ocp(1, ocp_sol_idx));
+
+        // Check to update the corridor index
+        point_to_check.SetX(px_[i]);
+        point_to_check.SetY(py_[i]);
+        if (corridor_idx < corridor_sequence.NbCorridors() - 1 && 
+            corridor_sequence.GetCorridor(corridor_idx + 1).ContainsVehicle(point_to_check, params)){
+            corridor_idx++;
+        }
+
+        // Check if position sample is within the corridor
+        if (!CheckPointInCorridors(point_to_check, corridor_sequence, 
+                                   corridor_idx, params)){
+            corridor_infeasibilities_detected_ = true;
+        }
     }
 
     // The last sample should be steady-state
@@ -190,6 +223,8 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     Point2D<double> point_to_check;
 
     int corridor_idx = 0;
+    bool out_of_corridor = false;
+    corridor_infeasibilities_detected_ = false;
 
     // loop over corridors
     for (int w = 0; w < corridor_sequence.NbCorridors(); w++){
@@ -231,23 +266,15 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
             // Check if position sample is within the corridor
             point_to_check.SetX(px_[sample_ptr]);
             point_to_check.SetY(py_[sample_ptr]);
-            if (!corridor_sequence.GetCorridor(corridor_idx).ContainsVehicle(
-                    point_to_check, params)){
-                // if the point is not in this corridor, check to see if it is
-                // in the next corridor
-                corridor_idx++;
-                if (corridor_idx >= corridor_sequence.NbCorridors() || 
-                    !corridor_sequence.GetCorridor(corridor_idx).ContainsVehicle(
-                        point_to_check, params)){
-                    // if the point is also not in the next corridor, add
-                    // it to the
-                    // out_of_corridor_list
-                    corridor_idx--;
-                    if (out_of_corridor_list.count(w) == 0){
-                        out_of_corridor_list.insert(w);
-                        Corridor c = corridor_sequence.GetCorridor(w);
-                        std::cout << "Point " << point_to_check << " is out of corridor " << c << std::endl;
-                    }
+            out_of_corridor = !CheckPointInCorridors(point_to_check, 
+                                                     corridor_sequence, 
+                                                     corridor_idx, params);
+            if (out_of_corridor){
+                corridor_infeasibilities_detected_ = true;
+                if (out_of_corridor_list.count(w) == 0){
+                    out_of_corridor_list.insert(w);
+                    Corridor c = corridor_sequence.GetCorridor(w);
+                    std::cout << "Point " << point_to_check << " is out of corridor " << c << std::endl;
                 }
             }
 
@@ -294,6 +321,7 @@ void Trajectory::Reset(Point2D<double> const &start){
     solver_time_ = -1;
     tf_ = 0.0;
     curr_nb_samples_ = 1;
+    corridor_infeasibilities_detected_ = false;
 
     // initialize the trajectory
     t_[0] = 0.0;
@@ -351,6 +379,39 @@ json Trajectory::ToJson() const {
     j["total_computation_time"] = total_computation_time_;
     j["solver_time"] = solver_time_;
     j["Tf"] = Tf();
+    j["corridor_infeasibilities_detected"] = corridor_infeasibilities_detected_;
 
     return j;
+}
+
+bool Trajectory::CheckPointInCorridors(Point2D<double> const &point_to_check, 
+                            CorridorSequence const &corridor_sequence,
+                            int corridor_idx, Parameters const &params) const {
+    if (!corridor_sequence.GetCorridor(corridor_idx).ContainsVehicle(
+            point_to_check, params)){
+        // if the point is not in this corridor, check to see if it is
+        // in the next corridor
+        corridor_idx++;
+        if (corridor_idx >= corridor_sequence.NbCorridors() || 
+            !corridor_sequence.GetCorridor(corridor_idx).ContainsVehicle(
+                point_to_check, params)){
+            // if the point is also not in the next corridor, add
+            // it to the
+            // out_of_corridor_list
+            corridor_idx--;
+            // if (corridor_idx < corridor_sequence.NbCorridors() - 1){
+            //     std::cout << "Point " << point_to_check << " is out of corridor " << corridor_sequence.GetCorridor(corridor_idx) << " and corridor " << corridor_sequence.GetCorridor(corridor_idx+1) << std::endl;
+            // } else {
+            //     std::cout << "Point " << point_to_check << " is out of corridor " << corridor_sequence.GetCorridor(corridor_idx) << std::endl;
+            // }
+            // std::cout << "min_x: " << point_to_check.x() - params.GetVehWidth()/2.0 - params.GetMargin() << std::endl;
+            // std::cout << "max_x: " << point_to_check.x() + params.GetVehWidth()/2.0 + params.GetMargin() << std::endl;
+            // std::cout << "min_y: " << point_to_check.y() - params.GetVehHeight()/2.0 - params.GetMargin() << std::endl;
+            // std::cout << "max_y: " << point_to_check.y() + params.GetVehHeight()/2.0 + params.GetMargin() << std::endl;
+            return false;
+        }
+        corridor_idx--;
+    }
+
+    return true;
 }

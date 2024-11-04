@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_set>
 #include <nlohmann/json.hpp>
+#include <random>
 
 #include "helper_types.hpp"
 #include "exceptions.hpp"
@@ -27,7 +28,8 @@ class Environment{
         bool isValidCell(int x, int y) const;
         bool isValidPosition(Point2D<double> pos) const;
         bool isValidVehiclePosition(Point2D<double> pos, double vehicle_width, 
-                                    double vehicle_length) const;
+                                    double vehicle_length, 
+                                    double margin) const;
 
         bool IsFree(Point2D<double> const &pos) const {
             if (!isValidPosition(pos)){ return false;}
@@ -82,7 +84,10 @@ class Environment{
 
         void GetRandomFreeVehiclePosition(Point2D<double> &pos,
                                           double vehicle_width,
-                                          double vehicle_height) const;
+                                          double vehicle_height,
+                                          double margin) const;
+
+        void GetRandomFreeCellPosition(Point2D<double> &pos) const;
 
         json ToJson() const;
 
@@ -103,6 +108,11 @@ class Environment{
         // updating
         int version_ = 0;
 
+        // random position generator
+        mutable std::random_device rd_;
+        mutable std::mt19937 gen_{rd_()};
+        mutable std::uniform_real_distribution<double> dis_x_;
+        mutable std::uniform_real_distribution<double> dis_y_;
 };
 
 #endif

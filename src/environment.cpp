@@ -3,7 +3,6 @@
 #include <unordered_set>
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <random>
 
 #include "core/environment.hpp"
 #include "core/corridor.hpp"
@@ -61,13 +60,16 @@ bool Environment::isValidPosition(Point2D<double> pos) const {
 
 bool Environment::isValidVehiclePosition(Point2D<double> pos, 
                                          double vehicle_width, 
-                                         double vehicle_length) const {
+                                         double vehicle_length,
+                                         double margin) const {
     Point2D<double> test_point;
 
     for (int i = -1; i <= 1; i++){
         for (int j = -1; j <= 1; j++){
-            test_point.SetX(pos.x() + i*vehicle_width/2);
-            test_point.SetY(pos.y() + j*vehicle_length/2);
+            test_point.SetX(i > 0 ? pos.x() + i*vehicle_width/2 + margin : 
+                                    pos.x() + i*vehicle_width/2 - margin);
+            test_point.SetY(j > 0 ? pos.y() + j*vehicle_length/2 + margin : 
+                                    pos.y() + j*vehicle_length/2 - margin);
             if (!IsFree(test_point)){
                 return false;
             }
@@ -342,22 +344,31 @@ CellOccupancy Environment::GetOccupancy(int x, int y) const {
 
 void Environment::GetRandomFreeVehiclePosition(Point2D<double> &pos, 
                                                double vehicle_width, 
-                                               double vehicle_length) const {
-    // Initialize the random number generator
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dis_x(0, nb_cell_cols_*cell_width_);
-    std::uniform_real_distribution<double> dis_y(0, nb_cell_rows_*cell_height_);
-
+                                               double vehicle_length,
+                                               double margin) const {
     // Initialize the position
-    pos.SetX(dis_x(gen));
-    pos.SetY(dis_y(gen));
+    pos.SetX(nb_cell_cols_*cell_width_*dis_x_(gen_));
+    pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
 
     // Check if the position is valid
-    while (!isValidVehiclePosition(pos, vehicle_width, vehicle_length)){
-        pos.SetX(dis_x(gen));
-        pos.SetY(dis_y(gen));
+    while (!isValidVehiclePosition(pos, vehicle_width, vehicle_length, margin)){
+        pos.SetX(nb_cell_cols_*cell_width_*dis_x_(gen_));
+        pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
     }
+}
+
+void Environment::GetRandomFreeCellPosition(Point2D<double> &pos) const {
+    // Initialize the position
+    Point2D<int> cell;
+    cell.SetX(nb_cell_cols_*dis_x_(gen_));
+    cell.SetY(nb_cell_rows_*dis_y_(gen_));
+
+    while(!isValidCell(cell) || !IsFree(cell)){
+        cell.SetX(nb_cell_cols_*dis_x_(gen_));
+        cell.SetY(nb_cell_rows_*dis_y_(gen_));
+    }
+
+    pos = cell.ConvertCellToWorld(cell_width_, cell_height_);
 }
 
 json Environment::ToJson() const {

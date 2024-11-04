@@ -58,30 +58,58 @@ void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename)
 
 void SolveRandomProblem(){
     // Environment environment = Environment();
-    Environment environment = Environment(10, 12, 0.12, 0.12);
-    Parameters params = Parameters();
-
+    // Environment environment = Environment(10, 12, 0.12, 0.12);
+    // Environment environment = Environment(20, 20, 0.12, 0.12);
+    Environment environment = Environment(15, 15, 0.12, 0.12);
+    Parameters params = Parameters(1.3246870734074605, 6.427520934862196, 0.115, 0.115, 0.001);
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
-	environment.AddRandomObstacles(0.25);
-    // std::vector<int> rr = {0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 6, 6, 7, 8, 8, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11};
-    // std::vector<int> cc = {1, 2, 4, 8, 5, 7, 0, 4, 7, 1, 8, 1, 4, 6, 9, 4, 8, 9, 1, 3, 9, 3, 4, 5, 6, 7, 1, 4, 7, 3, 6, 7, 6};
-    // for (int i = 0; i < rr.size(); i++){
-    //     environment.AddObstacle(Point2D<int>(rr[i], cc[i]));
-    // }
+	// environment.AddRandomObstacles(0.25);
+    std::vector<int> rr_test = {0, 1, 1, 2, 2, 3, 4, 6, 7, 7, 10, 10, 11, 12, 13, 13};
+    std::vector<int> cc_test = {5, 3, 7, 7, 8, 13, 7, 11, 4, 5, 1, 3, 3, 0, 2, 10};
+    for (int i = 0; i < rr_test.size(); i++){
+        environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
+    }
+
+    std::vector<int> rr = {};
+    std::vector<int> cc = {};
+    for (int i = 0; i < environment.NbCellCols(); i++){
+        for (int j = 0; j < environment.NbCellRows(); j++){
+            if (!environment.IsFree(Point2D<int>(i, j))){
+                rr.push_back(i);
+                cc.push_back(j);
+            }
+        }
+    }
+    std::cout << "std::vector<int> rr_test = {";
+    for (int i = 0; i < rr.size(); i++){
+        std::cout << rr[i];
+        if (i < rr.size() - 1){
+            std::cout << ", ";
+        }
+    }
+    std::cout << "};" << std::endl;
+    std::cout << "std::vector<int> cc_test = {";
+    for (int i = 0; i < cc.size(); i++){
+        std::cout << cc[i];
+        if (i < cc.size() - 1){
+            std::cout << ", ";
+        }
+    }
+    std::cout << "};" << std::endl;
 
     std::cout << "Created motion planner in environment " << environment << std::endl;
 
-	Point2D<double> start = Point2D<double>(0.46475, 0.374562);
-    Point2D<double> dest = Point2D<double>(0.945187, 0.249773);
+	Point2D<double> start = Point2D<double>(1.26, 0.54);
+    Point2D<double> dest = Point2D<double>(0.18, 1.62);
     Point2D<double> start_vel = Point2D<double>(0, 0);
 
     my_motion_planner.SetStart(start);
     my_motion_planner.SetDest(dest);
     my_motion_planner.SetStartVel(start_vel);
 
-    my_motion_planner.SetRandomStart();
-    my_motion_planner.SetRandomDest();
+    // my_motion_planner.SetRandomStart();
+    // my_motion_planner.SetRandomDest();
 
     SolveAllMethods(my_motion_planner, "solution");
 }
@@ -144,14 +172,418 @@ void SolveDynamicProblem(){
     dynamic_simulator.DumpToJson("dynamic_solution_ocp.json");
 }
 
+void TestRandomVehiclePositions(){
+    int N = 100;
+
+    Environment environment = Environment(10, 12, 0.12, 0.12);
+    Parameters params = Parameters();
+
+    environment.AddRandomObstacles(0.25);
+
+    json random_positions_json;
+    random_positions_json["Environment"] = environment.ToJson();
+    random_positions_json["Positions"] = json::array();
+    random_positions_json["Valid"] = json::array();
+    
+    Point2D<double> pos;
+    for (int i = 0; i < N; i++){
+        std::cout << std::endl << "Generating position i = " << i << std::endl;
+        environment.GetRandomFreeVehiclePosition(pos, 0.115, 0.115, 0.001);
+        random_positions_json["Positions"].push_back(pos.ToJson());
+        random_positions_json["Valid"].push_back(environment.isValidVehiclePosition(pos, 0.115, 0.115, 0.001));
+    }
+
+    std::ofstream outFile("output/random_positions.json");
+    outFile << random_positions_json.dump(4);
+    outFile.close();
+}
+
 int main(){
     SolveRandomProblem();
     // SolveDynamicProblem();
+    // TestRandomVehiclePositions();
 }
 
 
 /*
 # TODO: fix these cases
+
+
+// CASE THAT WORKS IN PYTHON AND SEEMS TO BE FIXED IF THE POSITION CONSTRAINT 
+// RELAXATION IS REMOVED (INITIALIZATION SEEMS TO BE SLIGHTLY DIFFERENT...)
+
+Created motion planner in environment 20 x 20 environment (2.4 x 2.4)
+# . . . . . . # # . # . . . . . . . . . 
+# # . . . . # # . . # . . # . . . . . . 
+. . . . # # # . # . . . . . # . . # . # 
+. . . . . . . # # # . . . . . . . . . . 
+# # . # # . . . # . . . . . . . # # . # 
+. . . . . . . . . . . . # . # # . . . # 
+. . . . . . . . # . . . # # # # # # . . 
+. . # . . . . # # . # . . . . . # # . . 
+. . . . . # . . . . . # . # . . # . . . 
+. . . . . . . . . # . # . # # . # . # . 
+. # # . # . # # . . . . . . . . . . . # 
+. . # # . . # # . . . . # # # . . . . . 
+. . . . . . . . . . . # . . # . . # . . 
+. . . . . . . . . # # . . . . . . # . . 
+. . . . # . . # # . . . . . # . # # . # 
+. . . # # . . . . . # . . . . . . . . . 
+. . . . . . . . # . . . . # . . . . . . 
+. . . . . . . . # . # # . . . # . . . . 
+# . . . . . # . . . . # . # # . # . # # 
+. . . . . . . # . . . . . . . # . . . . 
+
+Planning from (0.561175, 1.50477) to (1.94371, 2.04797) with start velocity (0, 0)
+0: [0.36, 0.84, 1.44, 1.8]
+1: [0.48, 1.2, 1.68, 1.8]
+2: [1.08, 1.44, 1.56, 1.92]
+3: [1.2, 1.92, 1.8, 2.04]
+4: [1.8, 2.04, 1.92, 2.28]
+
+Planning using ARENA method
+Point (0.813475, 1.75707) is out of corridor [0.36, 0.84, 1.44, 1.8]
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  |  49.00us (  1.14us)  48.59us (  1.13us)        43
+       nlp_g  | 485.00us ( 11.28us) 487.59us ( 11.34us)        43
+  nlp_grad_f  | 102.00us (  2.43us) 102.92us (  2.45us)        42
+  nlp_hess_l  | 745.00us ( 18.62us) 739.93us ( 18.50us)        40
+   nlp_jac_g  |   1.44ms ( 34.21us)   1.43ms ( 34.16us)        42
+       total  |   8.16ms (  8.16ms)   8.16ms (  8.16ms)         1
+Point (0.79817, 1.74442) is out of corridor [0.48, 1.2, 1.68, 1.8]
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  |   1.09ms (  1.07us)   1.07ms (  1.05us)      1014
+       nlp_g  |  11.85ms ( 11.68us)  11.83ms ( 11.66us)      1014
+  nlp_grad_f  | 477.00us (  2.36us) 473.65us (  2.34us)       202
+  nlp_hess_l  |   5.42ms ( 23.88us)   5.43ms ( 23.90us)       227
+   nlp_jac_g  |   9.57ms ( 39.06us)   9.59ms ( 39.14us)       245
+       total  |  81.83ms ( 81.83ms)  81.85ms ( 81.85ms)         1
+An error occured: Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:159:
+.../casadi/core/optistack_internal.cpp:997: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+Point (0.8215, 1.74296) is out of corridor [0.48, 1.2, 1.68, 1.8]
+Planning computation time: 123.2 ms
+Planning from (0.561175, 1.50477) to (1.94371, 2.04797) with start velocity (0, 0)
+NOTE: skipped update of corridor sequence.
+0: [0.36, 0.84, 1.44, 1.8]
+1: [0.48, 1.2, 1.68, 1.8]
+2: [1.08, 1.44, 1.56, 1.92]
+3: [1.2, 1.92, 1.8, 2.04]
+4: [1.8, 2.04, 1.92, 2.28]
+
+Planning using OCP method
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  |  64.00us (  1.42us)  62.94us (  1.40us)        45
+       nlp_g  |  12.52ms (278.24us)  12.53ms (278.43us)        45
+  nlp_grad_f  | 124.00us (  2.88us) 123.34us (  2.87us)        43
+  nlp_hess_l  |   8.80ms (214.59us)   8.81ms (214.85us)        41
+   nlp_jac_g  |  33.47ms (778.30us)  33.48ms (778.71us)        43
+       total  | 102.78ms (102.78ms) 102.78ms (102.78ms)         1
+Planning computation time: 464.795 ms
+Planning from (0.561175, 1.50477) to (1.94371, 2.04797) with start velocity (0, 0)
+NOTE: skipped update of corridor sequence.
+0: [0.36, 0.84, 1.44, 1.8]
+1: [0.48, 1.2, 1.68, 1.8]
+2: [1.08, 1.44, 1.56, 1.92]
+3: [1.2, 1.92, 1.8, 2.04]
+4: [1.8, 2.04, 1.92, 2.28]
+
+Planning using P2P method
+Planning computation time: 0.078711 ms
+
+==============================================================
+ARENA summary: 
+        Tf:                             1.521 s
+        Total computation time:         123.200 ms
+        Solver time:                    7.160 ms
+OCP summary: 
+        Tf:                             1.173 s
+        Total computation time:         464.795 ms
+        Solver time:                    102.782 ms
+P2P summary: 
+        Tf:                             2.144 s
+        Total computation time:         0.079 ms
+        Solver time:                    0.000 ms
+
+Overall results:
+        Suboptimality:  22.869 % (0.348 ms)
+        Total speedup:  3.773
+        Solver speedup: 14.356
+==============================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+. . # . . . . . . # . . . . . . . . # . 
+. . . . . . . . # . . . . . # # . . . . 
+# # . . . . . . . . # . . . # # . . . . 
+. # . # . # . . . . . # . . . . # . . # 
+# # # # . . . . . . . . . . . . . . . . 
+. # . . . . . . . . # . . # . . . . . # 
+. # . . . . . . . . . . # . . # . . . . 
+. . . . . . . . . . # . . . # . # . # # 
+. . # . . . # . . . . . . . . # . . . . 
+# . . . # # . . . # . . # # . . . . # . 
+. . . . # . . . . . # . . . . . . . . . 
+. . # . . # # . . # # # # . # # # # . # 
+. # . . # . . . . . . . . . # . . . . . 
+. . # . . . # . . . . . # . . # . . . . 
+. . . . . . . . . . . . # . . . . . # . 
+# . . # # . . . . . # . . . . . . . . # 
+. . # . . . . . . . . . . # . . # . # . 
+. . . . . . . . . . . . . . # . . # . . 
+# . . # . . . . . . # . . . . . . # . . 
+. . # . . . . . . . . # # . . . . . . . 
+
+Planning from (1.44618, 2.27419) to (0.951939, 1.45279) with start velocity (0, 0)
+0: [1.32, 1.68, 2.04, 2.4]
+1: [1.08, 1.56, 2.16, 2.28]
+2: [0.84, 1.2, 1.92, 2.28]
+3: [0.72, 1.2, 1.44, 2.16]
+4: [0.84, 1.08, 1.2, 1.56]
+
+Planning using ARENA method
+Point (1.36938, 2.19739) is out of corridor [1.32, 1.68, 2.04, 2.4]
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  | 106.00us (  1.49us) 108.02us (  1.52us)        71
+       nlp_g  |   1.15ms ( 16.21us)   1.15ms ( 16.23us)        71
+  nlp_grad_f  | 182.00us (  3.37us) 182.32us (  3.38us)        54
+  nlp_hess_l  |   1.17ms ( 22.50us)   1.16ms ( 22.38us)        52
+   nlp_jac_g  |   2.90ms ( 53.65us)   2.90ms ( 53.61us)        54
+       total  |  16.09ms ( 16.09ms)  16.09ms ( 16.09ms)         1
+Flipping acceleration at waypoint 2
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  |  67.00us (  1.37us)  65.99us (  1.35us)        49
+       nlp_g  | 742.00us ( 15.14us) 732.86us ( 14.96us)        49
+  nlp_grad_f  | 133.00us (  2.89us) 133.60us (  2.90us)        46
+  nlp_hess_l  |   1.03ms ( 23.32us)   1.02ms ( 23.29us)        44
+   nlp_jac_g  |   2.30ms ( 50.00us)   2.30ms ( 49.93us)        46
+       total  |  11.78ms ( 11.78ms)  11.78ms ( 11.78ms)         1
+Point (1.35927, 2.21798) is out of corridor [1.08, 1.56, 2.16, 2.28]
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  |   4.64ms (  1.18us)   4.60ms (  1.17us)      3939
+       nlp_g  |  53.41ms ( 13.56us)  53.38ms ( 13.55us)      3939
+  nlp_grad_f  |   1.48ms (  2.81us)   1.46ms (  2.78us)       527
+  nlp_hess_l  |  13.91ms ( 25.38us)  13.90ms ( 25.37us)       548
+   nlp_jac_g  |  28.41ms ( 50.19us)  28.43ms ( 50.22us)       566
+       total  | 279.55ms (279.55ms) 279.55ms (279.55ms)         1
+An error occured: Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:159:
+.../casadi/core/optistack_internal.cpp:997: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+Point (1.35927, 2.21733) is out of corridor [1.08, 1.56, 2.16, 2.28]
+Planning computation time: 374.8 ms
+Planning from (1.44618, 2.27419) to (0.951939, 1.45279) with start velocity (0, 0)
+NOTE: skipped update of corridor sequence.
+0: [1.32, 1.68, 2.04, 2.4]
+1: [1.08, 1.56, 2.16, 2.28]
+2: [0.84, 1.2, 1.92, 2.28]
+3: [0.72, 1.2, 1.44, 2.16]
+4: [0.84, 1.08, 1.2, 1.56]
+
+Planning using OCP method
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  | 127.00us (  1.72us) 124.89us (  1.69us)        74
+       nlp_g  |  24.61ms (332.62us)  24.62ms (332.67us)        74
+  nlp_grad_f  | 274.00us (  3.75us) 266.43us (  3.65us)        73
+  nlp_hess_l  |  19.08ms (268.73us)  19.10ms (268.95us)        71
+   nlp_jac_g  |  67.25ms (921.22us)  67.30ms (921.93us)        73
+       total  | 219.06ms (219.06ms) 219.07ms (219.07ms)         1
+Planning computation time: 681.373 ms
+Planning from (1.44618, 2.27419) to (0.951939, 1.45279) with start velocity (0, 0)
+NOTE: skipped update of corridor sequence.
+0: [1.32, 1.68, 2.04, 2.4]
+1: [1.08, 1.56, 2.16, 2.28]
+2: [0.84, 1.2, 1.92, 2.28]
+3: [0.72, 1.2, 1.44, 2.16]
+4: [0.84, 1.08, 1.2, 1.56]
+
+Planning using P2P method
+Planning computation time: 0.109537 ms
+
+==============================================================
+ARENA summary: 
+        Tf:                             1.472 s
+        Total computation time:         374.800 ms
+        Solver time:                    26.868 ms
+OCP summary: 
+        Tf:                             1.016 s
+        Total computation time:         681.373 ms
+        Solver time:                    219.066 ms
+P2P summary: 
+        Tf:                             1.761 s
+        Total computation time:         0.110 ms
+        Solver time:                    0.000 ms
+
+Overall results:
+        Suboptimality:  30.989 % (0.456 ms)
+        Total speedup:  1.818
+        Solver speedup: 8.153
+==============================================================
+
+
+
+
+
+
+
+
+
+
+Created motion planner in environment 20 x 20 environment (2.4 x 2.4)
+. . . # . . . . # . . . . . # . . # . . 
+. . . # . # # # . . . . # . # . . . # # 
+# . . # . # . . . # # . # # . . . . . . 
+# . # . . . . . . # # . . # . # . # . . 
+. . . # # . . . # . . # # . . # . . . . 
+# . . . # . # . # . # . . # . . . . . . 
+. # . . . . . . . . . # . . . . # . . . 
+. . . . # . . . . # . . . . # . # . # # 
+. . # . # . # . . . . . . # . # . . . . 
+# # # # . . . . . . # # . . . . . # . . 
+. . . . . . . . . . # . # . . . # # . . 
+. . . . . . . # . . . # . . . . . . . . 
+# . . . . . . . # . . . . . # # # . # # 
+# . . . . . . . # . . # # . # . . . . . 
+. . . . # . . . . . . . . # # . # . # . 
+. . . . . . . . # . . . . . . # # # . # 
+. . . . . # . # . . . . . . . . . # # . 
+. . . . . . . . . . # . . # # . . . # # 
+. # . . . # . . # . . . . # . # . . # # 
+. # # . . # # . . . . . . . . . # . . . 
+
+Planning from (1.73982, 1.81923) to (0.242202, 0.732387) with start velocity (0, 0)
+0: [1.68, 1.8, 1.56, 2.16]
+1: [1.44, 1.8, 1.56, 1.68]
+2: [1.44, 1.68, 1.44, 1.68]
+3: [1.2, 1.56, 1.32, 1.56]
+4: [0.84, 1.32, 1.32, 1.44]
+5: [0.84, 1.08, 1.08, 1.56]
+6: [0.48, 0.96, 0.84, 1.32]
+7: [0.24, 0.6, 0.84, 1.2]
+8: [0.12, 0.48, 0.48, 1.2]
+
+Planning using ARENA method
+Point (1.73712, 1.81653) is out of corridor [1.68, 1.8, 1.56, 2.16]
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  | 191.00us (  2.62us) 192.37us (  2.64us)        73
+       nlp_g  |   2.29ms ( 31.32us)   2.28ms ( 31.28us)        73
+  nlp_grad_f  | 271.00us (  5.02us) 267.16us (  4.95us)        54
+  nlp_hess_l  |   2.79ms ( 52.57us)   2.79ms ( 52.65us)        53
+   nlp_jac_g  |   5.61ms ( 98.39us)   5.64ms ( 98.97us)        57
+       total  |  30.10ms ( 30.10ms)  30.10ms ( 30.10ms)         1
+Point (1.73349, 1.61745) is out of corridor [1.44, 1.8, 1.56, 1.68]
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  | 576.00us (  2.23us) 570.85us (  2.21us)       258
+       nlp_g  |   8.36ms ( 32.39us)   8.34ms ( 32.32us)       258
+  nlp_grad_f  | 273.00us (  5.15us) 273.54us (  5.16us)        53
+  nlp_hess_l  |   4.11ms ( 59.64us)   4.12ms ( 59.74us)        69
+   nlp_jac_g  |   7.95ms (103.29us)   7.96ms (103.36us)        77
+       total  |  55.97ms ( 55.97ms)  55.97ms ( 55.97ms)         1
+An error occured: Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:159:
+.../casadi/core/optistack_internal.cpp:997: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+Point (1.73349, 1.61734) is out of corridor [1.44, 1.8, 1.56, 1.68]
+Planning computation time: 177.54 ms
+Planning from (1.73982, 1.81923) to (0.242202, 0.732387) with start velocity (0, 0)
+NOTE: skipped update of corridor sequence.
+0: [1.68, 1.8, 1.56, 2.16]
+1: [1.44, 1.8, 1.56, 1.68]
+2: [1.44, 1.68, 1.44, 1.68]
+3: [1.2, 1.56, 1.32, 1.56]
+4: [0.84, 1.32, 1.32, 1.44]
+5: [0.84, 1.08, 1.08, 1.56]
+6: [0.48, 0.96, 0.84, 1.32]
+7: [0.24, 0.6, 0.84, 1.2]
+8: [0.12, 0.48, 0.48, 1.2]
+
+Planning using OCP method
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  | 147.00us (  2.23us) 148.34us (  2.25us)        66
+       nlp_g  |  38.26ms (579.65us)  38.27ms (579.78us)        66
+  nlp_grad_f  | 331.00us (  5.34us) 318.37us (  5.13us)        62
+  nlp_hess_l  |  35.19ms (586.48us)  35.21ms (586.79us)        60
+   nlp_jac_g  | 107.29ms (  1.73ms) 107.32ms (  1.73ms)        62
+       total  | 311.24ms (311.24ms) 311.24ms (311.24ms)         1
+Planning computation time: 1076.51 ms
+Planning from (1.73982, 1.81923) to (0.242202, 0.732387) with start velocity (0, 0)
+NOTE: skipped update of corridor sequence.
+0: [1.68, 1.8, 1.56, 2.16]
+1: [1.44, 1.8, 1.56, 1.68]
+2: [1.44, 1.68, 1.44, 1.68]
+3: [1.2, 1.56, 1.32, 1.56]
+4: [0.84, 1.32, 1.32, 1.44]
+5: [0.84, 1.08, 1.08, 1.56]
+6: [0.48, 0.96, 0.84, 1.32]
+7: [0.24, 0.6, 0.84, 1.2]
+8: [0.12, 0.48, 0.48, 1.2]
+
+Planning using P2P method
+Planning computation time: 0.05083 ms
+
+==============================================================
+ARENA summary: 
+        Tf:                             1.910 s
+        Total computation time:         177.540 ms
+        Solver time:                    29.099 ms
+OCP summary: 
+        Tf:                             1.710 s
+        Total computation time:         1076.512 ms
+        Solver time:                    311.240 ms
+P2P summary: 
+        Tf:                             3.462 s
+        Total computation time:         0.051 ms
+        Solver time:                    0.000 ms
+
+Overall results:
+        Suboptimality:  10.462 % (0.200 ms)
+        Total speedup:  6.064
+        Solver speedup: 10.696
+==============================================================
+
+
+
+
+
+
+
+
+
 
 
 
