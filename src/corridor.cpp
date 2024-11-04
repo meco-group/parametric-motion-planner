@@ -479,7 +479,10 @@ void CorridorSequence::InflateCorridors(){
         }
 
         if (made_change){
-            made_change = MergeCorridors() || made_change;
+            while (MergeCorridors()){
+                continue;
+            }
+            // made_change = MergeCorridors() || made_change;
         }
         grow_counter++;
     }
@@ -498,6 +501,12 @@ void CorridorSequence::InflateCorridors(){
 
     // remove irrelevant corridors
     RemoveIrrelevantCorridors();
+
+    // do a final merging
+    while (MergeCorridors()){
+        continue;
+    }
+    // TODO: now the corridors are properly merged, but I get an infeasible problem. Why is this?
 };
 
 void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min, 
@@ -786,6 +795,14 @@ bool CorridorSequence::MergeCorridors(){
         current_corridor = &sequence_[i];
         next_corridor = &sequence_[i+1];
 
+        std::cout << std::endl << "i: " << i << std::endl;
+        std::cout<< "current corridor: " << *current_corridor << std::endl;
+        std::cout<< "next corridor: " << *next_corridor << std::endl;
+        std::cout << std::abs(current_corridor->Xmin() - 
+                     next_corridor->Xmin()) << std::endl;
+        std::cout << std::abs(current_corridor->Xmax() - 
+                     next_corridor->Xmax()) << std::endl;
+
         if (std::abs(current_corridor->Xmin() - 
                      next_corridor->Xmin()) < tolerance &&
             std::abs(current_corridor->Xmax() - 
@@ -794,6 +811,7 @@ bool CorridorSequence::MergeCorridors(){
                                                next_corridor->Ymin()));
             current_corridor->SetYmax(std::max(current_corridor->Ymax(),
                                                next_corridor->Ymax()));
+            std::cout << "removing!" << std::endl;
             RemoveCorridor(i+1);
             made_change = true;
         } else if (std::abs(current_corridor->Ymin() - 
