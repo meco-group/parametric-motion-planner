@@ -134,7 +134,7 @@ class Parametrization{
                                  double p0, double pf, double v0);
 
         const CorridorSequence& corridor_sequence_; // Reference to the corridor sequence object
-        bool use_smart_update_ = true;
+        bool use_smart_update_ = false;
         int latest_sequence_version_ = -1;    // version of the corridor sequence when the parametrization was last updated
 
         const Parameters& params_;

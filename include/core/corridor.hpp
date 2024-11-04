@@ -205,7 +205,7 @@ class CorridorSequence{
         bool MergeCorridors();
 
         const Environment& environment_;    // Reference to the environment object
-        bool use_smart_update_ = true;
+        bool use_smart_update_ = false;
         int latest_envrionment_version_ = -1; // version of the environment when the sequence was last updated
 
         const Parameters& params_;          // Reference to the parameters object
