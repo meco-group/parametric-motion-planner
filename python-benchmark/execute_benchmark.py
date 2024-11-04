@@ -49,7 +49,7 @@ for method, method_name in zip(methods, method_names):
 
     # loop over all environments
     for i in range(len(envs)):
-        # if (i == 13):
+        # if (i == 7):
         #     print(f"Start: {starts[i].x()}, {starts[i].y()}")
         #     print(f"Dest: {dests[i].x()}, {dests[i].y()}")
         #     print(f"VehWidth: {params[i].GetVehWidth()}")
@@ -71,23 +71,24 @@ for method, method_name in zip(methods, method_names):
         #     print(f"rr_test: {rr}")
         #     print(f"cc_test: {cc}")
 
-        # if (i == 14):
+        # if (i == 7+1):
         #     exit()
+        #     # break
 
         motion_planner.SetStart(starts[i])
         motion_planner.SetDest(dests[i])
         if i > 0:
-            my_v_max = params[i].GetVmax()
-            print(f"v_max: {my_v_max}")
-            params[0].SetVmax(my_v_max)
             params[0].SetVmax(params[i].GetVmax())
             params[0].SetAmax(params[i].GetAmax())
             params[0].SetVehWidth(params[i].GetVehWidth())
             params[0].SetVehHeight(params[i].GetVehHeight())
             params[0].SetMargin(params[i].GetMargin())
             envs[0].CopyObstacles(envs[i])
+            # print(f"v_max: {params[0].GetVmax()}")
+            # print(f"a_max: {params[0].GetAmax()}")
         
         motion_planner.Plan()
+        # print("Travel time: ", motion_planner.GetTravelTime())
 
         # store results
         results[method_name]["Tf"].append(motion_planner.GetTravelTime())

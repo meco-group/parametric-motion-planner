@@ -10,7 +10,8 @@ void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename)
     motion_planner.Plan();
     motion_planner.DumpToJson(filename + "_arena.json");
 
-    double tf_arena = motion_planner.GetLastSolution().Tf();
+    // double tf_arena = motion_planner.GetLastSolution().Tf();
+    double tf_arena = motion_planner.GetTravelTime();
     double t_comp_total_arena = motion_planner.GetLastSolution().TotalComputationTime();
     double t_comp_solver_arena = motion_planner.GetLastSolution().SolverTime();
 
@@ -61,12 +62,12 @@ void SolveRandomProblem(){
     // Environment environment = Environment(10, 12, 0.12, 0.12);
     // Environment environment = Environment(20, 20, 0.12, 0.12);
     Environment environment = Environment(15, 15, 0.12, 0.12);
-    Parameters params = Parameters(1.3246870734074605, 6.427520934862196, 0.115, 0.115, 0.001);
+    Parameters params = Parameters(1.5495390472055905, 4.3204061743812705, 0.115, 0.115, 0.001);
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
 	// environment.AddRandomObstacles(0.25);
-    std::vector<int> rr_test = {0, 1, 1, 2, 2, 3, 4, 6, 7, 7, 10, 10, 11, 12, 13, 13};
-    std::vector<int> cc_test = {5, 3, 7, 7, 8, 13, 7, 11, 4, 5, 1, 3, 3, 0, 2, 10};
+    std::vector<int> rr_test = {0, 1, 2, 3, 4, 9, 9, 9, 11, 12};
+    std::vector<int> cc_test = {6, 11, 2, 5, 1, 3, 10, 12, 13, 4};
     for (int i = 0; i < rr_test.size(); i++){
         environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
     }
@@ -100,8 +101,8 @@ void SolveRandomProblem(){
 
     std::cout << "Created motion planner in environment " << environment << std::endl;
 
-	Point2D<double> start = Point2D<double>(1.26, 0.54);
-    Point2D<double> dest = Point2D<double>(0.18, 1.62);
+	Point2D<double> start = Point2D<double>(0.78, 1.38);
+    Point2D<double> dest = Point2D<double>(1.26, 0.9);
     Point2D<double> start_vel = Point2D<double>(0, 0);
 
     my_motion_planner.SetStart(start);

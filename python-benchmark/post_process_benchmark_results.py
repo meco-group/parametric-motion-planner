@@ -39,6 +39,8 @@ def optimality_comparison(results, method1, method2, color1, color2):
     diff = Tf_2 - Tf_1
     max_idx = np.argmax(diff)
     print("max suboptimality at: ", max_idx)
+    print("Tf_2: ", Tf_2[max_idx])
+    # print(Tf_2)
 
     # get indices where both methods are succesfull
     success = np.logical_not(
