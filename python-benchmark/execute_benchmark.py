@@ -49,7 +49,8 @@ for method, method_name in zip(methods, method_names):
 
     # loop over all environments
     for i in range(len(envs)):
-        idx_to_show = 60
+        print(f"\n\nRunning environment {i} with method {method_name}")
+        idx_to_show = 1
         if (i == idx_to_show):
             print(f"Start: {starts[i].x()}, {starts[i].y()}")
             print(f"Dest: {dests[i].x()}, {dests[i].y()}")

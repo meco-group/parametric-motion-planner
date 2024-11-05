@@ -56,8 +56,6 @@ def visualize_output(env, params, corridors, planner_methods,
     
     set_env_plot_limits(env)
     plt.savefig(fig_folder + 'traj.png', dpi=300)
-    exit()
-
 
     ### plot positions ###
     fig, axs = plt.subplots(2, 1)
