@@ -136,14 +136,12 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  Dict const &opts_solver,
 											  bool use_prev_sol_as_init_guess){		
 	// prepare initial guess
-	// std::cout << "initializing" << std::endl;
 	if (use_prev_sol_as_init_guess){
 		opti_.set_initial(opti_.x(), sol_.value().value(opti_.x()));
 	} else {
 		InitializeOptimization();
 	}
 	// ShowInitialization();
-	// std::cout << "done" << std::endl;
 
 	// reset mx containers
 	alpha_x_mx_ = MX(max_nb_corridors_ + 1, 1);
@@ -207,7 +205,9 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		}
 	}
 
-	//  corridor entry velocities
+	// corridor entry velocities
+	// NOTE: in theory, only n velocities are needed (instead of n+1) but it 
+	// makes the implementation slightly easier
 	v_x_ = opti_.variable(corridor_sequence_.NbCorridors() + 1);
 	v_y_ = opti_.variable(corridor_sequence_.NbCorridors() + 1);
 	MX curr_v_x = corridor_sequence_.GetStartVel().x();
@@ -255,9 +255,10 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 
 	// add free initial velocity
 	MX obj = 1.0e3*pow(s_0, 2) + 1.0e3*pow(s_N, 2);
-	if (RELAX_INITIAL_VELOCITY_ && 
-			std::abs(corridor_sequence_.GetStartVel().x()) > 1.0e-3 &&
-			std::abs(corridor_sequence_.GetStartVel().y()) > 1.0e-3){
+	// if (RELAX_INITIAL_VELOCITY_ && 
+	// 		std::abs(corridor_sequence_.GetStartVel().x()) > 1.0e-3 &&
+	// 		std::abs(corridor_sequence_.GetStartVel().y()) > 1.0e-3){
+	if (RELAX_INITIAL_VELOCITY_){
 		MX s_x = opti_.variable(); MX s_y = opti_.variable();
 		curr_v_x += s_x; curr_v_y += s_y;
 		obj += 1.0e2*(pow(s_x, 2) + pow(s_y, 2));
@@ -326,11 +327,18 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 						   (intermediate_positions_[i].y() <= 
 						   curr_corridor.Ymax() - height_offset));
 		}
-		for (int i : {1, 2}){
+		if (w < corridor_sequence_.NbCorridors() - 1){
+			for (int i : {0, 2}){
+				opti_.subject_to(-params_.GetVmax() <= 
+					(intermediate_velocities_[i].x() <= params_.GetVmax()));
+				opti_.subject_to(-params_.GetVmax() <= 
+					(intermediate_velocities_[i].y() <= params_.GetVmax()));
+			}
+		} else {
 			opti_.subject_to(-params_.GetVmax() <= 
-				(intermediate_velocities_[i].x() <= params_.GetVmax()));
+				(intermediate_velocities_[0].x() <= params_.GetVmax()));
 			opti_.subject_to(-params_.GetVmax() <= 
-				(intermediate_velocities_[i].y() <= params_.GetVmax()));
+				(intermediate_velocities_[0].y() <= params_.GetVmax()));
 		}
 
 		// integrate the velocity over this corridor
@@ -452,10 +460,6 @@ void Parametrization::OptimizeSingleArc(const UpdateToken&){
 		corridor_sequence_.GetDest());
 	waypoint_velocities_sol_[corridor_sequence_.NbCorridors()].CopyValues(
 		Point2D<double>(0.0, 0.0));
-
-	// std::cout << "solved single arc case" << std::endl;
-	// std::cout << "tx_sol: " << GetTxSol() << std::endl;
-	// std::cout << "ty_sol: " << GetTySol() << std::endl;
 }
 
 bool Parametrization::FlipAccelerationAtWaypoint(const UpdateToken&, 
@@ -1063,14 +1067,27 @@ void Parametrization::Solve(){
 			alpha_y_sol_[i] = double(sol_.value().value(alpha_y_mx_(i)));
 			waypoints_sol_[i].SetX(double(sol_.value().value(waypoints_mx_[i].x())));
 			waypoints_sol_[i].SetY(double(sol_.value().value(waypoints_mx_[i].y())));
+
 			waypoint_velocities_sol_[i].SetX(double(sol_.value().value(v_x_(i))));
 			waypoint_velocities_sol_[i].SetY(double(sol_.value().value(v_y_(i))));
 
 			if (i < corridor_sequence_.NbCorridors()){
+				// waypoint_velocities_sol_[i].SetX(double(sol_.value().value(v_x_(i))));
+				// waypoint_velocities_sol_[i].SetY(double(sol_.value().value(v_y_(i))));
+				
 				for (int j = 0; j < 3; j++){
 					t_x_sol_[i][j] = double(sol_.value().value(t_x_(j, i)));
 					t_y_sol_[i][j] = double(sol_.value().value(t_y_(j, i)));
 				}
+			// } else {
+			// 	waypoint_velocities_sol_[i].SetX(double(
+			// 		sol_.value().value(v_x_(i-1)) + 
+			// 		alpha_x_sol_[i]*params_.GetAmax()*t_x_sol_[i][0] + 
+			// 		alpha_x_sol_[i+1]*params_.GetAmax()*t_x_sol_[i][2]));
+			// 	waypoint_velocities_sol_[i].SetY(double(
+			// 		sol_.value().value(v_y_(i-1)) + 
+			// 		alpha_y_sol_[i]*params_.GetAmax()*t_y_sol_[i][0] + 
+			// 		alpha_y_sol_[i+1]*params_.GetAmax()*t_y_sol_[i][2]));
 			}
 		}
 		// std::cout << "p_extremes: [";
