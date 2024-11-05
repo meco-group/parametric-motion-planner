@@ -11,7 +11,8 @@ file_name_appendix = "_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
-methods = [pmp.PlannerMethod.ARENA, 
+methods = [pmp.PlannerMethod.ARENA,
+           pmp.PlannerMethod.ARENA, 
         #    pmp.PlannerMethod.OCP, 
         #    pmp.PlannerMethod.OCP, 
         #    pmp.PlannerMethod.OCP, 
@@ -19,6 +20,7 @@ methods = [pmp.PlannerMethod.ARENA,
         #    pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.P2P]
 method_names = ["ARENA", 
+                "ARENA+",
                 # "OCP-5", 
                 # "OCP-10", 
                 # "OCP-20", 
@@ -46,11 +48,19 @@ for method, method_name in zip(methods, method_names):
         assert len(method_name_split) == 2
         n = int(method_name_split[1])
         motion_planner.SetOCPNumberOfPointsPerCorridor(n)
+    
+    # Toggle the EliminateSuboptimalityFeature for ARENA+
+    if method_name.startswith("ARENA"):
+        method_name_split = method_name.split("+")
+        if len(method_name_split) == 2:
+            motion_planner.SetSuboptimalityEliminationFeature(True)
+        else:
+            motion_planner.SetSuboptimalityEliminationFeature(False)
 
     # loop over all environments
     for i in range(len(envs)):
         print(f"\n\nRunning environment {i} with method {method_name}")
-        idx_to_show = 1
+        idx_to_show = -67
         if (i == idx_to_show):
             print(f"Start: {starts[i].x()}, {starts[i].y()}")
             print(f"Dest: {dests[i].x()}, {dests[i].y()}")

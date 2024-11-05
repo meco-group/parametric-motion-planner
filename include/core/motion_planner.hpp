@@ -76,6 +76,8 @@ class MotionPlanner{
         void SetPrintLevel(int print_level) { opts_solver_["print_level"] = print_level;};
         void SetOCPNumberOfPointsPerCorridor(int nb_points_per_corridor){ 
             nb_points_per_corridor_ = nb_points_per_corridor;};
+        void SetSuboptimalityEliminationFeature(bool set){ 
+            eliminate_suboptimalities_ = set;};
 
         // Printing
         void PrintEnvironment(){
@@ -152,6 +154,7 @@ class MotionPlanner{
         // ARENA method attributes
         std::set<int> add_constraints_list_;
         int max_nb_iterations_ = 4;
+        bool eliminate_suboptimalities_ = true;
 
         // other attributes
         Dict opts_casadi_;

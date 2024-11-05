@@ -100,5 +100,6 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("GetSolverTime", &MotionPlanner::GetSolverTime)
         .def("GetTravelTime", &MotionPlanner::GetTravelTime)
         .def("CorridorInfeasibilitiesDetected", &MotionPlanner::CorridorInfeasibilitiesDetected)
+        .def("SetSuboptimalityEliminationFeature", &MotionPlanner::SetSuboptimalityEliminationFeature)
         ;
 }

@@ -82,6 +82,72 @@ def optimality_comparison(results, method1, method2, color1, color2):
     plt.xlim([0, 1])
     plt.ylim([-0.02, 0.06])
 
+def optimality_comparison_extended(results, method1, method2, method3, color1, color2, color3):
+    Tf_1 = np.array(results[method1]["Tf"])
+    Tf_2 = np.array(results[method2]["Tf"])
+    Tf_3 = np.array(results[method3]["Tf"])
+
+    diff2 = Tf_2 - Tf_1
+    max_idx = np.argmax(diff2)
+    print("max suboptimality at: ", max_idx)
+    print("Tf_2: ", Tf_2[max_idx])
+    print("Tf_1: ", Tf_1[max_idx])
+    # print(Tf_2)
+
+    diff3 = Tf_3 - Tf_1
+    max_idx = np.argmax(diff3)
+    print("max suboptimality at: ", max_idx)
+    print("Tf_3: ", Tf_3[max_idx])
+    print("Tf_1: ", Tf_1[max_idx])
+
+    # get indices where both methods are succesfull
+    success = np.logical_not(
+        np.logical_or(
+            np.logical_or(
+                np.array(results[method1]["corridor_infeasibilities_detected"]), 
+                np.array(results[method2]["corridor_infeasibilities_detected"]),
+                np.array(results[method3]["corridor_infeasibilities_detected"])
+            ),
+            np.logical_or(
+                np.array(results[method1]["t_comp_solver"]) < 0,
+                np.array(results[method2]["t_comp_solver"]) < 0,
+                np.array(results[method3]["t_comp_solver"]) < 0
+            )
+    ))
+    Tf_1 = Tf_1[success]
+    Tf_2 = Tf_2[success]
+    Tf_3 = Tf_3[success]
+
+    # sort Tf_1 in ascending order and change the order of Tf_2 accordingly
+    idx = np.argsort(Tf_1)
+    Tf_1 = Tf_1[idx]
+    Tf_2 = Tf_2[idx]
+    Tf_3 = Tf_3[idx]
+
+    rel_error = (Tf_3 - Tf_1) / Tf_1
+    abs_error = Tf_3 - Tf_1
+    error = rel_error
+    plt.fill_between(np.linspace(0, 1, len(error)), -0.01, 0.01, color='gray', alpha=0.5)
+    idx = np.argsort(error)
+    error = error[idx]
+    plt.fill_between(np.linspace(0, 1, len(error)), 0, error, color=color3, alpha=1.0, label=method3)
+    idx = np.where(error > 0.01)[0]
+    plt.axvline(idx[0]/len(error), color='k', linestyle='-')
+
+    rel_error = (Tf_2 - Tf_1) / Tf_1
+    abs_error = Tf_2 - Tf_1
+    error = rel_error
+    idx = np.argsort(error)
+    error = error[idx]
+    plt.fill_between(np.linspace(0, 1, len(error)), 0, error, color=color2, alpha=1.0, label=method2)
+    idx = np.where(error > 0.01)[0]
+    plt.axvline(idx[0]/len(error), color='k', linestyle='-')
+
+    plt.axhline(0, color='k', linestyle='-')
+    plt.xlim([0, 1])
+    plt.ylim([-0.02, 0.06])
+    plt.legend(loc='best')
+
 def computation_time_comparison(results, method1, method2, color1, color2):
     t_comp_total_1 = np.array(results[method1]["t_comp_total"])
     t_comp_total_2 = np.array(results[method2]["t_comp_total"])
@@ -104,11 +170,43 @@ def computation_time_comparison(results, method1, method2, color1, color2):
     plt.axhline(10, color='k', linestyle='-')
     plt.axhline(20, color='k', linestyle='-')
 
+def computation_time_comparison_extended(results, method1, method2, method3, color1, color2, color3):
+    t_comp_total_1 = np.array(results[method1]["t_comp_total"])
+    t_comp_total_2 = np.array(results[method2]["t_comp_total"])
+    t_comp_total_3 = np.array(results[method3]["t_comp_total"])
+
+    # filter out failed plans (solver time = -1)
+    idx = np.logical_and(np.array(results[method1]["t_comp_solver"]) >= 0, np.array(results[method2]["t_comp_solver"]) >= 0, np.array(results[method3]["t_comp_solver"]) >= 0)
+    t_comp_total_1 = t_comp_total_1[idx]
+    t_comp_total_2 = t_comp_total_2[idx]
+    t_comp_total_3 = t_comp_total_3[idx]
+
+    speedup2 = t_comp_total_1 / t_comp_total_2
+    idx = np.argsort(speedup2)
+    speedup2 = speedup2[idx]
+
+    speedup3 = t_comp_total_1 / t_comp_total_3
+    idx = np.argsort(speedup3)
+    speedup3 = speedup3[idx]
+
+    plt.fill_between(range(len(speedup3)), 1, speedup3, color=color3, alpha=1.0, label=method3)
+    plt.fill_between(range(len(speedup2)), 1, speedup2, color=color2, alpha=1.0, label=method2)
+
+    plt.xlim([0, len(speedup2)-1])
+    plt.ylim([1, 30])
+
+    plt.axhline(10, color='k', linestyle='-')
+    plt.axhline(20, color='k', linestyle='-')
+
+    plt.legend(loc='best')
 
 
 import matplotlib.pyplot as plt
+# plt.figure()
+# optimality_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
+
 plt.figure()
-optimality_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
+optimality_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
 plt.figure()
 # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
@@ -130,8 +228,10 @@ scatter(results, "ARENA", "t_comp_solver", "Tf", "royalblue")
 scatter(results, "P2P", "t_comp_solver", "Tf", "orange")
 plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
 
+# plt.figure()
+# computation_time_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
 
 plt.figure()
-computation_time_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
+computation_time_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
 plt.show()

@@ -490,7 +490,7 @@ void MotionPlanner::PlanARENA(){
 
             // If no modification was made, check if the parametrization is 
             // still sub-optimal
-            if (!made_modification){
+            if (!made_modification && eliminate_suboptimalities_){
                 made_modification = EliminateSubOptimalParametrization();
             } 
         }
