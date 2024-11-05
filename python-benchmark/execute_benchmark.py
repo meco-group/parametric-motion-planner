@@ -1,8 +1,11 @@
+import json
 import sys
 sys.path.append('build/')
+sys.path.append('python-benchmark/')
+
 import parametric_motion_planner_module as pmp
 from load_random_environments import extract_data
-import json
+from solve_omg_tools import omg_example
 
 # Extract the data
 # file_name_appendix = ""
@@ -11,7 +14,8 @@ file_name_appendix = "_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
-methods = [pmp.PlannerMethod.ARENA,
+methods = [#None,
+           pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.ARENA, 
         #    pmp.PlannerMethod.OCP, 
         #    pmp.PlannerMethod.OCP, 
@@ -19,7 +23,8 @@ methods = [pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.OCP,
         #    pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.P2P]
-method_names = ["ARENA", 
+method_names = [#"OmgTools",
+                "ARENA", 
                 "ARENA+",
                 # "OCP-5", 
                 # "OCP-10", 
@@ -30,7 +35,7 @@ method_names = ["ARENA",
 assert len(methods) == len(method_names)
 
 # Create motion planner
-motion_planner = pmp.MotionPlanner(methods[0], local_param, local_env)
+motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
 
 # create containers for results
 results = {}
@@ -40,7 +45,8 @@ for m in method_names:
 
 # Benchmark
 for method, method_name in zip(methods, method_names):
-    motion_planner.SetMethod(method)
+    if method is not None:
+        motion_planner.SetMethod(method)
 
     # Set the correct number of points per corridor for the OCP method
     if method_name.startswith("OCP"):
@@ -97,15 +103,32 @@ for method, method_name in zip(methods, method_names):
         local_param.SetMargin(params[i].GetMargin())
         local_env.CopyObstacles(envs[i])
 
-        motion_planner.Plan()
-        print("Travel time: ", motion_planner.GetTravelTime())
+        if method is not None:
+            print("Planning...")
+            motion_planner.Plan()
+            print("Done.")
+            print("Travel time: ", motion_planner.GetTravelTime())
 
-        # store results
-        results[method_name]["Tf"].append(motion_planner.GetTravelTime())
-        results[method_name]["t_comp_total"].append(motion_planner.GetTotalComputationTime())
-        results[method_name]["t_comp_solver"].append(motion_planner.GetSolverTime())
-        results[method_name]["corridor_infeasibilities_detected"].append(
-            motion_planner.CorridorInfeasibilitiesDetected())
+            # store results
+            results[method_name]["Tf"].append(motion_planner.GetTravelTime())
+            results[method_name]["t_comp_total"].append(motion_planner.GetTotalComputationTime())
+            results[method_name]["t_comp_solver"].append(motion_planner.GetSolverTime())
+            results[method_name]["corridor_infeasibilities_detected"].append(
+                motion_planner.CorridorInfeasibilitiesDetected())
+        else:
+            motion_planner.UpdateCorridorSequence()
+            corridors = motion_planner.GetCorridorSequence()
+            omg_example(corridors, (starts[i].x(), starts[i].y()), 
+                        (dests[i].x(), dests[i].y()), 
+                        params[i].GetVmax(), 
+                        params[i].GetAmax(), params[i].GetVehWidth(), 
+                        params[i].GetVehHeight())
+            results[method_name]["Tf"].append(1.5)
+            results[method_name]["t_comp_total"].append(0.6)
+            results[method_name]["t_comp_solver"].append(0.1)
+            results[method_name]["corridor_infeasibilities_detected"].append(
+                False)
+
 
 # store results as a json
 import json

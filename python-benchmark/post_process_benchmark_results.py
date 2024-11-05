@@ -148,6 +148,35 @@ def optimality_comparison_extended(results, method1, method2, method3, color1, c
     plt.ylim([-0.02, 0.06])
     plt.legend(loc='best')
 
+def optimality_comparison_extended_new(results, baseline_method, methods, colors):
+    Tf_baseline = np.array(results[baseline_method]["Tf"])
+    Tfs = [np.array(results[method]["Tf"]) for method in methods]
+
+    # get indices where all methods are succesfull
+    idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
+    for Tf in Tfs:
+        idx = np.logical_and(idx, Tf >= 0)
+    Tf_baseline = Tf_baseline[idx]
+    Tfs = [Tf[idx] for Tf in Tfs]
+
+    rel_errors = [(Tf - Tf_baseline) / Tf_baseline for Tf in Tfs]
+    for i in range(len(rel_errors)):
+        idx = np.argsort(rel_errors[i])
+        rel_errors[i] = rel_errors[i][idx]
+
+    plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -0.01, 0.01, color='gray', alpha=0.5)
+
+    for i in range(len(rel_errors)):
+        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=0.5, label=methods[i])
+    
+    # idx = np.where(rel_errors[0] > 0.01)[0]
+    # plt.axvline(idx[0]/len(rel_errors[0]), color='k', linestyle='-')
+
+    plt.axhline(0, color='k', linestyle='-')
+    plt.xlim([0, 1])
+    plt.ylim([-0.02, 0.06])
+    plt.legend(loc='best')
+
 def computation_time_comparison(results, method1, method2, color1, color2):
     t_comp_total_1 = np.array(results[method1]["t_comp_total"])
     t_comp_total_2 = np.array(results[method2]["t_comp_total"])
@@ -200,13 +229,47 @@ def computation_time_comparison_extended(results, method1, method2, method3, col
 
     plt.legend(loc='best')
 
+def computation_time_comparison_extended_new(results, baseline_method, methods, colors):
+    # Provide methods from slow to fast
+
+    t_comp_baseline = np.array(results[baseline_method]["t_comp_total"])
+    t_comps = [np.array(results[method]["t_comp_total"]) for method in methods]
+
+    # filter out failed plans (solver time = -1)
+    idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
+    for t_comp in t_comps:
+        idx = np.logical_and(idx, t_comp >= 0)
+    t_comp_baseline = t_comp_baseline[idx]
+    t_comps = [t_comp[idx] for t_comp in t_comps]
+
+    speedups = [t_comp_baseline / t_comp for t_comp in t_comps]
+    for i in range(len(speedups)):
+        idx = np.argsort(speedups[i])
+        speedups[i] = speedups[i][idx]
+    
+    for i in range(len(speedups)):
+        plt.fill_between(range(len(speedups[i])), 1, speedups[i], color=colors[i], alpha=0.5, label=methods[i])
+    
+    plt.xlim([0, len(speedups[0])-1])
+    plt.ylim([1, 30])
+
+    plt.axhline(10, color='k', linestyle='-')
+    plt.axhline(20, color='k', linestyle='-')
+
+    plt.legend(loc='best')
+
 
 import matplotlib.pyplot as plt
 # plt.figure()
 # optimality_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
 
+# plt.figure()
+# optimality_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
+
 plt.figure()
-optimality_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
+computation_time_comparison_extended_new(results, "OCP-30", 
+                                         ["OmgTools", "ARENA+", "ARENA"], 
+                                         ["maroon", "royalblue", "navy"])
 
 plt.figure()
 # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
@@ -231,7 +294,12 @@ plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
 # plt.figure()
 # computation_time_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
 
+# plt.figure()
+# computation_time_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
+
 plt.figure()
-computation_time_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
+optimality_comparison_extended_new(results, "OCP-30", 
+                                   ["OmgTools", "ARENA+", "ARENA"], 
+                                   ["maroon", "royalblue", "navy"])
 
 plt.show()

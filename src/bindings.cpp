@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include "parametric_motion_planner.hpp"
 
@@ -101,5 +102,16 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("GetTravelTime", &MotionPlanner::GetTravelTime)
         .def("CorridorInfeasibilitiesDetected", &MotionPlanner::CorridorInfeasibilitiesDetected)
         .def("SetSuboptimalityEliminationFeature", &MotionPlanner::SetSuboptimalityEliminationFeature)
+        .def("UpdateCorridorSequence", pybind11::overload_cast<>(&MotionPlanner::UpdateCorridorSequence))
+        .def("GetCorridorSequence", [](const MotionPlanner& self){
+            const CorridorSequence& sequence = self.GetCorridorSequence();
+            std::vector<std::vector<double>> corridors(sequence.NbCorridors());
+            Corridor c;
+            for (int i = 0; i < sequence.NbCorridors(); i++){
+                c = sequence.GetCorridor(i);
+                corridors[i] = {c.Xmin(), c.Xmax(), c.Ymin(), c.Ymax()};
+            }
+            return corridors;
+        })
         ;
 }
