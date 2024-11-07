@@ -5,7 +5,6 @@ sys.path.append('python-benchmark/')
 
 import parametric_motion_planner_module as pmp
 from load_random_environments import extract_data
-from solve_omg_tools import omg_example
 
 # Extract the data
 # file_name_appendix = ""
@@ -14,8 +13,7 @@ file_name_appendix = "_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
-methods = [#None,
-           pmp.PlannerMethod.ARENA,
+methods = [pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.ARENA, 
         #    pmp.PlannerMethod.OCP, 
         #    pmp.PlannerMethod.OCP, 
@@ -23,8 +21,7 @@ methods = [#None,
            pmp.PlannerMethod.OCP,
         #    pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.P2P]
-method_names = [#"OmgTools",
-                "ARENA", 
+method_names = ["ARENA", 
                 "ARENA+",
                 # "OCP-5", 
                 # "OCP-10", 

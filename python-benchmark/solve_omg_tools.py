@@ -37,7 +37,7 @@ import time
 
 def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
     # create vehicle
-    time_a = time.time()
+    # time_a = time.time()
     vehicle = Holonomic(shapes=Rectangle(veh_w, veh_h, 0), 
                         options={'syslimit': 'norm_inf', 'stop_tol': 1.e-2},
                         bounds={'vxmax': v_max, 'vxmin':-v_max, 
@@ -111,7 +111,14 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
             # ddy.append(float(spline[1].derivative(2)(i/N)/seg_time**2))
         t0 += seg_time
 
-    return comp_time, t0
+    # time_b = time.time()
+    # print(f"Time for creating simulator: {round(time_b-time_a,3)}s")
+    solver_time = comp_time
+    # total_time = time_b-time_a
+    travel_time = t0
+    print(f"solver_time: {solver_time}")
+
+    return solver_time[-1], travel_time
 
 
 # corridors = [(0, 1, 3, 5), (0, 2, 3, 4), (1, 2, 2, 4), (1, 3, 2, 3), 

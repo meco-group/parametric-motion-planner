@@ -87,6 +87,16 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         ;
 
     //////////////////
+    /// Trajectory ///
+    //////////////////
+    pybind11::class_<Trajectory>(m, "Trajectory")
+        .def(pybind11::init<>())
+        .def("Px", &Trajectory::Px)
+        .def("Py", &Trajectory::Py)
+        .def("nbSamples", &Trajectory::NbSamples)
+        ;
+
+    //////////////////
     /// MotionPlanner ///
     /////////////////////
     pybind11::class_<MotionPlanner>(m, "MotionPlanner")
@@ -113,5 +123,6 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
             }
             return corridors;
         })
+        .def("GetLastSolution", &MotionPlanner::GetLastSolution)
         ;
 }
