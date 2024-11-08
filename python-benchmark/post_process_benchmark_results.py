@@ -4,7 +4,8 @@ import numpy as np
 
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
-with open('python-benchmark/files/results_double.json', 'r') as f:
+# with open('python-benchmark/files/results_double.json', 'r') as f:
+with open('python-benchmark/files/results_large.json', 'r') as f:
     results = json.load(f)
 
 def scatter(results, method, x, y, color):
@@ -290,16 +291,27 @@ import matplotlib.pyplot as plt
 # plt.figure()
 # optimality_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
+# plt.figure(figsize=(6,2))
+# computation_time_comparison_extended_new(results, "OCP-30", 
+#                                          ["ARENA", "ARENA+", "OmgTools"], 
+#                                          ["navy", "royalblue", "maroon"])
+
+# plt.figure(figsize=(6,2))
+# computation_time_comparison_extended_new(results, "OCP-30", 
+#                                          ["ARENA", "ARENA+", "OmgTools"], 
+#                                          ["navy", "royalblue", "maroon"],
+#                                          use_solver_time=True)
 plt.figure(figsize=(6,2))
 computation_time_comparison_extended_new(results, "OCP-30", 
-                                         ["ARENA", "ARENA+", "OmgTools"], 
-                                         ["navy", "royalblue", "maroon"])
+                                         ["ARENA", "OmgTools"], 
+                                         ["navy", "red"])
 
 plt.figure(figsize=(6,2))
 computation_time_comparison_extended_new(results, "OCP-30", 
-                                         ["ARENA", "ARENA+", "OmgTools"], 
-                                         ["navy", "royalblue", "maroon"],
+                                         ["ARENA", "OmgTools"], 
+                                         ["navy", "red"],
                                          use_solver_time=True)
+
 
 plt.figure(figsize=(6,2))
 # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
@@ -329,10 +341,14 @@ plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
 # plt.figure()
 # computation_time_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
+# plt.figure(figsize=(6,2))
+# optimality_comparison_extended_new(results, "OCP-30", 
+#                                    ["P2P", "OmgTools", "ARENA", "ARENA+"], 
+#                                    ["orange", "maroon", "navy", "royalblue"])
 plt.figure(figsize=(6,2))
 optimality_comparison_extended_new(results, "OCP-30", 
-                                   ["P2P", "OmgTools", "ARENA", "ARENA+"], 
-                                   ["orange", "maroon", "navy", "royalblue"])
+                                   ["P2P", "OmgTools", "ARENA"], 
+                                   ["orange", "red", "navy"])
 # plt.figure()
 # optimality_comparison_extended_new(results, "OCP-30", 
 #                                    ["P2P", "OmgTools", "ARENA+", "ARENA"], 

@@ -21,7 +21,7 @@ a_max_ub = 6.5
 USE_CELL_POSITIONS = True
 
 # create random parameters and environments
-N = 100
+N = 500
 env = pmp.Environment(15, 15, 0.12, 0.12)
 point = pmp.Point2Dd(0, 0)
 for i in range(N):
@@ -51,5 +51,8 @@ for i in range(N):
 
 
 # write to file
-with open('python-benchmark/files/random_environments.json', 'w') as f:
+# file_appendix = "_cell"
+# file_appendix = "_double"
+file_appendix = "_large"
+with open('python-benchmark/files/random_environments' + file_appendix + '.json', 'w') as f:
     json.dump(j, f, indent=4)

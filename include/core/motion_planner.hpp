@@ -154,7 +154,7 @@ class MotionPlanner{
         // ARENA method attributes
         std::set<int> add_constraints_list_;
         int max_nb_iterations_ = 4;
-        bool eliminate_suboptimalities_ = true;
+        bool eliminate_suboptimalities_ = false;
 
         // other attributes
         Dict opts_casadi_;

@@ -61,13 +61,13 @@ void SolveRandomProblem(){
     // Environment environment = Environment();
     // Environment environment = Environment(10, 12, 0.12, 0.12);
     // Environment environment = Environment(20, 20, 0.12, 0.12);
-    Environment environment = Environment(15, 15, 0.12, 0.12);
-    Parameters params = Parameters(1.3675767371375291, 3.1033426270430597, 0.115, 0.115, 0.001);
+    Environment environment = Environment(25, 25, 0.12, 0.12);
+    Parameters params = Parameters(1.7743775335572929, 2.2106078993268388, 0.115, 0.115, 0.001);
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
 	// environment.AddRandomObstacles(0.25);
-    std::vector<int> rr_test = {0, 2, 3, 3, 5, 7, 7, 9, 12, 12, 13};
-    std::vector<int> cc_test = {6, 5, 0, 14, 9, 5, 13, 8, 2, 9, 5};
+    std::vector<int> rr_test = {1, 2, 4, 6, 6, 7, 9, 9, 11, 12, 12, 13};
+    std::vector<int> cc_test = {1, 12, 10, 7, 13, 13, 11, 12, 0, 2, 6, 3};
     for (int i = 0; i < rr_test.size(); i++){
         environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
     }
@@ -101,8 +101,8 @@ void SolveRandomProblem(){
 
     std::cout << "Created motion planner in environment " << environment << std::endl;
 
-	Point2D<double> start = Point2D<double>(0.7978099294396889, 1.1287100069810756);
-    Point2D<double> dest = Point2D<double>(1.024757941992601, 0.47769930413506767);
+	Point2D<double> start = Point2D<double>(1.74, 0.06);
+    Point2D<double> dest = Point2D<double>(0.06, 1.38);
     Point2D<double> start_vel = Point2D<double>(0, 0);
 
     my_motion_planner.SetStart(start);
@@ -111,7 +111,6 @@ void SolveRandomProblem(){
 
     // my_motion_planner.SetRandomStart();
     // my_motion_planner.SetRandomDest();
-
     SolveAllMethods(my_motion_planner, "solution");
 }
 

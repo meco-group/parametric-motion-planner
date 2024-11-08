@@ -10,8 +10,9 @@ from solve_omg_tools import omg_example
 
 # Extract the data
 # file_name_appendix = ""
-file_name_appendix = "_cell"
+# file_name_appendix = "_cell"
 # file_name_appendix = "_double"
+file_name_appendix = "_large"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # Create motion planner

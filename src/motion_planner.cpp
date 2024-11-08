@@ -83,6 +83,7 @@ void MotionPlanner::Plan(){
 
     // Update the corridor sequence
     UpdateCorridorSequence();
+    std::cout << "Done updating the corridor sequence" << std::endl;
     if (!corridor_sequence_.SequenceAvailable()){
         std::cout << "No corridor sequence found to plan through." << std::endl;
         last_solution_.Reset(start_);

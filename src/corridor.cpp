@@ -502,7 +502,6 @@ void CorridorSequence::InflateCorridors(){
 
     // do a final merging
     while (MergeCorridors()){ continue;}
-    // TODO: now the corridors are properly merged, but I get an infeasible problem. Why is this?
 };
 
 void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min, 
@@ -629,6 +628,11 @@ int CorridorSequence::GetCellsOnLeftSide(int corridor_idx){
     int corridor_cell_length = 
         corridor->GetCellLength(environment_.CellWidth(), 
                                 environment_.CellHeight());
+    
+    if (corridor_cell_length > MAX_CORRIDOR_CELL_LENGTH){
+        std::cout << "throwing error because corridor is too long" << std::endl;
+        throw std::runtime_error("Corridor is too long");
+    }
 
     // if vertical corridor
     if (direction.x() == 0){
@@ -638,6 +642,7 @@ int CorridorSequence::GetCellsOnLeftSide(int corridor_idx){
             cells_along_corridor_[i].SetY(corridor->Ymin() + 
                                             environment_.CellHeight()/2 +
                                             i*environment_.CellHeight());
+            // std::cout << "b" << std::endl;
             if (direction.y() > 0){
                 cells_along_corridor_[i].SetX(corridor->Xmin() - 
                                             environment_.CellWidth()/2);
@@ -676,6 +681,11 @@ int CorridorSequence::GetCellsOnRightSide(int corridor_idx){
     int corridor_cell_length = 
         corridor->GetCellLength(environment_.CellWidth(), 
                                 environment_.CellHeight());
+
+    if (corridor_cell_length > MAX_CORRIDOR_CELL_LENGTH){
+        std::cout << "throwing error because corridor is too long" << std::endl;
+        throw std::runtime_error("Corridor is too long");
+    }
 
     // if vertical corridor
     if (direction.x() == 0){

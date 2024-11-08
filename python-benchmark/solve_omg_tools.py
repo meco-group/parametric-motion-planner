@@ -91,7 +91,8 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
     # print(f"Time for creating simulator: {round(time_b-time_a,3)}s")
 
     # run it!
-    trajectories = deployer.update(0)
+    # trajectories = deployer.update(0)
+    deployer.update(0)
     comp_time = multiframeproblem.update_times
 
     # t = []
@@ -100,16 +101,19 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
     # y, dy, ddy = [], [], []
     # N = 50
 
-    for spline, seg_time in zip(vehicle.result_spline_segments, vehicle.segment_times):
-        # for i in range(0, N):
-        #     t.append(t0 + seg_time*i/N)
-            # x.append(float(spline[0](i/N)))
-            # dx.append(float(spline[0].derivative(1)(i/N)/seg_time))
-            # ddx.append(float(spline[0].derivative(2)(i/N)/seg_time**2))
-            # y.append(float(spline[1](i/N)))
-            # dy.append(float(spline[1].derivative(1)(i/N)/seg_time))
-            # ddy.append(float(spline[1].derivative(2)(i/N)/seg_time**2))
-        t0 += seg_time
+    try:
+        for spline, seg_time in zip(vehicle.result_spline_segments, vehicle.segment_times):
+            # for i in range(0, N):
+            #     t.append(t0 + seg_time*i/N)
+                # x.append(float(spline[0](i/N)))
+                # dx.append(float(spline[0].derivative(1)(i/N)/seg_time))
+                # ddx.append(float(spline[0].derivative(2)(i/N)/seg_time**2))
+                # y.append(float(spline[1](i/N)))
+                # dy.append(float(spline[1].derivative(1)(i/N)/seg_time))
+                # ddy.append(float(spline[1].derivative(2)(i/N)/seg_time**2))
+            t0 += seg_time
+    except:
+        t0 = 0    
 
     # time_b = time.time()
     # print(f"Time for creating simulator: {round(time_b-time_a,3)}s")

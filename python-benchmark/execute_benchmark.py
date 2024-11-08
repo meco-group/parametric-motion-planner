@@ -8,13 +8,14 @@ from load_random_environments import extract_data
 
 # Extract the data
 # file_name_appendix = ""
-file_name_appendix = "_cell"
+# file_name_appendix = "_cell"
 # file_name_appendix = "_double"
+file_name_appendix = "_large"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
 methods = [pmp.PlannerMethod.ARENA,
-           pmp.PlannerMethod.ARENA, 
+        #    pmp.PlannerMethod.ARENA, 
         #    pmp.PlannerMethod.OCP, 
         #    pmp.PlannerMethod.OCP, 
         #    pmp.PlannerMethod.OCP, 
@@ -22,7 +23,7 @@ methods = [pmp.PlannerMethod.ARENA,
         #    pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.P2P]
 method_names = ["ARENA", 
-                "ARENA+",
+                # "ARENA+",
                 # "OCP-5", 
                 # "OCP-10", 
                 # "OCP-20", 
@@ -64,7 +65,7 @@ for method, method_name in zip(methods, method_names):
     for i in range(len(envs)):
         print(f"\n\nRunning environment {i} with method {method_name}")
         # [70 42 41 80 67 76 13 27 51  1]
-        idx_to_show = 27
+        idx_to_show = 437
         method_to_show = "ARENA"#"OCP-30"
         if i == idx_to_show and method_name == method_to_show:
             print(f"\tcorridor_meta_data = ['nominal']*len(corridors)")
