@@ -8,8 +8,8 @@ from load_random_environments import extract_data
 
 # Extract the data
 # file_name_appendix = ""
-# file_name_appendix = "_cell"
-file_name_appendix = "_double"
+file_name_appendix = "_cell"
+# file_name_appendix = "_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # Create motion planner

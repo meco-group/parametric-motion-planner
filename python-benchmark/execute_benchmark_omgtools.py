@@ -10,8 +10,8 @@ from solve_omg_tools import omg_example
 
 # Extract the data
 # file_name_appendix = ""
-# file_name_appendix = "_cell"
-file_name_appendix = "_double"
+file_name_appendix = "_cell"
+# file_name_appendix = "_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # Create motion planner
@@ -26,7 +26,7 @@ results["OmgTools"] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [],
 # loop over all environments
 for i in range(len(envs)):
     print(f"\n\nRunning environment {i} with method OmgTools")
-    idx_to_show = -67
+    idx_to_show = -70
     if (i == idx_to_show):
         print(f"Start: {starts[i].x()}, {starts[i].y()}")
         print(f"Dest: {dests[i].x()}, {dests[i].y()}")

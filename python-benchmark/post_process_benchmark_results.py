@@ -148,9 +148,10 @@ def optimality_comparison_extended(results, method1, method2, method3, color1, c
     plt.ylim([-0.02, 0.06])
     plt.legend(loc='best')
 
-def optimality_comparison_extended_new(results, baseline_method, methods, colors):
+def optimality_comparison_extended_new(results, baseline_method, methods, colors, use_abs_error=False):
     Tf_baseline = np.array(results[baseline_method]["Tf"])
     Tfs = [np.array(results[method]["Tf"]) for method in methods]
+    og_idxs = [np.arange(len(Tf_baseline)) for Tf in Tfs]
 
     # get indices where all methods are succesfull
     idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
@@ -158,25 +159,34 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         idx = np.logical_and(idx, Tf >= 0)
     Tf_baseline = Tf_baseline[idx]
     Tfs = [Tf[idx] for Tf in Tfs]
+    og_idxs = [og_idx[idx] for og_idx in og_idxs]
 
+    # compute errors
     rel_errors = [100*(Tf - Tf_baseline) / Tf_baseline for Tf in Tfs]
+    if use_abs_error:
+        rel_errors = [Tf - Tf_baseline for Tf in Tfs]
+        
+    # sort errors in ascending order
     for i in range(len(rel_errors)):
         idx = np.argsort(rel_errors[i])
         rel_errors[i] = rel_errors[i][idx]
+        og_idxs[i] = og_idxs[i][idx]
+        print(f"10 most suboptimal cases for method {methods[i]}:")
+        print(og_idxs[i][-10:])
 
+    # visualize
     plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -1, 1, color='gray', alpha=0.5)
-
     for i in range(len(rel_errors)):
-        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=0.5, label=methods[i])
-    
-    # idx = np.where(rel_errors[0] > 0.01)[0]
-    # plt.axvline(idx[0]/len(rel_errors[0]), color='k', linestyle='-')
+        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=1.0, label=methods[i])
 
     plt.axhline(0, color='k', linestyle='-')
     plt.xlim([0, 1])
     plt.ylim([-1.2, 30])
     plt.xlabel("Random environments")
-    plt.ylabel("Relative suboptimality [%]")
+    if use_abs_error:
+        plt.ylabel("Absolute suboptimality [s]")
+    else:
+        plt.ylabel("Relative suboptimality [%]")
     plt.legend(loc='best')
 
 def computation_time_comparison(results, method1, method2, color1, color2):
@@ -256,7 +266,7 @@ def computation_time_comparison_extended_new(results, baseline_method, methods, 
         speedups[i] = speedups[i][idx]
     
     for i in range(len(speedups)):
-        plt.fill_between(range(len(speedups[i])), 1, speedups[i], color=colors[i], alpha=0.5, label=methods[i])
+        plt.fill_between(range(len(speedups[i])), 1, speedups[i], color=colors[i], alpha=1.0, label=methods[i])
     
     plt.xlim([0, len(speedups[0])-1])
     plt.ylim([0, 30])
@@ -280,18 +290,18 @@ import matplotlib.pyplot as plt
 # plt.figure()
 # optimality_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
-plt.figure()
+plt.figure(figsize=(6,2))
 computation_time_comparison_extended_new(results, "OCP-30", 
                                          ["ARENA", "ARENA+", "OmgTools"], 
                                          ["navy", "royalblue", "maroon"])
 
-plt.figure()
+plt.figure(figsize=(6,2))
 computation_time_comparison_extended_new(results, "OCP-30", 
                                          ["ARENA", "ARENA+", "OmgTools"], 
                                          ["navy", "royalblue", "maroon"],
                                          use_solver_time=True)
 
-plt.figure()
+plt.figure(figsize=(6,2))
 # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
 # scatter(results, "OCP-10", "t_comp_total", "Tf", "red")
 # scatter(results, "OCP-20", "t_comp_total", "Tf", "red")
@@ -302,7 +312,7 @@ scatter(results, "P2P", "t_comp_total", "Tf", "orange")
 scatter(results, "OmgTools", "t_comp_total", "Tf", "black")
 plt.savefig("python-benchmark/figures/t_comp_total_vs_Tf.png", dpi=300)
 
-plt.figure()
+plt.figure(figsize=(6,2))
 # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
 # scatter(results, "OCP-10", "t_comp_solver", "Tf", "red")
 # scatter(results, "OCP-20", "t_comp_solver", "Tf", "red")
@@ -319,9 +329,14 @@ plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
 # plt.figure()
 # computation_time_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
-plt.figure()
+plt.figure(figsize=(6,2))
 optimality_comparison_extended_new(results, "OCP-30", 
-                                   ["OmgTools", "ARENA+", "ARENA"], 
-                                   ["maroon", "royalblue", "navy"])
+                                   ["P2P", "OmgTools", "ARENA", "ARENA+"], 
+                                   ["orange", "maroon", "navy", "royalblue"])
+# plt.figure()
+# optimality_comparison_extended_new(results, "OCP-30", 
+#                                    ["P2P", "OmgTools", "ARENA+", "ARENA"], 
+#                                    ["orange", "maroon", "royalblue", "navy"],
+#                                    use_abs_error=True)
 
 plt.show()

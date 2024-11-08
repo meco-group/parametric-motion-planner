@@ -8,8 +8,8 @@ from load_random_environments import extract_data
 
 # Extract the data
 # file_name_appendix = ""
-# file_name_appendix = "_cell"
-file_name_appendix = "_double"
+file_name_appendix = "_cell"
+# file_name_appendix = "_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
@@ -63,15 +63,16 @@ for method, method_name in zip(methods, method_names):
     # loop over all environments
     for i in range(len(envs)):
         print(f"\n\nRunning environment {i} with method {method_name}")
-        idx_to_show = -67
-        if (i == idx_to_show):
-            print(f"Start: {starts[i].x()}, {starts[i].y()}")
-            print(f"Dest: {dests[i].x()}, {dests[i].y()}")
-            print(f"VehWidth: {params[i].GetVehWidth()}")
-            print(f"VehHeight: {params[i].GetVehHeight()}")
-            print(f"Margin: {params[i].GetMargin()}")
-            print(f"Vmax: {params[i].GetVmax()}")
-            print(f"Amax: {params[i].GetAmax()}")
+        # [70 42 41 80 67 76 13 27 51  1]
+        idx_to_show = 27
+        method_to_show = "ARENA"#"OCP-30"
+        if i == idx_to_show and method_name == method_to_show:
+            print(f"\tcorridor_meta_data = ['nominal']*len(corridors)")
+            print(f"\tp0 = [{starts[i].x()}, {starts[i].y()}]")
+            print(f"\tpf = [{dests[i].x()}, {dests[i].y()}]")
+            print(f"\tv0 = [0, 0]")
+            print(f"\tparams = {{'a_max': {params[i].GetAmax()}, 'v_max': {params[i].GetVmax()}, 'veh_width': {params[i].GetVehWidth()}, 'veh_height': {params[i].GetVehHeight()}, 'M': {params[i].GetMargin()}}}")
+
             env = json.loads(envs[i].ToJson())
             print(env)
             grid = env["occupancy_grid"]
@@ -86,7 +87,7 @@ for method, method_name in zip(methods, method_names):
             print(f"rr_test: {rr}")
             print(f"cc_test: {cc}")
 
-        if (i == idx_to_show+1):
+        if (i == idx_to_show+1 and method_name == method_to_show):
             exit()
             # break
 
