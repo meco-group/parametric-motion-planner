@@ -65,7 +65,7 @@ class Environment{
         // Return the cells that are occupied by the footprint of the vehicle
         std::unordered_set<Point2D<int>, Point2DHash<int>> GetOccupiedFootprintCells(
             const Point2D<double> &start, const double &vehicle_width,
-            const double &vehicle_length) const;
+            const double &vehicle_length, const double &margin) const;
 
         // Function to print the occupancy grid
         friend std::ostream& operator<<(std::ostream &out, 

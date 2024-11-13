@@ -142,12 +142,20 @@ json MotionPlanner::ToJson() const {
     return motion_planner_json;
 }
 
-void MotionPlanner::DumpToJson(const std::string &filename) const {
-    // Create output directory if it doesn't exist
-    std::filesystem::create_directories("output");
+void MotionPlanner::DumpToJson(const std::string &filename, 
+                               bool create_output_folder) const {
+    if (create_output_folder){
+        // Create output directory if it doesn't exist
+        std::filesystem::create_directories("output");
+    }
 
     // Define the full path
-    std::string full_path = "output/" + filename;
+    std::string full_path;
+    if (create_output_folder){
+        full_path = "output/" + filename;
+    } else {
+        full_path = filename;
+    }        
 
     json j = ToJson();
 
@@ -482,16 +490,18 @@ void MotionPlanner::PlanARENA(){
                                                       add_constraints_list_);
 
             // Add extra constraints
-            if (add_constraints_list_.size() > 0 && solver_time > 0){
+            while (add_constraints_list_.size() > 0 && solver_time > 0){
                 parametrization_.AddOvershootingConstraints(add_constraints_list_);
-                made_modification = true;
-                // solver_time += parametrization_.GetSolverTime();
-                // add_constraints_list_ = CheckOutOfCorridor(solver_time);
+                if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
+                } else { solver_time += parametrization_.GetSolverTime();}
+                add_constraints_list_ = CheckOutOfCorridor(solver_time);
+                parametrization_.FilterAddConstraintsList(parametrization_update_token_,
+                                                      add_constraints_list_);
             }
 
             // If no modification was made, check if the parametrization is 
             // still sub-optimal
-            if (!made_modification && eliminate_suboptimalities_){
+            if (eliminate_suboptimalities_){
                 made_modification = EliminateSubOptimalParametrization();
             } 
         }
@@ -585,10 +595,15 @@ bool MotionPlanner::EliminateSubOptimalParametrization(){
     double tolerance = 1e-4;
 
     for (int w = 0; w < corridor_sequence_.NbCorridors()-1; w++){
-        if (parametrization_.GetTxSol()[w][2] < tolerance && 
-            parametrization_.GetTxSol()[w+1][0] < tolerance &&
-            parametrization_.GetTySol()[w][2] < tolerance &&
-            parametrization_.GetTySol()[w+1][0] < tolerance){
+        if (parametrization_.GetTxSol()[w][2]   < tolerance && // no final acceleration
+            parametrization_.GetTxSol()[w+1][0] < tolerance && // no first acceleration
+            parametrization_.GetTxSol()[w][1]   > tolerance && // some coasting
+            parametrization_.GetTxSol()[w+1][1] > tolerance && // some coasting
+
+            parametrization_.GetTySol()[w][2]   < tolerance && // no final acceleration
+            parametrization_.GetTySol()[w+1][0] < tolerance && // no first acceleration
+            parametrization_.GetTySol()[w][1]   > tolerance && // some coasting
+            parametrization_.GetTySol()[w+1][1] > tolerance){  // some coasting
             
             std::cout << "Flipping acceleration at waypoint " << w << std::endl;
             made_modification = made_modification ||

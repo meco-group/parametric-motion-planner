@@ -5,7 +5,8 @@ import numpy as np
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
 # with open('python-benchmark/files/results_double.json', 'r') as f:
-with open('python-benchmark/files/results_large.json', 'r') as f:
+# with open('python-benchmark/files/results_large.json', 'r') as f:
+with open('python-benchmark/files/results_large_double.json', 'r') as f:
     results = json.load(f)
 
 def scatter(results, method, x, y, color):
@@ -172,8 +173,10 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         idx = np.argsort(rel_errors[i])
         rel_errors[i] = rel_errors[i][idx]
         og_idxs[i] = og_idxs[i][idx]
+        my_dict = {og_idxs[i][j]: round(rel_errors[i][j],2) for j in range(len(rel_errors[i])-10, len(rel_errors[i]))}
         print(f"10 most suboptimal cases for method {methods[i]}:")
-        print(og_idxs[i][-10:])
+        # print(og_idxs[i][-10:])
+        print(my_dict)
 
     # visualize
     plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -1, 1, color='gray', alpha=0.5)
@@ -189,6 +192,13 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
     else:
         plt.ylabel("Relative suboptimality [%]")
     plt.legend(loc='best')
+
+    plt.figure()
+    plt.plot(Tf_baseline, Tfs[2], 'o')
+    plt.plot([0, 5], [0, 5], 'k', label='0%')
+    plt.plot([0, 5], [0, 5*1.1], 'gray', label='10%')
+    plt.plot([0, 5], [0, 5*2], 'lightgray', label='100%')
+    plt.legend()
 
 def computation_time_comparison(results, method1, method2, color1, color2):
     t_comp_total_1 = np.array(results[method1]["t_comp_total"])
@@ -283,6 +293,13 @@ def computation_time_comparison_extended_new(results, baseline_method, methods, 
 
     plt.legend(loc='best')
 
+
+# print out all infeasible ARENA cases
+infeasibles = []
+for i in range(len(results["ARENA"]["corridor_infeasibilities_detected"])):
+    if results["ARENA"]["corridor_infeasibilities_detected"][i]:
+        infeasibles.append(i)
+print(f"ARENA infeasible cases: {infeasibles}")
 
 import matplotlib.pyplot as plt
 # plt.figure()

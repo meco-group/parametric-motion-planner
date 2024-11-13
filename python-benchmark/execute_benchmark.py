@@ -10,7 +10,8 @@ from load_random_environments import extract_data
 # file_name_appendix = ""
 # file_name_appendix = "_cell"
 # file_name_appendix = "_double"
-file_name_appendix = "_large"
+# file_name_appendix = "_large"
+file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
@@ -59,13 +60,24 @@ for method, method_name in zip(methods, method_names):
         if len(method_name_split) == 2:
             motion_planner.SetSuboptimalityEliminationFeature(True)
         else:
-            motion_planner.SetSuboptimalityEliminationFeature(False)
+            motion_planner.SetSuboptimalityEliminationFeature(True)
 
     # loop over all environments
     for i in range(len(envs)):
         print(f"\n\nRunning environment {i} with method {method_name}")
-        # [70 42 41 80 67 76 13 27 51  1]
-        idx_to_show = 437
+        # [large]: suboptimal cases: [229 451 497 438 139 375 267 399 242 437]
+        # 437: heuristics fail in last corridor leading to suboptimal AND infeasible solution
+        # 242: ARENA+ solves this issue
+        # 399: ARENA+ solves this issue
+        # 267: ARENA+ solves this issue
+        # 375: ARENA+ solves this issue
+        # 139: heuristics fail in first corridor
+        # ...
+        
+        # [large_double]: infeasible cases: [45, 46, 66, 69, 80, 88, 96, 98, 105, 110, 117, 119, 127, 130, 137, 138, 141, 165, 172, 211, 220, 225, 233, 236, 241, 248, 265, 281, 301, 309, 313, 314, 347, 371, 373, 394, 403, 404, 407, 431, 439, 443, 445, 451, 462, 469, 472, 482, 490]
+        #
+        idx_to_show = 66
+        # idx_to_show = 162
         method_to_show = "ARENA"#"OCP-30"
         if i == idx_to_show and method_name == method_to_show:
             print(f"\tcorridor_meta_data = ['nominal']*len(corridors)")
@@ -104,7 +116,10 @@ for method, method_name in zip(methods, method_names):
 
         if method is not None:
             print("Planning...")
-            motion_planner.Plan()
+            try:
+                motion_planner.Plan()
+            except:
+                pass
             print("Done.")
             print("Travel time: ", motion_planner.GetTravelTime())
 
@@ -114,6 +129,10 @@ for method, method_name in zip(methods, method_names):
             results[method_name]["t_comp_solver"].append(motion_planner.GetSolverTime())
             results[method_name]["corridor_infeasibilities_detected"].append(
                 motion_planner.CorridorInfeasibilitiesDetected())
+            
+            if i == idx_to_show and method_name == method_to_show:
+                print("infeasiblities: ", motion_planner.CorridorInfeasibilitiesDetected())
+                motion_planner.PrintParametrization()
         else:
             motion_planner.UpdateCorridorSequence()
             corridors = motion_planner.GetCorridorSequence()

@@ -124,5 +124,10 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
             return corridors;
         })
         .def("GetLastSolution", &MotionPlanner::GetLastSolution)
+        .def("DumpToJson", &MotionPlanner::DumpToJson)
+        .def("PrintParametrization", &MotionPlanner::PrintParametrization)
+        .def("ShowInitialization", &MotionPlanner::PrintInitialization)
+        .def("SetPrintLevel", &MotionPlanner::SetPrintLevel)
+        .def("SetMaxIter", &MotionPlanner::SetMaxIter)
         ;
 }

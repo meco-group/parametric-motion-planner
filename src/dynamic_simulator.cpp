@@ -109,7 +109,8 @@ void DynamicSimulator::AddMovingObstacle(std::shared_ptr<MovingObstacle> obstacl
     cells_covered_by_moving_obstacles_[obstacle] = 
         environment_.GetOccupiedFootprintCells(obstacle->GetPosition(), 
                                                obstacle->GetWidth(), 
-                                               obstacle->GetHeight());
+                                               obstacle->GetHeight(),
+                                               0.0);
 }
 
 void DynamicSimulator::RemoveMovingObstacle(std::shared_ptr<MovingObstacle> obstacle){
@@ -185,7 +186,8 @@ void DynamicSimulator::UpdateMovingObstacles(double dt){
         cells_covered_by_moving_obstacles_[obstacle] = 
             environment_.GetOccupiedFootprintCells(obstacle->GetPosition(), 
                                                    obstacle->GetWidth(), 
-                                                   obstacle->GetHeight());
+                                                   obstacle->GetHeight(),
+                                                   0.0);
     }
 }
 

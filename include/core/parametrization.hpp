@@ -56,6 +56,8 @@ class Parametrization{
         bool FlipAccelerationAtWaypoint(const UpdateToken&, int waypoint_idx);
         void FilterAddConstraintsList(const UpdateToken&, std::set<int> &add_list) const;
 
+        void ShowInitialization();
+
         // basic getters
         int MaxNbCorridors() const {return max_nb_corridors_;};
         int NbCorridors() const { return corridor_sequence_.NbCorridors();};
@@ -127,7 +129,6 @@ class Parametrization{
         void InitializeOptimization();
         bool InitializeArc(int corridor_idx, double v_des,
                            Point2D<double> const &start_vel);
-        void ShowInitialization();
 
         void OptimizeSingleArc1D(std::vector<double> &t_sol_vector, 
                                  std::vector<double> &alpha_sol_vector,

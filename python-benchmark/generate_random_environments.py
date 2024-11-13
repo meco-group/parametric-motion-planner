@@ -18,7 +18,7 @@ v_max_ub = 2.0
 a_max_lb = 2.0
 a_max_ub = 6.5
 
-USE_CELL_POSITIONS = True
+USE_CELL_POSITIONS = False
 
 # create random parameters and environments
 N = 500
@@ -53,6 +53,7 @@ for i in range(N):
 # write to file
 # file_appendix = "_cell"
 # file_appendix = "_double"
-file_appendix = "_large"
+# file_appendix = "_large"
+file_appendix = "_large_double"
 with open('python-benchmark/files/random_environments' + file_appendix + '.json', 'w') as f:
     json.dump(j, f, indent=4)

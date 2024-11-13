@@ -374,7 +374,8 @@ json CorridorSequence::ToJson() const {
 void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path) const {
     std::unordered_set<Point2D<int>, Point2DHash<int>> occupied_cells_set = 
         environment_.GetOccupiedFootprintCells(start_, params_.GetVehWidth(), 
-                                               params_.GetVehHeight());
+                                               params_.GetVehHeight(),
+                                               params_.GetMargin());
 
     std::vector<Point2D<int>> occupied_cells(occupied_cells_set.begin(), 
                                              occupied_cells_set.end());    
@@ -421,7 +422,8 @@ void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path) cons
 void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path) const {
     std::unordered_set<Point2D<int>, Point2DHash<int>> occupied_cells_set = 
         environment_.GetOccupiedFootprintCells(dest_, params_.GetVehWidth(), 
-                                               params_.GetVehHeight());
+                                               params_.GetVehHeight(),
+                                               params_.GetMargin());
 
     std::vector<Point2D<int>> occupied_cells(occupied_cells_set.begin(),
                                              occupied_cells_set.end());

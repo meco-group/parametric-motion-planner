@@ -74,6 +74,7 @@ class MotionPlanner{
 
         // Basic setters
         void SetPrintLevel(int print_level) { opts_solver_["print_level"] = print_level;};
+        void SetMaxIter(int max_iter) { opts_solver_["max_iter"] = max_iter;};
         void SetOCPNumberOfPointsPerCorridor(int nb_points_per_corridor){ 
             nb_points_per_corridor_ = nb_points_per_corridor;};
         void SetSuboptimalityEliminationFeature(bool set){ 
@@ -86,9 +87,16 @@ class MotionPlanner{
         void PrintCorridorSequence(){
             std::cout << corridor_sequence_ << std::endl;
         };
+        void PrintParametrization(){
+            std::cout << parametrization_ << std::endl;
+        };
+        void PrintInitialization(){
+            parametrization_.ShowInitialization();
+        }
 
         json ToJson() const;
-        void DumpToJson(const std::string &filename) const;
+        void DumpToJson(const std::string &filename, 
+                        bool create_output_folder=true) const;
 
 
     private:

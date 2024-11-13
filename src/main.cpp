@@ -62,12 +62,15 @@ void SolveRandomProblem(){
     // Environment environment = Environment(10, 12, 0.12, 0.12);
     // Environment environment = Environment(20, 20, 0.12, 0.12);
     Environment environment = Environment(25, 25, 0.12, 0.12);
-    Parameters params = Parameters(1.7743775335572929, 2.2106078993268388, 0.115, 0.115, 0.001);
+    // Parameters params = Parameters(1.7743775335572929, 2.2106078993268388, 0.115, 0.115, 0.001);
+    Parameters params = Parameters(0.7696381510903181, 5.5568675872914195, 0.115, 0.115, 0.001);
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
 	// environment.AddRandomObstacles(0.25);
-    std::vector<int> rr_test = {1, 2, 4, 6, 6, 7, 9, 9, 11, 12, 12, 13};
-    std::vector<int> cc_test = {1, 12, 10, 7, 13, 13, 11, 12, 0, 2, 6, 3};
+    // std::vector<int> rr_test = {1, 2, 4, 6, 6, 7, 9, 9, 11, 12, 12, 13};
+    // std::vector<int> cc_test = {1, 12, 10, 7, 13, 13, 11, 12, 0, 2, 6, 3};
+    std::vector<int> rr_test = {1, 1, 6, 7, 9, 9, 10, 12};
+    std::vector<int> cc_test = {0, 1, 5, 3, 10, 11, 9, 3};
     for (int i = 0; i < rr_test.size(); i++){
         environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
     }
@@ -101,13 +104,16 @@ void SolveRandomProblem(){
 
     std::cout << "Created motion planner in environment " << environment << std::endl;
 
-	Point2D<double> start = Point2D<double>(1.74, 0.06);
-    Point2D<double> dest = Point2D<double>(0.06, 1.38);
+	// Point2D<double> start = Point2D<double>(1.74, 0.06);
+    // Point2D<double> dest = Point2D<double>(0.06, 1.38);
+    Point2D<double> start = Point2D<double>(0.46368271444046694, 0.5541697302378621);
+    Point2D<double> dest = Point2D<double>(1.4481433377924342, 0.7777571510707014);
     Point2D<double> start_vel = Point2D<double>(0, 0);
 
     my_motion_planner.SetStart(start);
     my_motion_planner.SetDest(dest);
     my_motion_planner.SetStartVel(start_vel);
+    my_motion_planner.SetSuboptimalityEliminationFeature(true);
 
     // my_motion_planner.SetRandomStart();
     // my_motion_planner.SetRandomDest();

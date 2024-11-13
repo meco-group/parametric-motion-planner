@@ -176,7 +176,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		waypoints_mx_[i].CopyValues(waypoints_[i]);
 	
 		// if the waypoint is movable, make it so
-		if (movable_waypoints_[i] && i > 0 && i < corridor_sequence_.NbCorridors() - 1){
+		if (movable_waypoints_[i] && i > 0 && i <= corridor_sequence_.NbCorridors() - 1){
 			// Check horizontal moving range
 			if (max_waypoint_offsets_[i].x() > 0){
 				opti_.subject_to(0 <= (offsets(0, offset_idx) <= 
@@ -208,8 +208,8 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	// corridor entry velocities
 	// NOTE: in theory, only n velocities are needed (instead of n+1) but it 
 	// makes the implementation slightly easier
-	v_x_ = opti_.variable(corridor_sequence_.NbCorridors() + 1);
-	v_y_ = opti_.variable(corridor_sequence_.NbCorridors() + 1);
+	v_x_ = opti_.variable(corridor_sequence_.NbCorridors() + 0*1);
+	v_y_ = opti_.variable(corridor_sequence_.NbCorridors() + 0*1);
 	MX curr_v_x = corridor_sequence_.GetStartVel().x();
 	MX curr_v_y = corridor_sequence_.GetStartVel().y();
 	for (int i = 0; i < corridor_sequence_.NbCorridors(); i++){
@@ -400,8 +400,9 @@ void Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
 			opti_.subject_to(lb <= (p_extreme <= ub));
 
 			// add constraint on second arc
-			t_extreme = v_y_(w+1) / (alpha_y_mx_(w+1)*params_.GetAmax());
-			p_extreme = waypoints_mx_[w+1].y() - v_y_(w+1)*t_extreme + 
+			MX next_vel = w < corridor_sequence_.NbCorridors() ? v_y_(w+1) : MX(0.0);
+			t_extreme = next_vel / (alpha_y_mx_(w+1)*params_.GetAmax());
+			p_extreme = waypoints_mx_[w+1].y() - next_vel*t_extreme + 
 						0.5*alpha_y_mx_(w+1)*params_.GetAmax()*pow(t_extreme, 2);
 			opti_.subject_to(lb <= (p_extreme <= ub));
 
@@ -418,14 +419,15 @@ void Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
 			opti_.subject_to(lb <= (p_extreme <= ub));
 			
 			// add constraint on second arc
-			t_extreme = v_x_(w+1) / (alpha_x_mx_(w+1)*params_.GetAmax());
-			p_extreme = waypoints_mx_[w+1].x() - v_x_(w+1)*t_extreme + 
+			MX next_vel = w < corridor_sequence_.NbCorridors() ? v_x_(w+1) : MX(0.0);
+			t_extreme = next_vel / (alpha_x_mx_(w+1)*params_.GetAmax());
+			p_extreme = waypoints_mx_[w+1].x() - next_vel*t_extreme + 
 						0.5*alpha_x_mx_(w+1)*params_.GetAmax()*pow(t_extreme, 2);
 			opti_.subject_to(lb <= (p_extreme <= ub));
 		}
 	}
 
-	// Solve();
+	Solve();
 }
 
 void Parametrization::OptimizeSingleArc(const UpdateToken&){
@@ -1068,26 +1070,26 @@ void Parametrization::Solve(){
 			waypoints_sol_[i].SetX(double(sol_.value().value(waypoints_mx_[i].x())));
 			waypoints_sol_[i].SetY(double(sol_.value().value(waypoints_mx_[i].y())));
 
-			waypoint_velocities_sol_[i].SetX(double(sol_.value().value(v_x_(i))));
-			waypoint_velocities_sol_[i].SetY(double(sol_.value().value(v_y_(i))));
+			// waypoint_velocities_sol_[i].SetX(double(sol_.value().value(v_x_(i))));
+			// waypoint_velocities_sol_[i].SetY(double(sol_.value().value(v_y_(i))));
 
 			if (i < corridor_sequence_.NbCorridors()){
-				// waypoint_velocities_sol_[i].SetX(double(sol_.value().value(v_x_(i))));
-				// waypoint_velocities_sol_[i].SetY(double(sol_.value().value(v_y_(i))));
+				waypoint_velocities_sol_[i].SetX(double(sol_.value().value(v_x_(i))));
+				waypoint_velocities_sol_[i].SetY(double(sol_.value().value(v_y_(i))));
 				
 				for (int j = 0; j < 3; j++){
 					t_x_sol_[i][j] = double(sol_.value().value(t_x_(j, i)));
 					t_y_sol_[i][j] = double(sol_.value().value(t_y_(j, i)));
 				}
-			// } else {
-			// 	waypoint_velocities_sol_[i].SetX(double(
-			// 		sol_.value().value(v_x_(i-1)) + 
-			// 		alpha_x_sol_[i]*params_.GetAmax()*t_x_sol_[i][0] + 
-			// 		alpha_x_sol_[i+1]*params_.GetAmax()*t_x_sol_[i][2]));
-			// 	waypoint_velocities_sol_[i].SetY(double(
-			// 		sol_.value().value(v_y_(i-1)) + 
-			// 		alpha_y_sol_[i]*params_.GetAmax()*t_y_sol_[i][0] + 
-			// 		alpha_y_sol_[i+1]*params_.GetAmax()*t_y_sol_[i][2]));
+			} else {
+				waypoint_velocities_sol_[i].SetX(double(
+					sol_.value().value(v_x_(i-1)) + 
+					alpha_x_sol_[i]*params_.GetAmax()*t_x_sol_[i][0] + 
+					alpha_x_sol_[i+1]*params_.GetAmax()*t_x_sol_[i][2]));
+				waypoint_velocities_sol_[i].SetY(double(
+					sol_.value().value(v_y_(i-1)) + 
+					alpha_y_sol_[i]*params_.GetAmax()*t_y_sol_[i][0] + 
+					alpha_y_sol_[i+1]*params_.GetAmax()*t_y_sol_[i][2]));
 			}
 		}
 		// std::cout << "p_extremes: [";
@@ -1189,6 +1191,7 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 	t1_bd = 0; t2_bd = 0; t3_bd = 0;
 	t1_fd = 0; t2_fd = 0; t3_fd = 0;
 
+	// std::cout << std::endl;
 	// std::cout << "Initializing arc" << std::endl;
 	// std::cout << "v_des: " << v_des << std::endl;
 	// std::cout << "start_vel: " << start_vel << std::endl;
@@ -1227,6 +1230,8 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 			 		  0.5*alpha_bd*a_max*std::pow(t1_bd, 2))) / v_des;
 	double T = t1_bd + t2_bd;
 
+	// std::cout << "Step 1: " << t1_bd << ", " << t2_bd << " , " << T << std::endl;
+
 	// Compute timings in the free direction
 	if (corridor_idx == 0){
 		double t_accel = std::sqrt(2*std::abs(p0_bd - pf_bd)/a_max);
@@ -1254,6 +1259,8 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 		}
 
 		alpha_fd = alpha_0_init_;
+
+		// std::cout << "Step 2: " << t1_fd << ", " << t2_fd << " , " << T << ", " << alpha_fd << std::endl;
 	} else {
 		// in subsequent corridors, make sure the next waypoint is reached at 
 		// the exact same time as in the bottleneck direction
@@ -1331,8 +1338,10 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 
 	bool negative_value_detected = t1_fd < 0 || t2_fd < 0 || t3_fd < 0 ||
 								   t1_bd < 0 || t2_bd < 0 || t3_bd < 0;
+	bool equal_timings = (t1_fd + t2_fd + t3_fd) == (t1_bd + t2_bd + t3_bd);
 	succesfull_initialization = succesfull_initialization && 
-								!negative_value_detected;
+								!negative_value_detected &&
+								equal_timings;
 
 	
 	// write the values in the initialization containers
@@ -1364,7 +1373,11 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 			alpha_fd*a_max*t1_fd + alpha_next_fd*a_max*t3_fd);
 	}
 
-	// std::cout << "" << std::endl;
+	// std::cout << "succes: " << succesfull_initialization << std::endl;
+	// std::cout << "tt: [[" << t_x_init_[corridor_idx][0] << ", " << t_x_init_[corridor_idx][1] << ", " << t_x_init_[corridor_idx][2] << "], [";
+	// std::cout << t_y_init_[corridor_idx][0] << ", " << t_y_init_[corridor_idx][1] << ", " << t_y_init_[corridor_idx][2] << "]]" << std::endl;
+	// std::cout << "alpha_init: " << alpha_0_init_ << std::endl;
+	// std::cout << "beta_init: " << alpha_f_init_ << std::endl;
 
 	return succesfull_initialization;	
 }

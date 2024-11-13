@@ -27,6 +27,7 @@ void Trajectory::Update(int nb_corridors,
                         std::vector<double> const &time_durations,
                         double solver_time){
     total_computation_time_ = -1;
+    corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
 
     double total_time = 0.0;
@@ -51,7 +52,6 @@ void Trajectory::Update(int nb_corridors,
     int p2p_sol_idx = 0; // we will interpolate between idx and idx + 1
     double alpha, beta;
     double accumulated_time = 0.0; // sum of completely sampled durations
-    corridor_infeasibilities_detected_ = false;
     for (int i = 0; i < curr_nb_samples_; i++){
 
         // for every sample, figure out the value of p2p_sol_idx
@@ -90,6 +90,7 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
                         CorridorSequence const &corridor_sequence,
                         Parameters const &params){
     total_computation_time_ = -1;
+    corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
     tf_ = tt_ocp[tt_ocp.size() - 1];
 
@@ -109,7 +110,6 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     int ocp_sol_idx = 0;
     double alpha, beta;
 
-    corridor_infeasibilities_detected_ = false;
     Point2D<double> point_to_check;
     int corridor_idx = 0;
     
@@ -184,6 +184,7 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
                                  Parameters const &params,
                                  double solver_time){
     total_computation_time_ = -1;
+    corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
     
     double a_max = params.GetAmax();
@@ -224,7 +225,6 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
 
     int corridor_idx = 0;
     bool out_of_corridor = false;
-    corridor_infeasibilities_detected_ = false;
 
     // loop over corridors
     for (int w = 0; w < corridor_sequence.NbCorridors(); w++){
