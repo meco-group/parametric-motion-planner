@@ -471,13 +471,14 @@ void MotionPlanner::PlanARENA(){
 
         // Start the optimization loop
         bool made_modification = true;
+        bool use_warm_start = false;
         while (made_modification){
             made_modification = false;
 
             // Solve the parametrization
             parametrization_.OptimizeParametrization(
                 parametrization_update_token_, opts_casadi_, opts_solver_,
-                false);
+                use_warm_start);
 
             // Extract the solver time
             if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
@@ -511,6 +512,7 @@ void MotionPlanner::PlanARENA(){
             // still sub-optimal
             if (eliminate_suboptimalities_){
                 made_modification = EliminateSubOptimalParametrization();
+                use_warm_start = true;
             } 
         }
     }

@@ -20,7 +20,7 @@ file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # decide which environment to run
-benchmark_idx = 371
+benchmark_idx = 451
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)

@@ -534,6 +534,10 @@ bool Parametrization::FlipAccelerationAtWaypoint(const UpdateToken&,
 
 	flipped_acceleration_[waypoint_idx] = true;
 
+	// Reset the add constraint lists since they won't be valid anymore
+	added_constraints_list_first_arc_.clear();
+	added_constraints_list_second_arc_.clear();
+
 	return true;
 }
 
