@@ -499,6 +499,15 @@ void CorridorSequence::InflateCorridors(){
         grow_counter++;
     }
 
+    // std::cout << "infalted corridors: [" << std::endl;
+    // for (int i = 0; i < nb_of_corridors_; i++){
+    //     std::cout << sequence_[i];
+    //     if (i < nb_of_corridors_-1){
+    //         std::cout << ", ";
+    //     }
+    // }
+    // std::cout << "]" << std::endl;
+
     // remove irrelevant corridors
     RemoveIrrelevantCorridors();
 
@@ -765,16 +774,28 @@ bool CorridorSequence::RemoveIrrelevantCorridors(){
         // The current corridor has to be removed if
         // - it is completely within the previous corridor
         // - it is completely within the next corridor
-        // - it is completely within a union of the previous and next corridor
+        // - it is completely within a union of the previous and next corridor 
+        //      (that share sufficient overlap)
         // - the previous and the next corridor overlap
-        if (current_corridor->IsCompletelyWithin(previous_corridor) ||
-                current_corridor->IsCompletelyWithin(next_corridor) ||
-                current_corridor->IsCompletelyWithin(previous_corridor, 
-                                                    next_corridor) ||
-                previous_corridor->GetOverlap(*next_corridor, overlap)){
-            RemoveCorridor(i);
-            made_change = true;
-            continue; // move on to the next corridor
+        if (current_corridor->IsCompletelyWithin(previous_corridor)
+            ||
+            current_corridor->IsCompletelyWithin(next_corridor)
+            ||
+            current_corridor->IsCompletelyWithin(previous_corridor, 
+                                                 next_corridor) 
+                &&
+                std::min(previous_corridor->Xmax(), next_corridor->Xmax()) -
+                std::max(previous_corridor->Xmin(), next_corridor->Xmin()) 
+                    > params_.GetVehWidth() + 2*params_.GetMargin() 
+                &&
+                std::min(previous_corridor->Ymax(), next_corridor->Ymax()) -
+                std::max(previous_corridor->Ymin(), next_corridor->Ymin()) 
+                    > params_.GetVehHeight() + 2*params_.GetMargin()            
+            ||
+            previous_corridor->GetOverlap(*next_corridor, overlap)){
+                RemoveCorridor(i);
+                made_change = true;
+                continue; // move on to the next corridor
         }
     }
 
