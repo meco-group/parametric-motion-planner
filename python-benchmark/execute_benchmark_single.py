@@ -20,7 +20,7 @@ file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # decide which environment to run
-benchmark_idx = 451
+benchmark_idx = 416
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
@@ -91,7 +91,7 @@ print_stats(tf_ocp, t_comp_total_ocp, t_comp_solver_ocp)
 print(f"P2P:")
 print_stats(tf_p2p, t_comp_total_p2p, t_comp_solver_p2p)
 print("\nOverall results:")
-print(f"\tSuboptimality: \t\t{100.0*(tf_arena - tf_ocp)/tf_arena:.3f}% ({tf_arena - tf_ocp:.3f} ms)")
+print(f"\tSuboptimality: \t\t{100.0*(tf_arena - tf_ocp)/tf_ocp:.3f}% ({tf_arena - tf_ocp:.3f} ms)")
 print(f"\tTotal speedup: \t\t{t_comp_total_ocp/t_comp_total_arena:.3f}")
 print(f"\tSolver speedup: \t{t_comp_solver_ocp/t_comp_solver_arena:.3f}")
 print("=========================================================")
