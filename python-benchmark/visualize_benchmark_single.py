@@ -128,7 +128,7 @@ def visualize_output(env, params, corridors, planner_methods,
     axs[0].fill_between([-10, 1000], [params["v_max"], params["v_max"]],
                         [1000, 1000], color='grey')
     try:
-        axs[1].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
+        axs[0].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
     except:
         pass
     axs[0].set_ylim([-1.1*params["v_max"], 1.1*params["v_max"]])
@@ -175,7 +175,7 @@ def visualize_output(env, params, corridors, planner_methods,
     axs[0].fill_between([-10, 1000], [params["a_max"], params["a_max"]],
                         [1000, 1000], color='grey')
     try:
-        axs[1].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
+        axs[0].set_xlim([0, max([max(trajectories[i]["t"]) for i in range(len(trajectories))])])
     except:
         pass
     axs[0].set_ylim([-1.1*params["a_max"], 1.1*params["a_max"]])
@@ -260,6 +260,8 @@ def visualize_output(env, params, corridors, planner_methods,
     labels = labels1 + labels2
     plt.legend(handles, labels)
     plt.savefig(fig_folder + '/timings.png', dpi=300)
+
+    plt.show()
 
 
 

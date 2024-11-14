@@ -50,7 +50,7 @@ class Parametrization{
                                      casadi::Dict const &opts_casadi, 
                                      casadi::Dict const &opts_solver,
                                      bool use_prev_sol_as_init_guess);
-        void AddOvershootingConstraints(std::set<int> &add_list);
+        bool AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
 
         bool FlipAccelerationAtWaypoint(const UpdateToken&, int waypoint_idx);
@@ -152,7 +152,8 @@ class Parametrization{
         int nb_movable_waypoints_;
         int initial_bottleneck_direction_ = 0;
         std::vector<bool> flipped_acceleration_;
-        std::set<int> added_constraints_list_;
+        std::set<int> added_constraints_list_first_arc_;
+        std::set<int> added_constraints_list_second_arc_;
 
         // mx objects to be used in the optimization
         casadi::Opti opti_;

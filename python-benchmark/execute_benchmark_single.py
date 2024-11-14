@@ -20,13 +20,13 @@ file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # decide which environment to run
-benchmark_idx = 66
+benchmark_idx = 371
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
 
 motion_planner.SetSuboptimalityEliminationFeature(True)
-motion_planner.SetPrintLevel(5)
+motion_planner.SetPrintLevel(0)
 # motion_planner.SetMaxIter(50)
 
 motion_planner.SetStart(starts[benchmark_idx])

@@ -125,7 +125,8 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 	}
 
 	flipped_acceleration_ = std::vector<bool>(corridor_sequence_.NbCorridors() + 1, false);
-	added_constraints_list_.clear();
+	added_constraints_list_first_arc_.clear();
+	added_constraints_list_second_arc_.clear();
 
 	// Update version
 	latest_sequence_version_ = corridor_sequence_.GetVersion();
@@ -327,18 +328,25 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 						   (intermediate_positions_[i].y() <= 
 						   curr_corridor.Ymax() - height_offset));
 		}
-		if (w < corridor_sequence_.NbCorridors() - 1){
-			for (int i : {0, 2}){
-				opti_.subject_to(-params_.GetVmax() <= 
-					(intermediate_velocities_[i].x() <= params_.GetVmax()));
-				opti_.subject_to(-params_.GetVmax() <= 
-					(intermediate_velocities_[i].y() <= params_.GetVmax()));
-			}
-		} else {
+		// if (w < corridor_sequence_.NbCorridors() - 1){
+		// 	for (int i : {0, 2}){
+		// 		opti_.subject_to(-params_.GetVmax() <= 
+		// 			(intermediate_velocities_[i].x() <= params_.GetVmax()));
+		// 		opti_.subject_to(-params_.GetVmax() <= 
+		// 			(intermediate_velocities_[i].y() <= params_.GetVmax()));
+		// 	}
+		// } else {
 			opti_.subject_to(-params_.GetVmax() <= 
 				(intermediate_velocities_[0].x() <= params_.GetVmax()));
 			opti_.subject_to(-params_.GetVmax() <= 
 				(intermediate_velocities_[0].y() <= params_.GetVmax()));
+		// }
+
+		if (w > 0){
+			opti_.subject_to(-params_.GetVmax() <= 
+				(curr_v_x <= params_.GetVmax()));
+			opti_.subject_to(-params_.GetVmax() <=
+				(curr_v_y <= params_.GetVmax()));
 		}
 
 		// integrate the velocity over this corridor
@@ -372,62 +380,103 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	Solve();
 };
 
-void Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
+bool Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
+	bool added_something = false;
+
 	MX t_extreme;
 	MX p_extreme;
 	double lb;
 	double ub;
 	p_extremes_ = {};
 	for (int w : add_list){
-		// only process corridors for which constraints have not yet been added
-		if (added_constraints_list_.count(w) > 0){
-			continue;
-		}
-
-		added_constraints_list_.insert(w);
-
+		// check in which direction constraints need to be added
 		if (std::abs(waypoints_[w+1].x() - waypoints_[w].x()) >
 				std::abs(waypoints_[w+1].y() - waypoints_[w].y())){
+
+			// Determine bounds for vertical direction
 			lb = corridor_sequence_.GetCorridor(w).Ymin() +
 				 params_.GetHeightOffset();
 			ub = corridor_sequence_.GetCorridor(w).Ymax() -
 				 params_.GetHeightOffset();
 
-			// add constraint on first arc
+			// check if constraint on first arc is new and needed
 			t_extreme = -v_y_(w) / (alpha_y_mx_(w)*params_.GetAmax());
-			p_extreme = waypoints_mx_[w].y() + v_y_(w)*t_extreme + 
-						0.5*alpha_y_mx_(w)*params_.GetAmax()*pow(t_extreme, 2);
-			opti_.subject_to(lb <= (p_extreme <= ub));
+			if (added_constraints_list_first_arc_.count(w) == 0 && 
+					double(sol_.value().value(t_extreme)) < t_y_sol_[w][0] &&
+					w > 0){
+				// std::cout << "Adding constraint on first arc for corridor " << w << " in y" << std::endl;
+				added_constraints_list_first_arc_.insert(w);
+				added_something = true;
 
-			// add constraint on second arc
-			MX next_vel = w < corridor_sequence_.NbCorridors() ? v_y_(w+1) : MX(0.0);
+				// If so, add the constraint
+				p_extreme = waypoints_mx_[w].y() + v_y_(w)*t_extreme + 
+					0.5*alpha_y_mx_(w)*params_.GetAmax()*pow(t_extreme, 2);
+				opti_.subject_to(lb <= (p_extreme <= ub));
+			}
+
+			// check if constraint on second arc is new and needed
+			MX next_vel = w+1 < corridor_sequence_.NbCorridors() ? v_y_(w+1) : MX(0.0);
 			t_extreme = next_vel / (alpha_y_mx_(w+1)*params_.GetAmax());
-			p_extreme = waypoints_mx_[w+1].y() - next_vel*t_extreme + 
-						0.5*alpha_y_mx_(w+1)*params_.GetAmax()*pow(t_extreme, 2);
-			opti_.subject_to(lb <= (p_extreme <= ub));
+			if (added_constraints_list_second_arc_.count(w) == 0 &&
+					double(sol_.value().value(t_extreme)) < t_y_sol_[w][2] &&
+					w+1 < corridor_sequence_.NbCorridors()){
+				// std::cout << "Adding constraint on second arc for corridor " << w << " in y" << std::endl;
+				added_constraints_list_second_arc_.insert(w);
+				added_something = true;
+
+				// If so, add the constraint
+				p_extreme = waypoints_mx_[w+1].y() - next_vel*t_extreme + 
+					0.5*alpha_y_mx_(w+1)*params_.GetAmax()*pow(t_extreme, 2);
+				opti_.subject_to(lb <= (p_extreme <= ub));
+			}
 
 		} else {
+
+			// Determine bounds for horizontal direction
 			lb = corridor_sequence_.GetCorridor(w).Xmin() +
 				 params_.GetWidthOffset();
 			ub = corridor_sequence_.GetCorridor(w).Xmax() -
 				 params_.GetWidthOffset();
 			
-			// add constraint on first arc
+			// check if constraint on first arc is new and needed
 			t_extreme = -v_x_(w) / (alpha_x_mx_(w)*params_.GetAmax());
-			p_extreme = waypoints_mx_[w].x() + v_x_(w)*t_extreme + 
-						0.5*alpha_x_mx_(w)*params_.GetAmax()*pow(t_extreme, 2);
-			opti_.subject_to(lb <= (p_extreme <= ub));
+			if (added_constraints_list_first_arc_.count(w) == 0 && 
+					double(sol_.value().value(t_extreme)) < t_x_sol_[w][0] &&
+					w > 0){
+				// std::cout << "Adding constraint on first arc for corridor " << w << " in x" << std::endl;
+				added_constraints_list_first_arc_.insert(w);
+				added_something = true;
+
+				// If so, add the constraint
+				p_extreme = waypoints_mx_[w].x() + v_x_(w)*t_extreme + 
+					0.5*alpha_x_mx_(w)*params_.GetAmax()*pow(t_extreme, 2);
+				opti_.subject_to(lb <= (p_extreme <= ub));
+			}
 			
-			// add constraint on second arc
-			MX next_vel = w < corridor_sequence_.NbCorridors() ? v_x_(w+1) : MX(0.0);
+			// check if constraint on second arc is new and needed
+			MX next_vel = w+1 < corridor_sequence_.NbCorridors() ? v_x_(w+1) : MX(0.0);
 			t_extreme = next_vel / (alpha_x_mx_(w+1)*params_.GetAmax());
-			p_extreme = waypoints_mx_[w+1].x() - next_vel*t_extreme + 
-						0.5*alpha_x_mx_(w+1)*params_.GetAmax()*pow(t_extreme, 2);
-			opti_.subject_to(lb <= (p_extreme <= ub));
+			if (added_constraints_list_second_arc_.count(w) == 0 &&
+					double(sol_.value().value(t_extreme)) < t_x_sol_[w][2] &&
+					w+1 < corridor_sequence_.NbCorridors()){
+				// std::cout << "Adding constraint on second arc for corridor " << w << " in x" << std::endl;
+				added_constraints_list_second_arc_.insert(w);
+				added_something = true;
+
+				// If so, add the constraint
+				p_extreme = waypoints_mx_[w+1].x() - next_vel*t_extreme + 
+							0.5*alpha_x_mx_(w+1)*params_.GetAmax()*pow(t_extreme, 2);
+				opti_.subject_to(lb <= (p_extreme <= ub));
+			}
 		}
 	}
 
-	Solve();
+	std::cout << "added_something: " << added_something << std::endl;
+	if (added_something){
+		Solve();
+	}
+
+	return added_something;
 }
 
 void Parametrization::OptimizeSingleArc(const UpdateToken&){
@@ -490,8 +539,10 @@ bool Parametrization::FlipAccelerationAtWaypoint(const UpdateToken&,
 
 void Parametrization::FilterAddConstraintsList(const UpdateToken&, 
 										std::set<int> &add_list) const {
-	for (int w : added_constraints_list_){
-		add_list.erase(w);
+	for (int w : added_constraints_list_first_arc_){
+		if (added_constraints_list_second_arc_.count(w) > 0){
+			add_list.erase(w);
+		}
 	}
 }
 
@@ -1118,6 +1169,9 @@ void Parametrization::Solve(){
 			}
 		}
 	}
+
+	// std::cout << "Tx: " << t_x_sol_ << std::endl;
+	// std::cout << "Ty: " << t_y_sol_ << std::endl;
 }
 
 

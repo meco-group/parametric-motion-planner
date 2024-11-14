@@ -16,34 +16,45 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 
 # List all methods to benchmark
 methods = [pmp.PlannerMethod.ARENA,
-        #    pmp.PlannerMethod.ARENA, 
-        #    pmp.PlannerMethod.OCP, 
-        #    pmp.PlannerMethod.OCP, 
-        #    pmp.PlannerMethod.OCP, 
+           pmp.PlannerMethod.ARENA, 
+           pmp.PlannerMethod.OCP, 
+           pmp.PlannerMethod.OCP, 
+           pmp.PlannerMethod.OCP, 
            pmp.PlannerMethod.OCP,
-        #    pmp.PlannerMethod.OCP,
+           pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.P2P]
 method_names = ["ARENA", 
-                # "ARENA+",
-                # "OCP-5", 
-                # "OCP-10", 
-                # "OCP-20", 
+                "ARENA+",
+                "OCP-5", 
+                "OCP-10", 
+                "OCP-20", 
                 "OCP-30", 
-                # "OCP-40", 
+                "OCP-40", 
                 "P2P"]
+default_selection = [1, 0, 0, 0, 0, 1, 0, 1]
+arena_selection = [1, 0, 0, 0, 0, 0, 0, 0]
 assert len(methods) == len(method_names)
+
+my_selection = arena_selection
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
 
 # create containers for results
-results = {}
-for m in method_names:
-    results[m] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [], 
-                  "corridor_infeasibilities_detected": []}
+# results = {}
+# for m in method_names:
+#     results[m] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [], 
+#                   "corridor_infeasibilities_detected": []}
+results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
 
 # Benchmark
 for method, method_name in zip(methods, method_names):
+    if my_selection[method_names.index(method_name)] == 0:
+        continue
+    else:
+        results[method_name] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [],
+                                "corridor_infeasibilities_detected": []}
+
     if method is not None:
         motion_planner.SetMethod(method)
 
@@ -76,7 +87,7 @@ for method, method_name in zip(methods, method_names):
         
         # [large_double]: infeasible cases: [45, 46, 66, 69, 80, 88, 96, 98, 105, 110, 117, 119, 127, 130, 137, 138, 141, 165, 172, 211, 220, 225, 233, 236, 241, 248, 265, 281, 301, 309, 313, 314, 347, 371, 373, 394, 403, 404, 407, 431, 439, 443, 445, 451, 462, 469, 472, 482, 490]
         #
-        idx_to_show = 66
+        idx_to_show = -66
         # idx_to_show = 162
         method_to_show = "ARENA"#"OCP-30"
         if i == idx_to_show and method_name == method_to_show:

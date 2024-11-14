@@ -471,32 +471,40 @@ void MotionPlanner::PlanARENA(){
 
         // Start the optimization loop
         bool made_modification = true;
-        bool first = true;
         while (made_modification){
             made_modification = false;
 
             // Solve the parametrization
             parametrization_.OptimizeParametrization(
                 parametrization_update_token_, opts_casadi_, opts_solver_,
-                !first);
-            first = false;
+                false);
+
+            // Extract the solver time
             if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
             } else { solver_time += parametrization_.GetSolverTime();}
-
+                
             // Sample the trajectory and check if extra constraints are needed
-            // TODO: instead of checking the samples, the parabolic extremes can be checked
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
-            parametrization_.FilterAddConstraintsList(parametrization_update_token_,
-                                                      add_constraints_list_);
 
-            // Add extra constraints
-            while (add_constraints_list_.size() > 0 && solver_time > 0){
-                parametrization_.AddOvershootingConstraints(add_constraints_list_);
-                if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
-                } else { solver_time += parametrization_.GetSolverTime();}
-                add_constraints_list_ = CheckOutOfCorridor(solver_time);
-                parametrization_.FilterAddConstraintsList(parametrization_update_token_,
-                                                      add_constraints_list_);
+            bool added_new_constraints = add_constraints_list_.size() > 0;
+            while (added_new_constraints && solver_time > 0){
+                // Add the extra constraints
+                // std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
+                added_new_constraints = 
+                    parametrization_.AddOvershootingConstraints(
+                                                    add_constraints_list_);
+
+                if (added_new_constraints){
+                    // Extract the solver time
+                    if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
+                    } else { solver_time += parametrization_.GetSolverTime();}
+
+                    // Sample the trajectory and check if extra constraints are needed
+                    add_constraints_list_ = CheckOutOfCorridor(solver_time);
+                } else {
+                    // If no new constraints were added, there is no change
+                    // in the solution either, so we're done
+                }
             }
 
             // If no modification was made, check if the parametrization is 
