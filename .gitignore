@@ -1,2 +1,11 @@
 build/*
+build*/
 settings.json
+
+*.png
+*.gif
+*.json
+
+*__pycache__*
+
+test.py
