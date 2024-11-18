@@ -602,23 +602,41 @@ bool MotionPlanner::EliminateSubOptimalParametrization(){
     // return false;
 
     bool made_modification = false;
-    double tolerance = 1e-4;
+    double tolerance = 1e-6;
 
+    bool x_flip, y_flip;
     for (int w = 0; w < corridor_sequence_.NbCorridors()-1; w++){
-        if (parametrization_.GetTxSol()[w][2]   < tolerance && // no final acceleration
-            parametrization_.GetTxSol()[w+1][0] < tolerance && // no first acceleration
-            parametrization_.GetTxSol()[w][1]   > tolerance && // some coasting
-            parametrization_.GetTxSol()[w+1][1] > tolerance && // some coasting
+        x_flip = 
+            // coasting through the waypoint
+            (parametrization_.GetTxSol()[w][2]   < tolerance && // no final acceleration
+             parametrization_.GetTxSol()[w+1][0] < tolerance && // no first acceleration
+             parametrization_.GetTxSol()[w][1]   > tolerance && // some coasting
+             parametrization_.GetTxSol()[w+1][1] > tolerance)   // some coasting
+            // ||
+            // // unable to keep accelerating
+            // (parametrization_.GetTxSol()[w][1]   < tolerance &&
+            //  parametrization_.GetTxSol()[w][2]   < tolerance &&
+            //  parametrization_.GetAlphaX(w) != parametrization_.GetAlphaX(w+1))
+             ;
+        y_flip =
+            // coasting through the waypoint
+            (parametrization_.GetTySol()[w][2]   < tolerance && // no final acceleration
+             parametrization_.GetTySol()[w+1][0] < tolerance && // no first acceleration
+             parametrization_.GetTySol()[w][1]   > tolerance && // some coasting
+             parametrization_.GetTySol()[w+1][1] > tolerance)   // some coasting
+            // ||
+            // // unable to keep accelerating
+            // (parametrization_.GetTySol()[w][1]   < tolerance &&
+            //  parametrization_.GetTySol()[w][2]   < tolerance &&
+            //  parametrization_.GetAlphaY(w) != parametrization_.GetAlphaY(w+1))
+             ;
 
-            parametrization_.GetTySol()[w][2]   < tolerance && // no final acceleration
-            parametrization_.GetTySol()[w+1][0] < tolerance && // no first acceleration
-            parametrization_.GetTySol()[w][1]   > tolerance && // some coasting
-            parametrization_.GetTySol()[w+1][1] > tolerance){  // some coasting
-            
+        // std::cout << "w: " << w << " - x_flip: " << x_flip << " - y_flip: " << y_flip << std::endl;
+        if (x_flip || y_flip){           
             std::cout << "Flipping acceleration at waypoint " << w << std::endl;
             made_modification = made_modification ||
                 parametrization_.FlipAccelerationAtWaypoint(
-                                            parametrization_update_token_, w+1);
+                    parametrization_update_token_, w+1, x_flip, y_flip);
         }
     }
 

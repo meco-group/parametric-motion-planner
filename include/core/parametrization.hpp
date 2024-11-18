@@ -53,7 +53,8 @@ class Parametrization{
         bool AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
 
-        bool FlipAccelerationAtWaypoint(const UpdateToken&, int waypoint_idx);
+        bool FlipAccelerationAtWaypoint(const UpdateToken&, int waypoint_idx,
+                                        bool x_flip, bool y_flip);
         void FilterAddConstraintsList(const UpdateToken&, std::set<int> &add_list) const;
 
         void ShowInitialization();
@@ -153,7 +154,8 @@ class Parametrization{
         std::vector<WaypointLocation> waypoint_locations_;  // naming (debugging purposes)
         int nb_movable_waypoints_;
         int initial_bottleneck_direction_ = 0;
-        std::vector<bool> flipped_acceleration_;
+        std::vector<bool> flipped_acceleration_x_;
+        std::vector<bool> flipped_acceleration_y_;
         std::set<int> added_constraints_list_first_arc_;
         std::set<int> added_constraints_list_second_arc_;
 

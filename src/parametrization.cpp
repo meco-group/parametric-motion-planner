@@ -124,7 +124,8 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 		if (movable_waypoints_[i]){ nb_movable_waypoints_++;}
 	}
 
-	flipped_acceleration_ = std::vector<bool>(corridor_sequence_.NbCorridors() + 1, false);
+	flipped_acceleration_x_ = std::vector<bool>(corridor_sequence_.NbCorridors() + 1, false);
+	flipped_acceleration_y_ = std::vector<bool>(corridor_sequence_.NbCorridors() + 1, false);
 	added_constraints_list_first_arc_.clear();
 	added_constraints_list_second_arc_.clear();
 
@@ -137,8 +138,10 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  Dict const &opts_solver,
 											  bool use_prev_sol_as_init_guess){		
 	// prepare initial guess
+	DM prev_sol;
 	if (use_prev_sol_as_init_guess){
-		opti_.set_initial(opti_.x(), sol_.value().value(opti_.x()));
+		prev_sol = sol_.value().value(opti_.x());
+		// opti_.set_initial(opti_.x(), sol_.value().value(opti_.x()));
 	} else {
 		InitializeOptimization();
 	}
@@ -369,6 +372,13 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	opti_.minimize(obj);
 	opti_.solver("ipopt", opts_casadi, opts_solver);
 
+	//////////////////
+	/// Warm-start ///
+	//////////////////
+	if (use_prev_sol_as_init_guess){
+		opti_.set_initial(opti_.x(), prev_sol);
+	}
+
 	////////////////////////
 	/// Extract solution ///
 	////////////////////////
@@ -509,31 +519,48 @@ void Parametrization::OptimizeSingleArc(const UpdateToken&){
 }
 
 bool Parametrization::FlipAccelerationAtWaypoint(const UpdateToken&, 
-												 int waypoint_idx){
+												 int waypoint_idx,
+												 bool x_flip,
+												 bool y_flip){
 	if (waypoint_idx < 1 || waypoint_idx >= corridor_sequence_.NbCorridors()){
 		throw std::runtime_error("Invalid waypoint index for flipping the acceleration.");
 	}
 
+	bool made_modification = false;
+
 	// If this one has been flipped already, ignore this request
-	if (flipped_acceleration_[waypoint_idx]){
-		return false;
+	if (x_flip && !flipped_acceleration_x_[waypoint_idx]){
+		// flip the acceleration
+		alpha_x_[waypoint_idx] = -alpha_x_[waypoint_idx];
+
+		// flip the movable distances
+		max_waypoint_offsets_[waypoint_idx].SetX(-max_waypoint_offsets_[waypoint_idx].x());
+		
+		flipped_acceleration_x_[waypoint_idx] = true;
+
+		made_modification = true;
 	}
 
-	// flip the acceleration
-	alpha_x_[waypoint_idx] = -alpha_x_[waypoint_idx];
-	alpha_y_[waypoint_idx] = -alpha_y_[waypoint_idx];
+	// If this one has been flipped already, ignore this request
+	if (y_flip && !flipped_acceleration_y_[waypoint_idx]){
+		// flip the acceleration
+		alpha_y_[waypoint_idx] = -alpha_y_[waypoint_idx];
 
-	// flip the movable distances
-	max_waypoint_offsets_[waypoint_idx].SetX(-max_waypoint_offsets_[waypoint_idx].x());
-	max_waypoint_offsets_[waypoint_idx].SetY(-max_waypoint_offsets_[waypoint_idx].y());
+		// flip the movable distances
+		max_waypoint_offsets_[waypoint_idx].SetY(-max_waypoint_offsets_[waypoint_idx].y());
 
-	flipped_acceleration_[waypoint_idx] = true;
+		flipped_acceleration_y_[waypoint_idx] = true;
+
+		made_modification = true;
+	}
 
 	// Reset the add constraint lists since they won't be valid anymore
-	added_constraints_list_first_arc_.clear();
-	added_constraints_list_second_arc_.clear();
+	if (made_modification){
+		added_constraints_list_first_arc_.clear();
+		added_constraints_list_second_arc_.clear();
+	}
 
-	return true;
+	return made_modification;
 }
 
 void Parametrization::FilterAddConstraintsList(const UpdateToken&, 
@@ -1175,8 +1202,8 @@ void Parametrization::Solve(){
 		}
 	}
 
-	// std::cout << "Tx: " << t_x_sol_ << std::endl;
-	// std::cout << "Ty: " << t_y_sol_ << std::endl;
+	std::cout << "Tx: " << t_x_sol_ << std::endl;
+	std::cout << "Ty: " << t_y_sol_ << std::endl;
 }
 
 void Parametrization::ShowOptiDebugInfo(){
