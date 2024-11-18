@@ -124,6 +124,8 @@ class Parametrization{
                                        MX &obj);
         void Solve();
 
+        void ShowOptiDebugInfo();
+
 
         // Initialization functions
         void InitializeOptimization();

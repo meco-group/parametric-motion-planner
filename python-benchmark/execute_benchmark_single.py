@@ -15,18 +15,18 @@ def print_stats(Tf, t_comp_total, t_comp_solver):
 # file_name_appendix = ""
 # file_name_appendix = "_cell"
 # file_name_appendix = "_double"
-# file_name_appendix = "_large"
-file_name_appendix = "_large_double"
+file_name_appendix = "_large"
+# file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # decide which environment to run
-benchmark_idx = 416
+benchmark_idx = 309
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
 
 motion_planner.SetSuboptimalityEliminationFeature(True)
-motion_planner.SetPrintLevel(0)
+motion_planner.SetPrintLevel(5)
 # motion_planner.SetMaxIter(50)
 
 motion_planner.SetStart(starts[benchmark_idx])

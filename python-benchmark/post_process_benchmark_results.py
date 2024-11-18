@@ -5,8 +5,8 @@ import numpy as np
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
 # with open('python-benchmark/files/results_double.json', 'r') as f:
-# with open('python-benchmark/files/results_large.json', 'r') as f:
-with open('python-benchmark/files/results_large_double.json', 'r') as f:
+with open('python-benchmark/files/results_large.json', 'r') as f:
+# with open('python-benchmark/files/results_large_double.json', 'r') as f:
     results = json.load(f)
 
 def scatter(results, method, x, y, color):

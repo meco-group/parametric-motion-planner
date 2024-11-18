@@ -10,8 +10,8 @@ from load_random_environments import extract_data
 # file_name_appendix = ""
 # file_name_appendix = "_cell"
 # file_name_appendix = "_double"
-# file_name_appendix = "_large"
-file_name_appendix = "_large_double"
+file_name_appendix = "_large"
+# file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
@@ -46,6 +46,8 @@ motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
 #     results[m] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [], 
 #                   "corridor_infeasibilities_detected": []}
 results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
+
+expected_failures = []
 
 # Benchmark
 for method, method_name in zip(methods, method_names):
@@ -144,6 +146,29 @@ for method, method_name in zip(methods, method_names):
             if i == idx_to_show and method_name == method_to_show:
                 print("infeasiblities: ", motion_planner.CorridorInfeasibilitiesDetected())
                 motion_planner.PrintParametrization()
+
+            corridors = motion_planner.GetCorridorSequence()
+            if (len(corridors) > 1):
+                first_overlap = [max(corridors[0][0], corridors[1][0]), 
+                                min(corridors[0][1], corridors[1][1]),
+                                max(corridors[0][2], corridors[1][2]), 
+                                min(corridors[0][3], corridors[1][3])]
+                last_overlap = [max(corridors[-2][0], corridors[-1][0]),
+                                min(corridors[-2][1], corridors[-1][1]),
+                                max(corridors[-2][2], corridors[-1][2]),
+                                min(corridors[-2][3], corridors[-1][3])]
+                if (first_overlap[0] <= starts[i].x() and
+                    first_overlap[1] >= starts[i].x() and
+                    first_overlap[2] <= starts[i].y() and
+                    first_overlap[3] >= starts[i].y()):
+                    expected_failures.append(i)
+
+                elif (last_overlap[0] <= dests[i].x() and
+                    last_overlap[1] >= dests[i].x() and
+                    last_overlap[2] <= dests[i].y() and
+                    last_overlap[3] >= dests[i].y()):
+                    expected_failures.append(i)            
+
         else:
             motion_planner.UpdateCorridorSequence()
             corridors = motion_planner.GetCorridorSequence()
@@ -158,6 +183,10 @@ for method, method_name in zip(methods, method_names):
             results[method_name]["corridor_infeasibilities_detected"].append(
                 False)
 
+
+            
+print(len(expected_failures))
+print(expected_failures)
 
 # store results as a json
 import json
