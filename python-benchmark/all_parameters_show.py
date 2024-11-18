@@ -8,8 +8,10 @@ from load_random_environments import extract_data
 
 # Extract the data
 # file_name_appendix = ""
-file_name_appendix = "_cell"
+# file_name_appendix = "_cell"
 # file_name_appendix = "_double"
+# file_name_appendix = "_large"
+file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
 
@@ -20,7 +22,7 @@ for i in range(len(envs)):
     data["Vmax"].append(params[i].GetVmax())
     data["Amax"].append(params[i].GetAmax())
     if results["ARENA"]["t_comp_solver"][i] == 0:
-        data["speedup"].append(25)
+        data["speedup"].append(50)
     else:
         data["speedup"].append(results["OCP-30"]["t_comp_solver"][i] / results["ARENA"]["t_comp_solver"][i])
 
@@ -29,7 +31,7 @@ for i in range(len(envs)):
 # make a scatter plot with speedup as color
 import matplotlib.pyplot as plt
 plt.figure()
-plt.scatter(data["Vmax"], data["Amax"], c=data["speedup"], cmap='viridis')
+plt.scatter(data["Vmax"], data["Amax"], c=data["speedup"], cmap='coolwarm')
 plt.colorbar()
 plt.xlabel("Vmax")
 plt.ylabel("Amax")

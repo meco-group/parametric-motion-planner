@@ -8,15 +8,17 @@ from load_random_environments import extract_data
 
 # Extract the data
 # file_name_appendix = ""
-file_name_appendix = "_cell"
+# file_name_appendix = "_cell"
 # file_name_appendix = "_double"
+# file_name_appendix = "_large"
+file_name_appendix = "_large_double"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
 
 # create containers for results
-results = {"px": [], "py": []}
+results = {"px": [], "py": [], "envs": []}
 
 # Benchmark
 # loop over all environments
@@ -37,7 +39,8 @@ for i in range(len(envs)):
     traj = motion_planner.GetLastSolution()
     nb = traj.nbSamples()
     results["px"].append(traj.Px()[:nb])
-    results["py"].append(traj.Py()[:nb])
+    results["py"].append(traj.Py()[:nb])    
+    results["envs"].append(envs[i].ToJson())
 
 # store results as a json
 import json

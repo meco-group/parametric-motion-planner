@@ -1,12 +1,13 @@
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
 # with open('python-benchmark/files/results_double.json', 'r') as f:
-with open('python-benchmark/files/results_large.json', 'r') as f:
-# with open('python-benchmark/files/results_large_double.json', 'r') as f:
+# with open('python-benchmark/files/results_large.json', 'r') as f:
+with open('python-benchmark/files/results_large_double.json', 'r') as f:
     results = json.load(f)
 
 def scatter(results, method, x, y, color):
@@ -179,9 +180,10 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         print(my_dict)
 
     # visualize
-    plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -1, 1, color='gray', alpha=0.5)
+    # plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -1, 1, color='gray', alpha=0.5)
     for i in range(len(rel_errors)):
-        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=1.0, label=methods[i])
+        plt.plot(np.linspace(0, 1, len(rel_errors[i])), rel_errors[i], color=colors[i], label=methods[i])
+        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=0.5, label=None)
 
     plt.axhline(0, color='k', linestyle='-')
     plt.xlim([0, 1])
@@ -193,12 +195,12 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         plt.ylabel("Relative suboptimality [%]")
     plt.legend(loc='best')
 
-    plt.figure()
-    plt.plot(Tf_baseline, Tfs[2], 'o')
-    plt.plot([0, 5], [0, 5], 'k', label='0%')
-    plt.plot([0, 5], [0, 5*1.1], 'gray', label='10%')
-    plt.plot([0, 5], [0, 5*2], 'lightgray', label='100%')
-    plt.legend()
+    # plt.figure()
+    # plt.plot(Tf_baseline, Tfs[2], 'o')
+    # plt.plot([0, 5], [0, 5], 'k', label='0%')
+    # plt.plot([0, 5], [0, 5*1.1], 'gray', label='10%')
+    # plt.plot([0, 5], [0, 5*2], 'lightgray', label='100%')
+    # plt.legend()
 
 def computation_time_comparison(results, method1, method2, color1, color2):
     t_comp_total_1 = np.array(results[method1]["t_comp_total"])
@@ -293,6 +295,111 @@ def computation_time_comparison_extended_new(results, baseline_method, methods, 
 
     plt.legend(loc='best')
 
+def show_histogram_densities(results, methods, colors):
+    # # Travel time
+    # Tf = [np.array(results[method]["Tf"]) for method in methods]
+    # plot_densities(Tf, colors, methods, "Travel time [s]", "Density")
+
+    # Total computation time
+    t_comp_total = [np.array(results[method]["t_comp_total"]) for method in methods]
+    t_comp_total.reverse()
+    colors.reverse()
+    methods.reverse()
+    plot_densities(t_comp_total, colors, methods, "Total computation time [ms]", "Density")
+    colors.reverse()
+    methods.reverse()
+    
+    # Solver computation time
+    t_comp_solver = [np.array(results[method]["t_comp_solver"]) for method in methods]
+    t_comp_solver.reverse()
+    colors.reverse()
+    methods.reverse()
+    plot_densities(t_comp_solver, colors, methods, "Solver computation time [ms]", "Density")
+    colors.reverse()
+    methods.reverse()
+
+def plot_densities(data, colors, labels, xlabel, ylabel):
+    plt.figure()
+    density_lines = []
+    for i in range(len(data)):
+        if labels[i] == "P2P":
+            continue
+        
+        # plot density
+        sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0.5)
+
+        # compute the mean
+        mean = np.mean(data[i])
+
+        # find the value of the density plot at the mean
+        kde = sns.kdeplot(data[i], color=colors[i], label=None, fill=False, alpha=0)
+        density_lines.append(kde.get_lines()[-1])
+        xdata, ydata = kde.get_lines()[-1].get_data()
+        mean_density = np.interp(mean, xdata, ydata)
+
+        # plot the mean
+        plt.plot([mean, mean], [0, mean_density], color=colors[i], 
+                 linestyle='-', linewidth=2, label=None, zorder=i)
+        plt.plot(mean, mean_density, 'o', color=colors[i], label=f"{labels[i]} mean: {round(mean, 2)}", zorder=i)
+
+    for i in range(len(data)):
+        if labels[i] == "P2P":
+            continue
+
+        # plot worst-case
+        worst_case = np.max(data[i])
+
+        # find max height of density_lines at worst_case
+        max_height = 0.01
+        for line in density_lines:
+            xdata, ydata = line.get_data()
+            height = np.interp(worst_case, xdata, ydata)
+            if height > max_height:
+                max_height = height
+
+        plt.plot([worst_case, worst_case], [0, 2*max_height], '-', color=colors[i], zorder=i)
+        plt.text(worst_case, 2.2*max_height + 0.005*(i==0), f"{round(worst_case, 2)}", color=colors[i], zorder=i, ha='center', va='center')
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend(loc='best', ncol=3)
+    plt.xlim(left=0)
+
+def compare_travel_time_plus_total_comp_time(results, baseline_method, other_method, baseline_color, other_color):
+    # compute the sum of the travel time and the total computation time
+    Tf_baseline = np.array(results[baseline_method]["Tf"])
+    t_comp_total_baseline = 0.001*np.array(results[baseline_method]["t_comp_total"])
+    sum_baseline = Tf_baseline + t_comp_total_baseline
+
+    Tf_other = np.array(results[other_method]["Tf"])
+    t_comp_total_other = 0.001*np.array(results[other_method]["t_comp_total"])
+    sum_other = Tf_other + t_comp_total_other
+
+    # compute relative difference
+    rel_diff = (sum_other - sum_baseline) / sum_baseline * 100
+
+    # sort the relative difference
+    idx = np.argsort(rel_diff)
+
+    # plot the relative difference
+    plt.fill_between(np.linspace(0, 1, len(rel_diff)), 0, rel_diff[idx], color=other_color, alpha=1.0)
+
+    # plot the zero line
+    plt.axhline(0, color='k', linestyle='-')
+    
+    # set the limits
+    plt.xlim([0, 1])
+
+    # set the labels
+    plt.xlabel("Random environments")
+    plt.ylabel("Relative difference [%]")
+
+    # find cases where the relative difference is larger than 0%
+    idx = np.where(rel_diff > 0)[0]
+
+    print(idx)
+
+
 
 # print out all infeasible ARENA cases
 infeasibles = []
@@ -302,74 +409,49 @@ for i in range(len(results["ARENA"]["corridor_infeasibilities_detected"])):
 print(f"ARENA infeasible cases: {infeasibles}")
 
 import matplotlib.pyplot as plt
-# plt.figure()
-# optimality_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
-
-# plt.figure()
-# optimality_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
 # plt.figure(figsize=(6,2))
 # computation_time_comparison_extended_new(results, "OCP-30", 
-#                                          ["ARENA", "ARENA+", "OmgTools"], 
-#                                          ["navy", "royalblue", "maroon"])
+#                                          ["ARENA", "OmgTools"], 
+#                                          ["navy", "red"])
 
 # plt.figure(figsize=(6,2))
 # computation_time_comparison_extended_new(results, "OCP-30", 
-#                                          ["ARENA", "ARENA+", "OmgTools"], 
-#                                          ["navy", "royalblue", "maroon"],
+#                                          ["ARENA", "OmgTools"], 
+#                                          ["navy", "red"],
 #                                          use_solver_time=True)
-plt.figure(figsize=(6,2))
-computation_time_comparison_extended_new(results, "OCP-30", 
-                                         ["ARENA", "OmgTools"], 
-                                         ["navy", "red"])
 
-plt.figure(figsize=(6,2))
-computation_time_comparison_extended_new(results, "OCP-30", 
-                                         ["ARENA", "OmgTools"], 
-                                         ["navy", "red"],
-                                         use_solver_time=True)
-
-
-plt.figure(figsize=(6,2))
-# scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
-# scatter(results, "OCP-10", "t_comp_total", "Tf", "red")
-# scatter(results, "OCP-20", "t_comp_total", "Tf", "red")
-scatter(results, "OCP-30", "t_comp_total", "Tf", "red")
-# scatter(results, "OCP-40", "t_comp_total", "Tf", "red")
-scatter(results, "ARENA", "t_comp_total", "Tf", "royalblue")
-scatter(results, "P2P", "t_comp_total", "Tf", "orange")
-scatter(results, "OmgTools", "t_comp_total", "Tf", "black")
-plt.savefig("python-benchmark/figures/t_comp_total_vs_Tf.png", dpi=300)
-
-plt.figure(figsize=(6,2))
-# scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
-# scatter(results, "OCP-10", "t_comp_solver", "Tf", "red")
-# scatter(results, "OCP-20", "t_comp_solver", "Tf", "red")
-scatter(results, "OCP-30", "t_comp_solver", "Tf", "red")
-# scatter(results, "OCP-40", "t_comp_solver", "Tf", "red")
-scatter(results, "ARENA", "t_comp_solver", "Tf", "royalblue")
-scatter(results, "P2P", "t_comp_solver", "Tf", "orange")
-scatter(results, "OmgTools", "t_comp_solver", "Tf", "black")
-plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
-
-# plt.figure()
-# computation_time_comparison(results, "OCP-30", "ARENA", "red", "royalblue")
-
-# plt.figure()
-# computation_time_comparison_extended(results, "OCP-30", "ARENA+", "ARENA", "red", "royalblue", "navy")
 
 # plt.figure(figsize=(6,2))
-# optimality_comparison_extended_new(results, "OCP-30", 
-#                                    ["P2P", "OmgTools", "ARENA", "ARENA+"], 
-#                                    ["orange", "maroon", "navy", "royalblue"])
+# # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
+# # scatter(results, "OCP-10", "t_comp_total", "Tf", "red")
+# # scatter(results, "OCP-20", "t_comp_total", "Tf", "red")
+# scatter(results, "OCP-30", "t_comp_total", "Tf", "red")
+# # scatter(results, "OCP-40", "t_comp_total", "Tf", "red")
+# scatter(results, "ARENA", "t_comp_total", "Tf", "royalblue")
+# scatter(results, "P2P", "t_comp_total", "Tf", "orange")
+# scatter(results, "OmgTools", "t_comp_total", "Tf", "black")
+# plt.savefig("python-benchmark/figures/t_comp_total_vs_Tf.png", dpi=300)
+
+# plt.figure(figsize=(6,2))
+# # scatter(results, "OCP-5", "t_comp_solver", "Tf", "red")
+# # scatter(results, "OCP-10", "t_comp_solver", "Tf", "red")
+# # scatter(results, "OCP-20", "t_comp_solver", "Tf", "red")
+# scatter(results, "OCP-30", "t_comp_solver", "Tf", "red")
+# # scatter(results, "OCP-40", "t_comp_solver", "Tf", "red")
+# scatter(results, "ARENA", "t_comp_solver", "Tf", "royalblue")
+# scatter(results, "P2P", "t_comp_solver", "Tf", "orange")
+# scatter(results, "OmgTools", "t_comp_solver", "Tf", "black")
+# plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
+
 plt.figure(figsize=(6,2))
 optimality_comparison_extended_new(results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
-                                   ["orange", "red", "navy"])
-# plt.figure()
-# optimality_comparison_extended_new(results, "OCP-30", 
-#                                    ["P2P", "OmgTools", "ARENA+", "ARENA"], 
-#                                    ["orange", "maroon", "royalblue", "navy"],
-#                                    use_abs_error=True)
+                                   ["orange", "red", "royalblue"])
+
+plt.figure()
+compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
+
+show_histogram_densities(results, ["ARENA", "OCP-30", "P2P", "OmgTools"], ["royalblue", "red", "orange", "black"])
 
 plt.show()
