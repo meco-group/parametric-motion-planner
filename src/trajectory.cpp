@@ -236,8 +236,10 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
         v0.CopyValues(waypoint_velocities[w]);
 
         // sample this corridor
-        while (local_corridor_time < t_x[w][0] + t_x[w][1] + t_x[w][2] ||
-               local_corridor_time < t_y[w][0] + t_y[w][1] + t_y[w][2]){
+        double local_x_timing = t_x[w][0] + t_x[w][1] + t_x[w][2];
+        double local_y_timing = t_y[w][0] + t_y[w][1] + t_y[w][2];
+        while (local_corridor_time < local_x_timing ||
+               local_corridor_time < local_y_timing){
             
             // update timings for every arc
             tx_arc1 = std::max(0.0, std::min(t_x[w][0], local_corridor_time));
@@ -250,6 +252,17 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
                                              t_y[w][0]));
             ty_arc3 = std::max(0.0, std::min(t_y[w][2], local_corridor_time -
                                              t_y[w][0] - t_y[w][1]));
+
+            if (local_x_timing == 0){
+                tx_arc1 = -1.0e-16; 
+                tx_arc2 = local_corridor_time; 
+                tx_arc3 = local_corridor_time + 1.0e-16;
+            }
+            if (local_y_timing == 0){
+                ty_arc1 = -1.0e-16; 
+                ty_arc2 = local_corridor_time; 
+                ty_arc3 = local_corridor_time + 1.0e-16;
+            }
 
             // Update position
             px_[sample_ptr] = p0.x() + v0.x()*tx_arc1 +
