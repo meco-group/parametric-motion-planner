@@ -1249,14 +1249,197 @@ void Parametrization::ShowOptiDebugInfo(){
 	std::cout << "]" << std::endl;
 }
 
+void Parametrization::InitializeFirstArcNew(bool invert){
+	// double v_des = std::max(std::abs(corridor_sequence_.GetStartVel().x()), 
+	// 						std::abs(corridor_sequence_.GetStartVel().y()));
+	double v_des = params_.GetVmax();
+
+	int corridor_idx = invert ? corridor_sequence_.NbCorridors()-1 : 0;
+	Point2D<double> start_vel = invert ? Point2D<double>(0,0) : 
+										corridor_sequence_.GetStartVel();
+	Point2D<double> p0 = invert ? Point2D<double>(waypoints_[corridor_idx+1]) :
+								  Point2D<double>(waypoints_[corridor_idx]);
+	Point2D<double> pf = invert ? Point2D<double>(waypoints_[corridor_idx]) :
+								  Point2D<double>(waypoints_[corridor_idx+1]);
+
+	double p0_bd, pf_bd, v0_bd, alpha_bd, alpha_next_bd, t1_bd, t2_bd, t3_bd;
+	double p0_fd, pf_fd, v0_fd, alpha_fd, alpha_next_fd, t1_fd, t2_fd, t3_fd;
+
+	t1_bd = 0; t2_bd = 0; t3_bd = 0;
+	t1_fd = 0; t2_fd = 0; t3_fd = 0;
+
+	double a_max = params_.GetAmax();
+
+	// Compute the bottleneck direction
+	if (corridor_idx == 0 && initial_bottleneck_direction_ == 1 ||
+	  		corridor_idx > 0 && std::abs(p0.x() - pf.x()) < std::abs(p0.y() - pf.y())){
+		p0_bd = p0.y(); pf_bd = pf.y(); v0_bd = start_vel.y();
+		alpha_bd = alpha_y_[corridor_idx];
+		alpha_next_bd = alpha_y_[corridor_idx + 1];
+
+		p0_fd = p0.x(); pf_fd = pf.x(); v0_fd = start_vel.x();
+		alpha_fd = alpha_x_[corridor_idx];
+		alpha_next_fd = alpha_x_[corridor_idx + 1];
+	} else {
+		p0_bd = p0.x(); pf_bd = pf.x(); v0_bd = start_vel.x();
+		alpha_bd = alpha_x_[corridor_idx];
+		alpha_next_bd = alpha_x_[corridor_idx + 1];
+
+		p0_fd = p0.y(); pf_fd = pf.y(); v0_fd = start_vel.y();
+		alpha_fd = alpha_y_[corridor_idx];
+		alpha_next_fd = alpha_y_[corridor_idx + 1];
+	}
+
+	// Compute timings in the bottleneck direction
+	int sign = (pf_bd - p0_bd > 0) ? 1 : -1;
+	t1_bd = std::abs(v_des * sign - v0_bd) / a_max;
+	t2_bd = (std::abs(pf_bd - p0_bd) - 
+			 std::abs(v0_bd*t1_bd + 
+			 		  0.5*alpha_bd*a_max*std::pow(t1_bd, 2))) / v_des;
+	double T = t1_bd + t2_bd;
+
+
+	double t_accel = std::sqrt(2*std::abs(p0_bd - pf_bd)/a_max);
+	if (t1_bd >= t_accel){
+		t1_bd = t_accel;
+		t2_bd = 0;
+	}
+
+	T = t1_bd + t2_bd;
+
+	// in the first corridor, use the same time durations in the free
+	// direction as in the bottleneck direction and select an appropriate
+	// acceleration
+	t1_fd = t1_bd;
+	t2_fd = t2_bd;
+
+	if (invert){
+		if (t1_bd > 1.0e-15){
+			alpha_f_init_ = 1.0/a_max * 
+							std::min(a_max,
+							std::max(-a_max, 
+										(pf_fd - p0_fd - v0_fd*T) / 
+										(0.5*std::pow(t1_bd,2) + t1_bd*t2_bd)));
+		} else {
+			alpha_f_init_ = pf_fd - p0_fd > 0 ? 1 : -1;
+		}
+
+		alpha_fd = alpha_f_init_;
+	} else {
+		if (t1_bd > 1.0e-15){
+			alpha_0_init_ = 1.0/a_max * 
+							std::min(a_max,
+							std::max(-a_max, 
+										(pf_fd - p0_fd - v0_fd*T) / 
+										(0.5*std::pow(t1_bd,2) + t1_bd*t2_bd)));
+		} else {
+			alpha_0_init_ = pf_fd - p0_fd > 0 ? 1 : -1;
+		}
+
+		alpha_fd = alpha_0_init_;
+	}
+	
+	// write the values in the initialization containers
+	if (std::abs(p0.x() - pf.x()) < std::abs(p0.y() - pf.y())){
+		t_x_init_[corridor_idx][0] = invert ? t3_fd : t1_fd;
+		t_x_init_[corridor_idx][1] = t2_fd;
+		t_x_init_[corridor_idx][2] = invert ? t1_fd : t3_fd;
+
+		t_y_init_[corridor_idx][0] = invert ? t3_bd : t1_bd;
+		t_y_init_[corridor_idx][1] = t2_bd;
+		t_y_init_[corridor_idx][2] = invert ? t1_bd : t3_bd;
+
+		if (invert){
+			waypoint_velocities_init_[corridor_idx].SetX(
+				-alpha_x_[corridor_idx]*params_.GetAmax()*t_x_init_[corridor_idx][0]
+				-alpha_fd*params_.GetAmax()*t_x_init_[corridor_idx][2]
+			);
+			waypoint_velocities_init_[corridor_idx].SetY(
+				-alpha_y_[corridor_idx]*params_.GetAmax()*t_y_init_[corridor_idx][0]
+				-alpha_y_[corridor_idx+1]*params_.GetAmax()*t_y_init_[corridor_idx][2]
+			);
+			waypoint_velocities_init_[corridor_idx + 1].SetX(0);
+			waypoint_velocities_init_[corridor_idx + 1].SetY(0);
+		} else {
+			waypoint_velocities_init_[0].SetX(0);
+			waypoint_velocities_init_[0].SetY(0);
+		}
+	} else {
+		t_x_init_[corridor_idx][0] = invert ? t3_bd : t1_bd;
+		t_x_init_[corridor_idx][1] = t2_bd;
+		t_x_init_[corridor_idx][2] = invert ? t1_bd : t3_bd;
+
+		t_y_init_[corridor_idx][0] = invert ? t3_fd : t1_fd;
+		t_y_init_[corridor_idx][1] = t2_fd;
+		t_y_init_[corridor_idx][2] = invert ? t1_fd : t3_fd;
+
+		if (invert){
+			waypoint_velocities_init_[corridor_idx].SetX(
+				-alpha_x_[corridor_idx]*params_.GetAmax()*t_x_init_[corridor_idx][0]
+				-alpha_x_[corridor_idx+1]*params_.GetAmax()*t_x_init_[corridor_idx][2]
+			);
+			waypoint_velocities_init_[corridor_idx].SetY(
+				-alpha_y_[corridor_idx]*params_.GetAmax()*t_y_init_[corridor_idx][0]
+				-alpha_fd*params_.GetAmax()*t_y_init_[corridor_idx][2]
+			);
+			waypoint_velocities_init_[corridor_idx + 1].SetX(0);
+			waypoint_velocities_init_[corridor_idx + 1].SetY(0);
+		} else {
+			waypoint_velocities_init_[0].SetX(0);
+			waypoint_velocities_init_[0].SetY(0);
+		}
+	}
+}
+
+void Parametrization::InitializeOptimizationNew(){
+	InitializeFirstArcNew(false);
+
+	// t0 = u, t1 = K*u, y2 = u
+	// v_0(u) = (A + Bu^2)/u
+	double Ax, Bx, Ay, By, u;
+	double K = 5;
+	for (int w = 1; w < corridor_sequence_.NbCorridors()-1; w++){
+		Ax = (waypoints_[w+1].x() - waypoints_[w].x())/(2+K);
+		Bx = ((1+K)*alpha_x_[w]*params_.GetAmax() - 
+			 0.5*params_.GetAmax()*(alpha_x_[w] + alpha_x_[w+1]))/(2+K);
+
+		Ay = (waypoints_[w+1].y() - waypoints_[w].y())/(2+K);
+		By = ((1+K)*alpha_y_[w]*params_.GetAmax() - 
+			 0.5*params_.GetAmax()*(alpha_y_[w] + alpha_y_[w+1]))/(2+K);
+		
+		if (Ax < Ay){
+			u = std::max(0.01, std::sqrt(std::abs(Ax/Bx)));
+		} else {
+			u = std::max(0.01, std::sqrt(std::abs(Ay/By)));
+		}
+		
+		t_x_init_[w][0] = u;
+		t_x_init_[w][1] = K*u;
+		t_x_init_[w][2] = u;
+		waypoint_velocities_init_[w].SetX((Ax + Bx*u*u)/u);
+		t_y_init_[w][0] = u;
+		t_y_init_[w][1] = K*u;
+		t_y_init_[w][2] = u;
+		waypoint_velocities_init_[w].SetY((Ay + By*u*u)/u);
+	}
+
+	InitializeFirstArcNew(true);
+}
 
 void Parametrization::InitializeOptimization(){
+	InitializeOptimizationNew();
+	return;
 	double v_des;
 	if (params_.GetAmax() > params_.GetVmax()){
 		v_des = std::min(0.2, params_.GetVmax());
 	} else {
 		v_des = std::min(0.4, params_.GetVmax());
 	}
+	// v_des = std::max(std::abs(corridor_sequence_.GetStartVel().x()),
+	// 				 std::abs(corridor_sequence_.GetStartVel().y()));
+	// v_des = std::max(v_des, 0.4);
+	// double v_des_original = v_des;
+	v_des = params_.GetVmax();
 
 	bool initialization_complete = false;
 	Point2D<double> curr_vel;
@@ -1268,9 +1451,13 @@ void Parametrization::InitializeOptimization(){
 				std::abs(curr_vel.y()) <= v_des){
 			waypoint_velocities_init_[0].CopyValues(curr_vel);
 		} else {
-			double norm = curr_vel.Norm();
-			waypoint_velocities_init_[0].SetX(curr_vel.x()*v_des/norm);
-			waypoint_velocities_init_[0].SetY(curr_vel.y()*v_des/norm);
+			// double norm = curr_vel.Norm();
+			// waypoint_velocities_init_[0].SetX(curr_vel.x()*v_des/norm);
+			// waypoint_velocities_init_[0].SetY(curr_vel.y()*v_des/norm);
+			double scaling = v_des/std::max(std::abs(curr_vel.x()), 
+											std::abs(curr_vel.y()));
+			waypoint_velocities_init_[0].SetX(curr_vel.x()*scaling);
+			waypoint_velocities_init_[0].SetY(curr_vel.y()*scaling);
 		}
 
 		// start initializing
@@ -1472,6 +1659,7 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 								!negative_value_detected &&
 								equal_timings;
 
+	bool next_waypoint_reached = false;
 	
 	// write the values in the initialization containers
 	if (std::abs(p0.x() - pf.x()) < std::abs(p0.y() - pf.y())){
@@ -1487,6 +1675,15 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 			alpha_fd*a_max*t1_fd + alpha_next_fd*a_max*t3_fd);
 		waypoint_velocities_init_[corridor_idx + 1].SetY(v0_bd +
 			alpha_bd*a_max*t1_bd + alpha_next_bd*a_max*t3_bd);
+
+		double px = p0.x() + v0_fd*(t1_fd + t2_fd + t3_fd) + 
+					a_max*alpha_fd*t1_fd*t2_fd + 
+					0.5*a_max*alpha_fd*std::pow(t1_fd, 2);
+		double py = p0.y() + v0_bd*(t1_bd + t2_bd + t3_bd) +
+					a_max*alpha_bd*t1_bd*t2_bd + 
+					0.5*a_max*alpha_bd*std::pow(t1_bd, 2);
+		next_waypoint_reached = std::abs(px - pf.x()) < 1.0e-3 &&
+								std::abs(py - pf.y()) < 1.0e-3;
 	} else {
 		t_x_init_[corridor_idx][0] = t1_bd;
 		t_x_init_[corridor_idx][1] = t2_bd;
@@ -1500,7 +1697,18 @@ bool Parametrization::InitializeArc(int corridor_idx, double v_des,
 			alpha_bd*a_max*t1_bd + alpha_next_bd*a_max*t3_bd);
 		waypoint_velocities_init_[corridor_idx + 1].SetY(v0_fd +
 			alpha_fd*a_max*t1_fd + alpha_next_fd*a_max*t3_fd);
+
+		double px = p0.x() + v0_bd*(t1_bd + t2_bd + t3_bd) + 
+					a_max*alpha_bd*t1_bd*t2_bd + 
+					0.5*a_max*alpha_bd*std::pow(t1_bd, 2);
+		double py = p0.y() + v0_fd*(t1_fd + t2_fd + t3_fd) +
+					a_max*alpha_fd*t1_fd*t2_fd + 
+					0.5*a_max*alpha_fd*std::pow(t1_fd, 2);
+		next_waypoint_reached = std::abs(px - pf.x()) < 1.0e-3 &&
+								std::abs(py - pf.y()) < 1.0e-3;
 	}
+
+	succesfull_initialization = succesfull_initialization && next_waypoint_reached;
 
 	// std::cout << "succes: " << succesfull_initialization << std::endl;
 	// std::cout << "tt: [[" << t_x_init_[corridor_idx][0] << ", " << t_x_init_[corridor_idx][1] << ", " << t_x_init_[corridor_idx][2] << "], [";

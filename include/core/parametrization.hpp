@@ -129,6 +129,8 @@ class Parametrization{
 
 
         // Initialization functions
+        void InitializeFirstArcNew(bool invert);
+        void InitializeOptimizationNew();
         void InitializeOptimization();
         bool InitializeArc(int corridor_idx, double v_des,
                            Point2D<double> const &start_vel);
