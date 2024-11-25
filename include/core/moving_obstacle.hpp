@@ -10,6 +10,7 @@ class MovingObstacle {
         virtual ~MovingObstacle() = default;
 
         virtual void Update(double dt) = 0;
+        virtual void Reset() = 0;
         bool operator==(const MovingObstacle& other) const;
 
         // Basic getters
@@ -44,8 +45,11 @@ class LinearMovingObstacle : public MovingObstacle {
 
         void Update(double dt) override;
 
+        void Reset() override;
+
     private:
         Point2D<double> start_;
+        Point2D<double> original_start_;
         Point2D<double> end_;
         double movement_duration_;
         bool loop_;
@@ -59,6 +63,8 @@ class AppearingStaticObstacle : public MovingObstacle {
                                 double appearance_time, double disappearance_time);
 
         void Update(double dt) override;
+
+        void Reset() override {current_time_ = 0.0; Update(0.0);};
 
     private:
         Point2D<double> position_to_appear_at_ = Point2D<double>(-1000, -1000);

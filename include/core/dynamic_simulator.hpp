@@ -24,6 +24,8 @@ class DynamicSimulator{
         bool Plan(const Point2D<double> &start, const Point2D<double> &dest, 
                   const Point2D<double> &start_vel);
 
+        void Reset();
+
         void AddMovingObstacle(std::shared_ptr<MovingObstacle> obstacle);
         void RemoveMovingObstacle(std::shared_ptr<MovingObstacle> obstacle);
 
@@ -37,8 +39,6 @@ class DynamicSimulator{
 
         bool CheckReplanTrigger();
 
-        void Reset();
-
         Environment& environment_;
         MotionPlanner& motion_planner_;
 
@@ -46,6 +46,7 @@ class DynamicSimulator{
         std::vector<double> replanning_times_ = {};
         std::vector<Trajectory> previous_trajectories_ = {};
         std::vector<CorridorSequence> previous_corridor_sequences_ = {}; 
+        std::vector<json> previous_environments_ = {};
 
         // List of movable obstacles
         std::unordered_set<std::shared_ptr<MovingObstacle>> moving_obstacles_;

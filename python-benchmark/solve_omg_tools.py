@@ -29,17 +29,23 @@
 
 # The frames that are considered here are of the type 'corridor', i.e. frames that are as
 # large as possible, without containing any stationary obstacle.
+
+# export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/" (in the terminal you're running this script from!)
+# ln -s libcoinhsl.so libhsl.so (only once)
+
+
 import sys
 sys.path.append('python-benchmark/')
 from omgtools import *
 import matplotlib.pyplot as plt
 import time   
 
-def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
+def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h, 
+                dump_to_json=False, file_name="", start_vel=[0, 0]):
     # create vehicle
     # time_a = time.time()
     vehicle = Holonomic(shapes=Rectangle(veh_w, veh_h, 0), 
-                        options={'syslimit': 'norm_inf', 'stop_tol': 1.e-2},
+                        options={'syslimit': 'norm_inf', 'stop_tol': 1.e-7},
                         bounds={'vxmax': v_max, 'vxmin':-v_max, 
                                 'vymax': v_max, 'vymin':-v_max,
                                 'axmax': a_max, 'axmin':-a_max, 
@@ -49,7 +55,7 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
 
     # time_a = time.time()
     # create environment
-    vehicle.set_initial_conditions(start)
+    vehicle.set_initial_conditions(state=start, input=start_vel)
     vehicle.set_terminal_conditions(goal)
 
     rooms = []
@@ -78,8 +84,10 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
     # time_a = time.time()
     multiframeproblem=MultiFrameProblem(vehicle, environment, 
                                         n_frames=len(rooms))
-    # multiframeproblem.set_options({'solver_options': 
-        # {'ipopt': {'ipopt.linear_solver': 'ma27'}}}) # hsl solvers required
+    multiframeproblem.set_options({'solver_options': 
+        {'ipopt': {'ipopt.linear_solver': 'ma27', 'ipopt.print_level':0}}}) # hsl solvers required
+    # multiframeproblem.set_options({'solver_options':
+    #                                {'ipopt': {'ipopt.print_level': 5}}})
     multiframeproblem.init()
     # time_b = time.time()
     # print(f"Time for creating multiframe problem: {round(time_b-time_a,3)}s")
@@ -99,7 +107,6 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
     t0 = 0
     # x, dx, ddx = [], [], []
     # y, dy, ddy = [], [], []
-    # N = 50
 
     try:
         for spline, seg_time in zip(vehicle.result_spline_segments, vehicle.segment_times):
@@ -112,6 +119,30 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h):
                 # dy.append(float(spline[1].derivative(1)(i/N)/seg_time))
                 # ddy.append(float(spline[1].derivative(2)(i/N)/seg_time**2))
             t0 += seg_time
+
+        if dump_to_json:
+            import json
+            t0 = 0
+            N = 100
+            px = []
+            py = []
+            vx = []
+            vy = []
+            t = []
+            for spline, seg_time in zip(vehicle.result_spline_segments, vehicle.segment_times):
+                for i in range(0, N):
+                    t.append(t0 + seg_time*i/N)
+                    px.append(float(spline[0](i/N)))
+                    vx.append(float(spline[0].derivative(1)(i/N)/seg_time))
+                    # ddx.append(float(spline[0].derivative(2)(i/N)/seg_time**2))
+                    py.append(float(spline[1](i/N)))
+                    vy.append(float(spline[1].derivative(1)(i/N)/seg_time))
+                    # ddy.append(float(spline[1].derivative(2)(i/N)/seg_time**2))
+                t0 += seg_time
+                    
+            j = {"trajectory": {"t":t, "px": px, "py": py, "vx": vx, "vy": vy}}
+            with open(file_name, 'w') as f:
+                json.dump(j, f, indent=4)
     except:
         t0 = 0    
 

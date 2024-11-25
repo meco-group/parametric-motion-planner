@@ -57,6 +57,16 @@ void LinearMovingObstacle::Update(double dt) {
                                 0, 0, 0, 0);
 }
 
+void LinearMovingObstacle::Reset() {
+    if (!(start_ == original_start_)){
+        end_ = start_;
+        start_ = original_start_;
+    }
+    current_time_ = 0;
+
+    Update(0);
+}
+
 // Appearing obstacle
 AppearingStaticObstacle::AppearingStaticObstacle(double width, double height, 
                                                  Point2D<double> position, 

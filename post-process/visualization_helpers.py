@@ -124,9 +124,9 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
     
     if with_footprints:
         # show vehicle footprint
-        plot_vehicle_footprint(plt.gca(), trajectory["px"][0], 
-                               trajectory["py"][0], width, height, 
-                               virtual_position=virtual_initial_footprint)
+        # plot_vehicle_footprint(plt.gca(), trajectory["px"][0], 
+        #                        trajectory["py"][0], width, height, 
+        #                        virtual_position=virtual_initial_footprint)
         final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
         plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
                                trajectory["py"][final_ind], width, height,

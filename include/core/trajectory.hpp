@@ -104,6 +104,9 @@ class Trajectory{
         void SetTotalComputationTime(double total_computation_time){
             total_computation_time_ = total_computation_time;
         };
+        void SetSolverTime(double solver_time){
+            solver_time_ = solver_time;
+        };
 
         json ToJson() const;
 

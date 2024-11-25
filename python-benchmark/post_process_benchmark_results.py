@@ -3,6 +3,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+def latexify():
+    params = {#'backend': 'ps',
+              'axes.labelsize': 15,
+              'axes.titlesize': 15,
+              'legend.fontsize': 15,
+              'xtick.labelsize': 15,
+              'ytick.labelsize': 15,
+              'text.usetex': True,
+              'font.family': 'serif',
+              'figure.figsize': [7,5],
+            #   'text.latex.preamble': [r'\usepackage{bm}'],
+              }
+ 
+    plt.rcParams.update(params)
+ 
+latexify()
+
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
 # with open('python-benchmark/files/results_double.json', 'r') as f:
@@ -170,6 +187,7 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         rel_errors = [Tf - Tf_baseline for Tf in Tfs]
         
     # sort errors in ascending order
+    print()
     for i in range(len(rel_errors)):
         idx = np.argsort(rel_errors[i])
         rel_errors[i] = rel_errors[i][idx]
@@ -178,22 +196,85 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         print(f"10 most suboptimal cases for method {methods[i]}:")
         # print(og_idxs[i][-10:])
         print(my_dict)
+        
+        my_dict = {og_idxs[i][j]: round(rel_errors[i][j],2) for j in range(10)}
+        print(f"10 most optimal cases for method {methods[i]}:")
+        print(my_dict)
+
 
     # visualize
+    plt.figure(figsize=(6,3))
     # plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -1, 1, color='gray', alpha=0.5)
     for i in range(len(rel_errors)):
+        print("Method: ", methods[i])
         plt.plot(np.linspace(0, 1, len(rel_errors[i])), rel_errors[i], color=colors[i], label=methods[i])
-        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=0.5, label=None)
+        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=0.5 if colors[i] != "black" else 0.2, label=None)
 
     plt.axhline(0, color='k', linestyle='-')
     plt.xlim([0, 1])
-    plt.ylim([-1.2, 30])
+    plt.ylim([-5, 100.5])
     plt.xlabel("Random environments")
     if use_abs_error:
         plt.ylabel("Absolute suboptimality [s]")
     else:
-        plt.ylabel("Relative suboptimality [%]")
-    plt.legend(loc='best')
+        plt.ylabel("Relative\nsuboptimality [\%]")
+    plt.gcf().legend(loc='lower center', ncol = 3)
+    plt.tight_layout(rect=[0, 0.15, 1, 1]) 
+
+    # highlight the 0.95 percentile
+    for i in range(len(rel_errors)):
+        if methods[i] == "ARENA":
+            p = 1
+            idx = np.where(rel_errors[i] > p)[0]
+            plt.plot(idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=4)
+            arrow_start = (idx[0]/len(rel_errors[i]), p)
+            arrow_end = (0.56, 34.6)
+            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.1f}\%, {p:.0f}\%)",
+                        xy=arrow_start, xycoords='data',
+                        xytext=arrow_end, textcoords='data',
+                        # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                        # show a slightly curved arrow with a solid arrowhead
+                        arrowprops=dict(arrowstyle="-|>", 
+                                        connectionstyle="arc3,rad=-.1", 
+                                        lw=1,
+                                        color='royalblue'),
+                        fontsize=15, color='k'
+                        )
+            
+            p = 5
+            idx = np.where(rel_errors[i] > p)[0]
+            plt.plot(idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=4)
+            arrow_start = (idx[0]/len(rel_errors[i]), p)
+            arrow_end = (0.7, 52)
+            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.1f}\%, {p:.0f}\%)",
+                        xy=arrow_start, xycoords='data',
+                        xytext=arrow_end, textcoords='data',
+                        # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                        # show a slightly curved arrow with a solid arrowhead
+                        arrowprops=dict(arrowstyle="-|>", 
+                                        connectionstyle="arc3,rad=-.1", 
+                                        lw=1,
+                                        color='royalblue'),
+                        fontsize=15, color='k'
+                        )
+            
+        if methods[i] == "OmgTools":
+            p = 5
+            idx = np.where(rel_errors[i] > p)[0]
+            plt.plot(idx[0]/len(rel_errors[i]), p, 'o', color='black', markersize=4)
+            arrow_start = (idx[0]/len(rel_errors[i]), p)
+            arrow_end = (0.2, 50)
+            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.1f}\%, {p:.0f}\%)",
+                        xy=arrow_start, xycoords='data',
+                        xytext=arrow_end, textcoords='data',
+                        # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                        # show a slightly curved arrow with a solid arrowhead
+                        arrowprops=dict(arrowstyle="-|>", 
+                                        connectionstyle="arc3,rad=-.1", 
+                                        lw=1,
+                                        color='black'),
+                        fontsize=15, color='k'
+                        )
 
     # plt.figure()
     # plt.plot(Tf_baseline, Tfs[2], 'o')
@@ -300,7 +381,11 @@ def show_histogram_densities(results, methods, colors):
     # Tf = [np.array(results[method]["Tf"]) for method in methods]
     # plot_densities(Tf, colors, methods, "Travel time [s]", "Density")
 
+
+    fig, axes = plt.subplots(2, 1)  # Two subplots stacked vertically
+
     # Total computation time
+    plt.sca(axes[1])
     t_comp_total = [np.array(results[method]["t_comp_total"]) for method in methods]
     t_comp_total.reverse()
     colors.reverse()
@@ -310,16 +395,36 @@ def show_histogram_densities(results, methods, colors):
     methods.reverse()
     
     # Solver computation time
+    plt.sca(axes[0])
     t_comp_solver = [np.array(results[method]["t_comp_solver"]) for method in methods]
-    t_comp_solver.reverse()
-    colors.reverse()
-    methods.reverse()
-    plot_densities(t_comp_solver, colors, methods, "Solver computation time [ms]", "Density")
-    colors.reverse()
-    methods.reverse()
+    method_sequence = {"OCP-30":2, "OmgTools":1, "ARENA":0, "P2P":3}
+    idx = [method_sequence[method] for method in method_sequence]
+    idx = [methods.index(method) for method in method_sequence]
+    t_comp_solver = [t_comp_solver[i] for i in idx]
+    colors = [colors[i] for i in idx]
+    methods = [methods[i] for i in idx]
+    print(methods)
+    extra_handles, extra_labels = plot_densities(t_comp_solver, colors, methods, "Solver computation time [ms]", "Density")
+    # colors.reverse()
+    # methods.reverse()
+
+    handles, labels = axes[0].get_legend_handles_labels()  # Get legend items from one subplot
+    all_handles = handles + extra_handles
+    all_labels = labels + extra_labels
+    # permutation = [4, 2, 0, 1, 3]
+    permutation = [2, 3, 1, 4, 0]
+    all_handles = [all_handles[i] for i in permutation]
+    all_labels = [all_labels[i] for i in permutation]
+    fig.legend(all_handles, all_labels, loc='lower center', ncol=3)  # Shared legend below
+    plt.tight_layout(rect=[0, 0.15, 1, 1])  # Adjust layout to fit legend
+    axes[1].set_xlim(right=650)
+    axes[0].set_xlim(right=150)
+    # plt.tight_layout()
+    # plt.subplots_adjust(bottom=0.2)
+    # plt.show()
 
 def plot_densities(data, colors, labels, xlabel, ylabel):
-    plt.figure()
+    # plt.figure()
     density_lines = []
     for i in range(len(data)):
         if labels[i] == "P2P":
@@ -340,7 +445,8 @@ def plot_densities(data, colors, labels, xlabel, ylabel):
         # plot the mean
         plt.plot([mean, mean], [0, mean_density], color=colors[i], 
                  linestyle='-', linewidth=2, label=None, zorder=i)
-        plt.plot(mean, mean_density, 'o', color=colors[i], label=f"{labels[i]} mean: {round(mean, 2)}", zorder=i)
+        # plt.plot(mean, mean_density, 'o', color=colors[i], label=f"{labels[i]} mean", zorder=i)
+        plt.plot(mean, mean_density, 'o', color=colors[i], label=None, zorder=i)
 
     for i in range(len(data)):
         if labels[i] == "P2P":
@@ -357,15 +463,25 @@ def plot_densities(data, colors, labels, xlabel, ylabel):
             if height > max_height:
                 max_height = height
 
-        plt.plot([worst_case, worst_case], [0, 2*max_height], '-', color=colors[i], zorder=i)
-        plt.text(worst_case, 2.2*max_height + 0.005*(i==0), f"{round(worst_case, 2)}", color=colors[i], zorder=i, ha='center', va='center')
+        # plt.plot(worst_case, 0*2*max_height, 'x', color=colors[i], label=f"{labels[i]} worst case", zorder=99, clip_on=False)
+        plt.plot(worst_case, 0, 'x', color=colors[i], label=None, zorder=99, clip_on=False)
+
+    extra_legend_handles = [
+        plt.Line2D([0], [0], linestyle='', marker='o', color='gray', label="Mean"),
+        plt.Line2D([0], [0], linestyle='', marker='x', color='gray', label="Worst case")
+    ]
+    extra_labels = ["Mean", "Worst case"]
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.legend(loc='best', ncol=3)
+    # plt.legend(loc='best', ncol=3)
     plt.xlim(left=0)
+    # plt.gca().set_xlim(left=0, right=150)
+
+    return extra_legend_handles, extra_labels
 
 def compare_travel_time_plus_total_comp_time(results, baseline_method, other_method, baseline_color, other_color):
+
     # compute the sum of the travel time and the total computation time
     Tf_baseline = np.array(results[baseline_method]["Tf"])
     t_comp_total_baseline = 0.001*np.array(results[baseline_method]["t_comp_total"])
@@ -375,8 +491,21 @@ def compare_travel_time_plus_total_comp_time(results, baseline_method, other_met
     t_comp_total_other = 0.001*np.array(results[other_method]["t_comp_total"])
     sum_other = Tf_other + t_comp_total_other
 
+    # find indices of all successful cases
+    idx = np.logical_and(
+        np.logical_and(
+            np.array(results[baseline_method]["t_comp_solver"]) >= 0,
+            np.array(results[other_method]["t_comp_solver"]) >= 0
+        ),
+        np.logical_and(
+            Tf_baseline >= 0,
+            Tf_other >= 0
+        )
+    )
+
+
     # compute relative difference
-    rel_diff = (sum_other - sum_baseline) / sum_baseline * 100
+    rel_diff = (sum_other[idx] - sum_baseline[idx]) / sum_baseline[idx] * 100
 
     # sort the relative difference
     idx = np.argsort(rel_diff)
@@ -399,14 +528,105 @@ def compare_travel_time_plus_total_comp_time(results, baseline_method, other_met
 
     print(idx)
 
+def create_latex_table(results):
+    # create a table with result.keys() (methods) as columns
+    # the rows are:
+    # - average t_solver
+    # - average t_total
+    # - average Tf
+    # - worst case t_solver
+    # - worst case t_total
+    # - number of infeasible cases
 
+    # create a dictionary with the data
+    data = {}
+    for method in results.keys():
+        data[method] = {
+            "t_solver": np.array(results[method]["t_comp_solver"]),
+            "t_total": np.array(results[method]["t_comp_total"]),
+            "Tf": np.array(results[method]["Tf"]),
+            "infeasible": np.array(results[method]["corridor_infeasibilities_detected"])
+        }
+
+    row_names = ["average $t_\mathrm{solver}$ [ms]", 
+                 "average $t_\mathrm{total}$ [ms]",
+                 "average $T^*$ [s]", 
+                 "worst case $t_\mathrm{solver}$ [ms]", 
+                 "worst case $t_\mathrm{total}$ [ms]", 
+                 "\# infeasible cases",
+                 "total moving time [min]"]
+
+    feasible_idx = np.logical_and(
+        np.array(results["OCP-30"]["t_comp_solver"]) >= 0,
+        np.array(results["OCP-30"]["t_comp_total"]) >= 0)
+
+    # create the table
+    table = {}
+    for method in ["ARENA", "OmgTools", "OCP-30", "P2P"]:
+    # for method in data.keys():
+        table[method] = {
+            "average $t_\mathrm{solver}$ [ms]": np.mean(data[method]["t_solver"]),
+            "average $t_\mathrm{total}$ [ms]": np.mean(data[method]["t_total"]),
+            "average $T^*$ [s]": np.mean(data[method]["Tf"]),
+            "worst case $t_\mathrm{solver}$ [ms]": np.max(data[method]["t_solver"]),
+            "worst case $t_\mathrm{total}$ [ms]": np.max(data[method]["t_total"]),
+            "\# infeasible cases": np.sum(data[method]["infeasible"]),
+            "total moving time [min]": np.sum(data[method]["Tf"][feasible_idx]/60.0),
+        }
+
+    # print the table
+    print("\t\\begin{tabular}{l|ccc|c}")
+    # print("\\hline")
+    
+    # print header (method names)
+    print("\t\t" + " & ".join([""] + list(table.keys())) + " \\\\")
+    print(f"\t\t\\hline")
+
+    # print rows
+    for row_name in row_names:
+        row_values = [table[method][row_name] for method in table.keys()]
+        min_idx = np.argmin(row_values[:-1]) # discard P2P
+        row_value_strings = [f"{table[method][row_name]:.2f}" if row_name != "\# infeasible cases" else f"{table[method][row_name]}" for method in table.keys()]
+        row_value_strings[min_idx] = "\\textbf{" + row_value_strings[min_idx] + "}"
+
+        for i in range(len(row_value_strings)):
+            if row_value_strings[i] == "0.00":
+                row_value_strings[i] = "-"
+
+        row = [row_name] + row_value_strings
+        print("\t\t" + f" & ".join(row) + " \\\\")
+        # print("\\hline")
+
+    print("\t\\end{tabular}")
 
 # print out all infeasible ARENA cases
 infeasibles = []
 for i in range(len(results["ARENA"]["corridor_infeasibilities_detected"])):
     if results["ARENA"]["corridor_infeasibilities_detected"][i]:
         infeasibles.append(i)
-print(f"ARENA infeasible cases: {infeasibles}")
+print(f"ARENA infeasible cases ({len(infeasibles)}): {infeasibles}")
+
+# print out all infeasible OCP cases
+infeasibles = []
+for i in range(len(results["OCP-30"]["corridor_infeasibilities_detected"])):
+    if results["OCP-30"]["corridor_infeasibilities_detected"][i]:
+        infeasibles.append(i)
+print(f"OCP-30 infeasible cases ({len(infeasibles)}): {infeasibles}")
+
+# print out all infeasible P2P cases
+infeasibles = []
+for i in range(len(results["P2P"]["corridor_infeasibilities_detected"])):
+    if results["P2P"]["corridor_infeasibilities_detected"][i]:
+        infeasibles.append(i)
+print(f"P2P infeasible cases ({len(infeasibles)}): {infeasibles}")
+
+# print out all infeasible OmgTools cases
+infeasibles = []
+for i in range(len(results["OmgTools"]["corridor_infeasibilities_detected"])):
+    if results["OmgTools"]["corridor_infeasibilities_detected"][i]:
+        infeasibles.append(i)
+print(f"OmgTools infeasible cases ({len(infeasibles)}): {infeasibles}")
+
 
 import matplotlib.pyplot as plt
 
@@ -444,14 +664,19 @@ import matplotlib.pyplot as plt
 # scatter(results, "OmgTools", "t_comp_solver", "Tf", "black")
 # plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
 
-plt.figure(figsize=(6,2))
 optimality_comparison_extended_new(results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
-                                   ["orange", "red", "royalblue"])
+                                   ["orange", "black", "royalblue"])
+plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
+plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
 
 plt.figure()
 compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
 
 show_histogram_densities(results, ["ARENA", "OCP-30", "P2P", "OmgTools"], ["royalblue", "red", "orange", "black"])
+plt.savefig("python-benchmark/figures/densities.png", dpi=300)
+plt.savefig("python-benchmark/figures/densities.pdf")
+
+create_latex_table(results)
 
 plt.show()
