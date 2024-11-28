@@ -179,7 +179,9 @@ class Parametrization{
         double alpha_f_init_;
 
         // optimization options
-        bool RELAX_INITIAL_VELOCITY_ = true;
+        bool RELAX_INITIAL_VELOCITY_ = false;
+        bool RELAX_INITIAL_ACCELERATION_ = true;
+        bool RELAX_FINAL_ACCELERATION_ = true;
         
         // optimized values
         std::optional<casadi::OptiSol> sol_;

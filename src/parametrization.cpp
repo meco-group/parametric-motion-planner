@@ -227,13 +227,21 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 			std::abs(waypoints_[0].y() - waypoints_[1].y())){
 		alpha_x_mx_(0) = opti_.variable();
 		opti_.set_initial(alpha_x_mx_(0), alpha_0_init_);
-		opti_.subject_to(-1 - pow(s_0, 2) <= 
-						(alpha_x_mx_(0) <= 1 + pow(s_0, 2)));
+		if (RELAX_INITIAL_ACCELERATION_){
+			opti_.subject_to(-1 - pow(s_0, 2) <= 
+							(alpha_x_mx_(0) <= 1 + pow(s_0, 2)));
+		} else {
+			opti_.subject_to(alpha_x_mx_(0) == alpha_0_init_);
+		}
 	} else {
 		alpha_y_mx_(0) = opti_.variable();
 		opti_.set_initial(alpha_y_mx_(0), alpha_0_init_);
-		opti_.subject_to(-1 - pow(s_0, 2) <= 
-						(alpha_y_mx_(0) <= 1 + pow(s_0, 2)));	
+		if (RELAX_INITIAL_ACCELERATION_){
+			opti_.subject_to(-1 - pow(s_0, 2) <= 
+							(alpha_y_mx_(0) <= 1 + pow(s_0, 2)));
+		} else {
+			opti_.subject_to(alpha_y_mx_(0) == alpha_0_init_);
+		}
 	}
 
 	// free final acceleration
@@ -245,20 +253,32 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		alpha_x_mx_(corridor_sequence_.NbCorridors()) = opti_.variable();
 		opti_.set_initial(alpha_x_mx_(corridor_sequence_.NbCorridors()), 
 						 alpha_f_init_);
-		opti_.subject_to(-1 - pow(s_N, 2) <= 
-						(alpha_x_mx_(corridor_sequence_.NbCorridors()) <= 
-						 1 + pow(s_N, 2)));
+		if (RELAX_FINAL_ACCELERATION_){
+			opti_.subject_to(-1 - pow(s_N, 2) <= 
+							(alpha_x_mx_(corridor_sequence_.NbCorridors()) <= 
+							 1 + pow(s_N, 2)));
+		} else {
+			opti_.subject_to(alpha_x_mx_(corridor_sequence_.NbCorridors()) == 
+							 alpha_f_init_);
+		}
 	} else {
 		alpha_y_mx_(corridor_sequence_.NbCorridors()) = opti_.variable();
 		opti_.set_initial(alpha_y_mx_(corridor_sequence_.NbCorridors()), 
 						 alpha_f_init_);
-		opti_.subject_to(-1 - pow(s_N, 2) <= 
-						(alpha_y_mx_(corridor_sequence_.NbCorridors()) <= 
-						 1 + pow(s_N, 2)));
+		if (RELAX_FINAL_ACCELERATION_){
+			opti_.subject_to(-1 - pow(s_N, 2) <= 
+							(alpha_y_mx_(corridor_sequence_.NbCorridors()) <= 
+							 1 + pow(s_N, 2)));
+		} else {
+			opti_.subject_to(alpha_y_mx_(corridor_sequence_.NbCorridors()) == 
+							 alpha_f_init_);
+		}
 	}
+	MX obj = 0;
+	if (RELAX_INITIAL_ACCELERATION_){ obj += 1.0e3*pow(s_0, 2);}
+	if (RELAX_FINAL_ACCELERATION_){ obj += 1.0e3*pow(s_N, 2);}
 
 	// add free initial velocity
-	MX obj = 1.0e3*pow(s_0, 2) + 1.0e3*pow(s_N, 2);
 	// if (RELAX_INITIAL_VELOCITY_ && 
 	// 		std::abs(corridor_sequence_.GetStartVel().x()) > 1.0e-3 &&
 	// 		std::abs(corridor_sequence_.GetStartVel().y()) > 1.0e-3){
@@ -1408,9 +1428,9 @@ void Parametrization::InitializeOptimizationNew(){
 			 0.5*params_.GetAmax()*(alpha_y_[w] + alpha_y_[w+1]))/(2+K);
 		
 		if (Ax < Ay){
-			u = std::max(0.01, std::sqrt(std::abs(Ax/Bx)));
+			u = std::max(0.05, std::sqrt(std::abs(Ax/Bx)));
 		} else {
-			u = std::max(0.01, std::sqrt(std::abs(Ay/By)));
+			u = std::max(0.05, std::sqrt(std::abs(Ay/By)));
 		}
 		
 		t_x_init_[w][0] = u;

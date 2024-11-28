@@ -207,13 +207,13 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
     # plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -1, 1, color='gray', alpha=0.5)
     for i in range(len(rel_errors)):
         print("Method: ", methods[i])
-        plt.plot(np.linspace(0, 1, len(rel_errors[i])), rel_errors[i], color=colors[i], label=methods[i])
-        plt.fill_between(np.linspace(0, 1, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=0.5 if colors[i] != "black" else 0.2, label=None)
+        plt.plot(np.linspace(0, 100, len(rel_errors[i])), rel_errors[i], color=colors[i], label=methods[i])
+        plt.fill_between(np.linspace(0, 100, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=0.5 if colors[i] != "black" else 0.2, label=None)
 
     plt.axhline(0, color='k', linestyle='-')
-    plt.xlim([0, 1])
+    plt.xlim([0, 100])
     plt.ylim([-5, 100.5])
-    plt.xlabel("Random environments")
+    plt.xlabel("\% of Benchmark Environments")
     if use_abs_error:
         plt.ylabel("Absolute suboptimality [s]")
     else:
@@ -226,10 +226,10 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         if methods[i] == "ARENA":
             p = 1
             idx = np.where(rel_errors[i] > p)[0]
-            plt.plot(idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=4)
-            arrow_start = (idx[0]/len(rel_errors[i]), p)
-            arrow_end = (0.56, 34.6)
-            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.1f}\%, {p:.0f}\%)",
+            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=4)
+            arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+            arrow_end = (56, 34.6)
+            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.0f}\%, {p:.0f}\%)",
                         xy=arrow_start, xycoords='data',
                         xytext=arrow_end, textcoords='data',
                         # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
@@ -243,10 +243,10 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
             
             p = 5
             idx = np.where(rel_errors[i] > p)[0]
-            plt.plot(idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=4)
-            arrow_start = (idx[0]/len(rel_errors[i]), p)
-            arrow_end = (0.7, 52)
-            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.1f}\%, {p:.0f}\%)",
+            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=4)
+            arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+            arrow_end = (70, 52)
+            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.0f}\%, {p:.0f}\%)",
                         xy=arrow_start, xycoords='data',
                         xytext=arrow_end, textcoords='data',
                         # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
@@ -261,10 +261,10 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
         if methods[i] == "OmgTools":
             p = 5
             idx = np.where(rel_errors[i] > p)[0]
-            plt.plot(idx[0]/len(rel_errors[i]), p, 'o', color='black', markersize=4)
-            arrow_start = (idx[0]/len(rel_errors[i]), p)
-            arrow_end = (0.2, 50)
-            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.1f}\%, {p:.0f}\%)",
+            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='black', markersize=4)
+            arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+            arrow_end = (20, 50)
+            plt.annotate(f"({idx[0]/len(rel_errors[i])*100:.0f}\%, {p:.0f}\%)",
                         xy=arrow_start, xycoords='data',
                         xytext=arrow_end, textcoords='data',
                         # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
@@ -670,8 +670,8 @@ optimality_comparison_extended_new(results, "OCP-30",
 plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
 plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
 
-plt.figure()
-compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
+# plt.figure()
+# compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
 
 show_histogram_densities(results, ["ARENA", "OCP-30", "P2P", "OmgTools"], ["royalblue", "red", "orange", "black"])
 plt.savefig("python-benchmark/figures/densities.png", dpi=300)

@@ -269,7 +269,7 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
     for data, traj_idx, color in zip([data_ocp, data_arena], [traj_idx_ocp, traj_idx_arena], ['red', 'blue']):
         for i in range(min(len(data["previous_trajectories"]), traj_idx)):
             plt.plot(data["previous_trajectories"][i]["px"][0],
-                    data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
+                    data["previous_trajectories"][i]["py"][0], 'o', color=color, markersize=5)
         show_trajectory(data["previous_trajectories"][traj_idx], color, False, 
                 data["motion_planner"]["parameters"]["veh_width"], 
                 data["motion_planner"]["parameters"]["veh_height"],
@@ -278,7 +278,7 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
                 virtual_final_footprint=True,
                 show_markers=False, linewidth=0.5)
         plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
-                    data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
+                    data["previous_trajectories"][traj_idx]["py"][0], 'o', color=color, markersize=5)
 
     # Show the trajectory of the mover
     for data, travelled_traj_sample_idx, color in zip([data_ocp, data_arena], 
@@ -320,6 +320,12 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
             plt.yticks([])
             plt.tight_layout()
 
+            # remove axes box
+            plt.gca().spines['top'].set_visible(False)
+            plt.gca().spines['right'].set_visible(False)
+            plt.gca().spines['bottom'].set_visible(False)
+            plt.gca().spines['left'].set_visible(False)
+
             plt.annotate(f"appears at\n$t = {data['replanning_times'][0]+0.01:.2f}s$", (0.489, 0.36), (0.36, 0.4510), ha='center',
                          arrowprops=dict(arrowstyle="-|>", 
                                          connectionstyle="arc3,rad=-.1", 
@@ -341,6 +347,16 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
                              (data["previous_trajectories"][i]["px"][0], 0.03),
                              arrowprops=dict(arrowstyle="-|>", lw=1, color='k'),
                             color='k', fontsize=12, ha='center')
+                
+            # Add a below the figure for the different trajectories
+            plt.plot([], [], 'o-', color='blue', linewidth=1.0, label='ARENA')
+            plt.plot([], [], 'o-', color='red', linewidth=1.0, label='OCP')
+            plt.plot([], [], 'o-', color='black', linewidth=1.0, label='OmgTools')
+
+            # make some room for the legend
+            plt.subplots_adjust(bottom=0.2)            
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=3, fontsize=12)
+
             # plt.show()
         
             plt.savefig(f"post-process/figures/dynamic_solution_traj.png", dpi=200)
@@ -490,15 +506,36 @@ if PLOT_COMPARISON:
     print(f"\tTotal computation times: {omg_total_times}")
 
     # print a latex table with the computation times
-    exit()
-    print("\\begin{tabular}{|c|c|c|c|c|c|c|}\n")
-    print("\\hline\n")
-    print("Replanning time & Solver time (ARENA) & Total computation time (ARENA) & Solver time (OCP) & Total computation time (OCP) \\\\\n")
-    print("\\hline\n")
-    for i in range(len(data_arena["replanning_times"])):
-        print(f"{data_arena['replanning_times'][i]:.2f} & {arena_solver_times[i]:.2f} & {arena_total_times[i]:.2f} & {ocp_solver_times[i]:.2f} & {ocp_total_times[i]:.2f} \\\\\n")
-        print("\\hline\n")
-        print("\\end{tabular}\n")
+    # the table contains two columns: the solver times and the total computation times
+    # each column is split into three subcolumns (ARENA, OCP, OmgTools)
+    # the rows show the computation times for each previous trajectory
+    print("\\begin{table}")
+    print("\t\\centering")
+    print("\t\\caption{Computation times for the replanning case (average over 10 runs)}")
+    print("\t\\label{tab:computation-times-replanning}")
+    print("\t\\setlength{\\tabcolsep}{4pt}")
+    print("\t\\renewcommand{\\arraystretch}{1.1}")
+    print("\t\\begin{tabular}{c|ccc|ccc}")
+    print("\t\t& \\multicolumn{3}{c|}{Solver time [ms]} & \\multicolumn{3}{c}{Total computation time [ms]} \\\\")
+    # print("\t\t\\hline")
+    print("\t\tTime [s] & ARENA & OCP & OmgTools & ARENA & OCP & OmgTools \\\\")
+    print("\t\t\\hline")
+    times = [-0.01] + data_arena["replanning_times"]
+    for i in range(len(arena_solver_times)):
+        solver_times = [float(arena_solver_times[i]), float(ocp_solver_times[i]), float(omg_solver_times[i])]
+        min_idx = solver_times.index(min(solver_times))
+        solver_strings = [f"{solver_times[t]:.2f}" if t != min_idx else f"\\textbf{{{solver_times[t]:.2f}}}" for t in range(len(solver_times))]
+
+        total_times = [float(arena_total_times[i]), float(ocp_total_times[i]), float(omg_total_times[i])]
+        min_idx = total_times.index(min(total_times))
+        total_strings = [f"{total_times[t]:.2f}" if t != min_idx else f"\\textbf{{{total_times[t]:.2f}}}" for t in range(len(total_times))]
+        
+        print(f"\t\t{times[i]+0.01:.2f} & {solver_strings[0]} & {solver_strings[1]} & {solver_strings[2]} & {total_strings[0]} & {total_strings[1]} & {total_strings[2]} \\\\")
+    # print("\t\t\\hline")
+    print("\t\\end{tabular}")
+    print("\\end{table}")
+
+
 
     ### Make animation frames
     # traj_frames = []

@@ -39,11 +39,11 @@ def show_environment(env):
                                           facecolor=color, edgecolor=None))
             
     # plot a light grid showing the cell
-    for i in range(env["nb_cell_cols"]):
+    for i in range(env["nb_cell_cols"]+1):
         plt.plot([i*cell_width, i*cell_width], 
                  [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
                  color='k', zorder=1)
-    for j in range(env["nb_cell_rows"]):
+    for j in range(env["nb_cell_rows"]+1):
         plt.plot([0, cell_width*env["nb_cell_cols"]], 
                  [j*cell_height, j*cell_height], linewidth=0.1, \
                  color='k', zorder=1)
@@ -104,7 +104,7 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
         try:
             x, y = footprint_trace.exterior.xy
             plt.gca().fill(x, y, color=color, alpha=0.2, edgecolor='none')
-            # plt.gca().fill(x, y, color='none', alpha=0.5, edgecolor=colors[i])
+            # plt.gca().fill(x, y, color='none', alpha=0.5, edgecolor=color)
             # plt.plot(x, y, color=colors[i], linewidth=1)
         except:
             print("No footprint to plot")
