@@ -39,14 +39,14 @@ def show_environment(env):
                                           facecolor=color, edgecolor=None))
             
     # plot a light grid showing the cell
-    for i in range(env["nb_cell_cols"]+1):
-        plt.plot([i*cell_width, i*cell_width], 
-                 [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
-                 color='k', zorder=1)
-    for j in range(env["nb_cell_rows"]+1):
-        plt.plot([0, cell_width*env["nb_cell_cols"]], 
-                 [j*cell_height, j*cell_height], linewidth=0.1, \
-                 color='k', zorder=1)
+    # for i in range(env["nb_cell_cols"]+1):
+    #     plt.plot([i*cell_width, i*cell_width], 
+    #              [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
+    #              color='gray', zorder=1)
+    # for j in range(env["nb_cell_rows"]+1):
+    #     plt.plot([0, cell_width*env["nb_cell_cols"]], 
+    #              [j*cell_height, j*cell_height], linewidth=0.1, \
+    #              color='gray', zorder=1)
         
 def set_env_plot_limits(env):
     cell_width = env["cell_width"]
@@ -63,18 +63,28 @@ def show_corridors(corridors, color='green', max_alpha=1):
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=True, facecolor=color, alpha=0.2*max_alpha, 
-                            edgecolor=None))
+                            edgecolor=None, clip_on=False))
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
-                            fill=False, edgecolor=color, linewidth=1))
+                            fill=False, edgecolor=color, linewidth=1,
+                            clip_on=False))
         
 def show_waypoints(parametrization):
     for w in range(0, parametrization["nb_corridors"] + 1):
         plt.plot([parametrization["waypoints"][w]["x"]], 
-                    [parametrization["waypoints"][w]["y"]], 'ok', alpha=0.1)
+                    [parametrization["waypoints"][w]["y"]], 'ok', alpha=0.1, zorder=3)
         plt.plot([parametrization["waypoints_sol"][w]["x"]], 
-                    [parametrization["waypoints_sol"][w]["y"]], 'ok')
+                    [parametrization["waypoints_sol"][w]["y"]], 'ok', zorder=3)
+        
+        # plot alpha values
+        s = 0.02
+        plt.arrow(parametrization["waypoints"][w]["x"],
+                    parametrization["waypoints"][w]["y"],
+                    s*parametrization["alpha_x"][w],
+                    s*parametrization["alpha_y"][w],
+                    head_width=0.5*s, head_length=0.5*s, fc='k', ec='k', zorder=4)
+
 
 def show_trajectory(trajectory, color, with_trace=False, width=0, height=0, 
                     with_footprints=False, nb_samples_to_show=-1,
@@ -103,7 +113,7 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
         footprint_trace = so.unary_union(footprints)
         try:
             x, y = footprint_trace.exterior.xy
-            plt.gca().fill(x, y, color=color, alpha=0.2, edgecolor='none')
+            plt.gca().fill(x, y, color=color, alpha=0.2, edgecolor='none', zorder=1)
             # plt.gca().fill(x, y, color='none', alpha=0.5, edgecolor=color)
             # plt.plot(x, y, color=colors[i], linewidth=1)
         except:
@@ -112,21 +122,21 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
     if show_markers and with_line:
         plt.plot(trajectory["px"][:nb_samples_to_show], 
                 trajectory["py"][:nb_samples_to_show], 'o-', color=color, 
-                markersize=1, linewidth=linewidth)
+                markersize=1, linewidth=linewidth, zorder=3)
     elif show_markers:
         plt.plot(trajectory["px"][:nb_samples_to_show], 
                 trajectory["py"][:nb_samples_to_show], 'o', color=color, 
-                markersize=1, linewidth=linewidth)
+                markersize=1, linewidth=0, zorder=3)
     elif with_line:
         plt.plot(trajectory["px"][:nb_samples_to_show], 
                 trajectory["py"][:nb_samples_to_show], '-', color=color, 
-                linewidth=linewidth)
+                linewidth=linewidth, zorder=3)
     
     if with_footprints:
         # show vehicle footprint
-        # plot_vehicle_footprint(plt.gca(), trajectory["px"][0], 
-        #                        trajectory["py"][0], width, height, 
-        #                        virtual_position=virtual_initial_footprint)
+        plot_vehicle_footprint(plt.gca(), trajectory["px"][0], 
+                               trajectory["py"][0], width, height, 
+                               virtual_position=virtual_initial_footprint)
         final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
         plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
                                trajectory["py"][final_ind], width, height,
@@ -162,10 +172,10 @@ def plot_vehicle_footprint(ax, px, py, veh_width, veh_height, virtual_position=F
     # create a fancybox with rounded corners
     rect = FancyBboxPatch(anchor, width, height, boxstyle=boxstyle, 
                             fill=True, facecolor=color, 
-                            edgecolor='k', linestyle=linestyle, alpha=alpha)
+                            edgecolor='k', linestyle=linestyle, alpha=alpha, zorder=2)
     ax.add_patch(rect)
     rect = FancyBboxPatch(anchor_inner, width_inner, height_inner, 
                             boxstyle=boxstyle_inner, fill=True, 
                             facecolor=color_inner, edgecolor=color_inner, 
-                            alpha=alpha_inner)
+                            alpha=alpha_inner, zorder=2)
     ax.add_patch(rect)

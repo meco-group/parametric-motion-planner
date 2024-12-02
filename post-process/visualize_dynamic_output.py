@@ -59,17 +59,17 @@ def visualize_dynamic_solution(data, T=-1, counter=0):
     # Show traces of moving obstacles
     for obs in data["moving_obstacles"]:
         if counter is None:
-            show_trajectory(obs["travelled_trajectory"], 'darkred',
+            show_trajectory(obs["travelled_trajectory"], 'firebrick',
                             with_trace=True, 
                             width=obs["width"], height=obs["height"], with_footprints=False, with_line=False,
                             show_markers=False)
             plt.gca().add_patch(Rectangle((obs["travelled_trajectory"]["px"][travelled_traj_sample_idx]-obs["width"]/2, 
                                            obs["travelled_trajectory"]["py"][travelled_traj_sample_idx]-obs["height"]/2),
                                           obs["width"], obs["height"], fill=True, 
-                                          facecolor='darkred', edgecolor=None))
+                                          facecolor='firebrick', edgecolor=None))
             
         else:
-            show_moving_obstacle(obs, travelled_traj_sample_idx, 'darkred')
+            show_moving_obstacle(obs, travelled_traj_sample_idx, 'firebrick')
         
     # show all previously computed trajectories
     for i in range(min(len(data["previous_trajectories"]), traj_idx)):
@@ -253,17 +253,17 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
     # Show traces of moving obstacles
     for obs in data_arena["moving_obstacles"]:
         if counter is None:
-            show_trajectory(obs["travelled_trajectory"], 'darkred',
+            show_trajectory(obs["travelled_trajectory"], 'firebrick',
                             with_trace=True, 
                             width=obs["width"], height=obs["height"], with_footprints=False, with_line=False,
                             show_markers=False)
             plt.gca().add_patch(Rectangle((obs["travelled_trajectory"]["px"][travelled_traj_sample_idx_arena]-obs["width"]/2, 
                                            obs["travelled_trajectory"]["py"][travelled_traj_sample_idx_arena]-obs["height"]/2),
                                           obs["width"], obs["height"], fill=True, 
-                                          facecolor='darkred', edgecolor=None))
+                                          facecolor='firebrick', edgecolor=None))
             
         else:
-            show_moving_obstacle(obs, travelled_traj_sample_idx_arena, 'darkred')
+            show_moving_obstacle(obs, travelled_traj_sample_idx_arena, 'firebrick')
         
     # show current trajectory plans
     for data, traj_idx, color in zip([data_ocp, data_arena], [traj_idx_ocp, traj_idx_arena], ['red', 'blue']):
@@ -274,8 +274,8 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
                 data["motion_planner"]["parameters"]["veh_width"], 
                 data["motion_planner"]["parameters"]["veh_height"],
                 with_footprints=False, 
-                virtual_initial_footprint=True,
-                virtual_final_footprint=True,
+                virtual_initial_footprint=False,
+                virtual_final_footprint=False,
                 show_markers=False, linewidth=0.5)
         plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
                     data["previous_trajectories"][traj_idx]["py"][0], 'o', color=color, markersize=5)
@@ -289,7 +289,7 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
                         data["motion_planner"]["parameters"]["veh_height"],
                         with_footprints=True, 
                         nb_samples_to_show=travelled_traj_sample_idx,
-                        virtual_initial_footprint=True, 
+                        virtual_initial_footprint=False, 
                         virtual_final_footprint=False)
         
     if omg_traj is not None:
@@ -298,7 +298,7 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
                         data_arena["motion_planner"]["parameters"]["veh_height"],
                         with_footprints=True, 
                         nb_samples_to_show=-1,
-                        virtual_initial_footprint=True, 
+                        virtual_initial_footprint=False, 
                         virtual_final_footprint=False)
         
     for i in range(len(omg_traj["previous_trajectories"])):
@@ -321,10 +321,10 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
             plt.tight_layout()
 
             # remove axes box
-            plt.gca().spines['top'].set_visible(False)
-            plt.gca().spines['right'].set_visible(False)
-            plt.gca().spines['bottom'].set_visible(False)
-            plt.gca().spines['left'].set_visible(False)
+            # plt.gca().spines['top'].set_visible(False)
+            # plt.gca().spines['right'].set_visible(False)
+            # plt.gca().spines['bottom'].set_visible(False)
+            # plt.gca().spines['left'].set_visible(False)
 
             plt.annotate(f"appears at\n$t = {data['replanning_times'][0]+0.01:.2f}s$", (0.489, 0.36), (0.36, 0.4510), ha='center',
                          arrowprops=dict(arrowstyle="-|>", 
@@ -355,11 +355,12 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
 
             # make some room for the legend
             plt.subplots_adjust(bottom=0.2)            
-            plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=3, fontsize=12)
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=3, fontsize=12, frameon=False)
 
             # plt.show()
         
             plt.savefig(f"post-process/figures/dynamic_solution_traj.png", dpi=200)
+            plt.savefig(f"post-process/figures/dynamic_solution_traj.pdf")
         else:
             plt.savefig(f"post-process/figures/animation/traj_frames/dynamic_solution_traj_{counter}.png", dpi=DPI)
     plt.close()
@@ -518,15 +519,15 @@ if PLOT_COMPARISON:
     print("\t\\begin{tabular}{c|ccc|ccc}")
     print("\t\t& \\multicolumn{3}{c|}{Solver time [ms]} & \\multicolumn{3}{c}{Total computation time [ms]} \\\\")
     # print("\t\t\\hline")
-    print("\t\tTime [s] & ARENA & OCP & OmgTools & ARENA & OCP & OmgTools \\\\")
+    print("\t\tTime [s] & ARENA & OmgTools & OCP & ARENA & OmgTools & OCP \\\\")
     print("\t\t\\hline")
     times = [-0.01] + data_arena["replanning_times"]
     for i in range(len(arena_solver_times)):
-        solver_times = [float(arena_solver_times[i]), float(ocp_solver_times[i]), float(omg_solver_times[i])]
+        solver_times = [float(arena_solver_times[i]), float(omg_solver_times[i]), float(ocp_solver_times[i])]
         min_idx = solver_times.index(min(solver_times))
         solver_strings = [f"{solver_times[t]:.2f}" if t != min_idx else f"\\textbf{{{solver_times[t]:.2f}}}" for t in range(len(solver_times))]
 
-        total_times = [float(arena_total_times[i]), float(ocp_total_times[i]), float(omg_total_times[i])]
+        total_times = [float(arena_total_times[i]), float(omg_total_times[i]), float(ocp_total_times[i])]
         min_idx = total_times.index(min(total_times))
         total_strings = [f"{total_times[t]:.2f}" if t != min_idx else f"\\textbf{{{total_times[t]:.2f}}}" for t in range(len(total_times))]
         

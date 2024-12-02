@@ -249,27 +249,29 @@ def visualize_output(env, params, corridors, planner_methods,
     plt.savefig(fig_folder + '/timings.png', dpi=300)
 
 
+try:
+    files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
+    # files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
+    # files = ["output/solution_ocp.json"]
+    # files = ["output/solution_arena.json"]
 
-files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
-# files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
-# files = ["output/solution_ocp.json"]
-# files = ["output/solution_arena.json"]
+    envs_list = []
+    params_list = []
+    corridors_list = []
+    planner_methods_list = []
+    trajectories_list = []
+    parametrizations_list = []
+    for output_file in files:
+        env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
+        envs_list.append(env)
+        params_list.append(params)
+        corridors_list.append(corridors)
+        planner_methods_list.append(planner_method)
+        trajectories_list.append(trajectory)
+        parametrizations_list.append(parametrization)
 
-envs_list = []
-params_list = []
-corridors_list = []
-planner_methods_list = []
-trajectories_list = []
-parametrizations_list = []
-for output_file in files:
-    env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
-    envs_list.append(env)
-    params_list.append(params)
-    corridors_list.append(corridors)
-    planner_methods_list.append(planner_method)
-    trajectories_list.append(trajectory)
-    parametrizations_list.append(parametrization)
-
-visualize_output(envs_list[0], params_list[0], corridors_list[0], 
-                 planner_methods_list, trajectories_list, 
-                 parametrizations_list)
+    visualize_output(envs_list[0], params_list[0], corridors_list[0], 
+                    planner_methods_list, trajectories_list, 
+                    parametrizations_list)
+except:
+    pass

@@ -283,6 +283,156 @@ def optimality_comparison_extended_new(results, baseline_method, methods, colors
     # plt.plot([0, 5], [0, 5*2], 'lightgray', label='100%')
     # plt.legend()
 
+def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, use_abs_error=False):
+    Tf_baseline = np.array(results[baseline_method]["Tf"])
+    Tfs = [np.array(results[method]["Tf"]) for method in methods]
+    og_idxs = [np.arange(len(Tf_baseline)) for Tf in Tfs]
+
+    # get indices where all methods are succesfull
+    idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
+    for Tf in Tfs:
+        idx = np.logical_and(idx, Tf >= 0)
+    Tf_baseline = Tf_baseline[idx]
+    Tfs = [Tf[idx] for Tf in Tfs]
+    og_idxs = [og_idx[idx] for og_idx in og_idxs]
+
+    # compute errors
+    rel_errors = [100*(Tf - Tf_baseline) / Tf_baseline for Tf in Tfs]
+    if use_abs_error:
+        rel_errors = [Tf - Tf_baseline for Tf in Tfs]
+        
+    # sort errors in ascending order
+    print()
+    for i in range(len(rel_errors)):
+        idx = np.argsort(rel_errors[i])
+        rel_errors[i] = rel_errors[i][idx]
+        og_idxs[i] = og_idxs[i][idx]
+        my_dict = {og_idxs[i][j]: round(rel_errors[i][j],2) for j in range(len(rel_errors[i])-10, len(rel_errors[i]))}
+        print(f"10 most suboptimal cases for method {methods[i]}:")
+        # print(og_idxs[i][-10:])
+        print(my_dict)
+        
+        my_dict = {og_idxs[i][j]: round(rel_errors[i][j],2) for j in range(10)}
+        print(f"10 most optimal cases for method {methods[i]}:")
+        print(my_dict)
+
+
+    # visualize
+    plt.figure(figsize=(6,3))
+    # plt.fill_between(np.linspace(0, 1, len(rel_errors[0])), -1, 1, color='gray', alpha=0.5)
+    for i in range(len(rel_errors)):
+        print("Method: ", methods[i])
+        plt.plot(np.linspace(0, 100, len(rel_errors[i])), rel_errors[i], color=colors[i], label=methods[i], linewidth=2)
+        alpha = 0.4 if colors[i] != "black" else 0.2
+        plt.fill_between(np.linspace(0, 100, len(rel_errors[i])), 0, rel_errors[i], color=colors[i], alpha=alpha, label=None)
+
+        # if methods[i] == "ARENA":
+        #     r = rel_errors[i][rel_errors[i] <= 5]
+        #     plt.fill_between(np.linspace(0, len(r)/len(rel_errors[i])*100, len(r)), 0, r, color=colors[i], alpha=alpha, label=None)
+
+        #     r = rel_errors[i][rel_errors[i] <= 1]
+        #     plt.fill_between(np.linspace(0, len(r)/len(rel_errors[i])*100, len(r)), 0, r, color=colors[i], alpha=alpha, label=None)
+
+        # if methods[i] == "OmgTools":
+        #     r = rel_errors[i][rel_errors[i] < 5]
+        #     plt.fill_between(np.linspace(0, len(r)/len(rel_errors[i])*100, len(r)), 0, r, color=colors[i], alpha=alpha, label=None)
+
+    plt.axhline(0, color='k', linestyle='-')
+    plt.xlim([0, 100])
+    plt.ylim([1.0e-2, 2.0e2]); 
+    # plt.axhline(50, c='k', ls='-', lw=1, zorder=-1)
+    a = 11.5
+    w = 3.5
+    plt.hlines(5, xmin=0, xmax=a-w, colors='k', ls='-', lw=1, zorder=-1)
+    plt.hlines(5, xmin=a+w, xmax=100, colors='k', ls='-', lw=1, zorder=-1)
+    plt.hlines(1, xmin=0, xmax=a-w, colors='k', ls='-', lw=1, zorder=-1)
+    plt.hlines(1, xmin=a+w, xmax=100, colors='k', ls='-', lw=1, zorder=-1)
+
+    # plt.text(15, 50, f"$10\%$", fontsize=15, ha='center', va='bottom', color='k')
+    plt.text(a, 5, f"$5\%$", fontsize=15, ha='center', va='center', color='k')
+    plt.text(a, 1, f"$1\%$", fontsize=15, ha='center', va='center', color='k')
+
+    plt.vlines(29, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
+    plt.vlines(90, ymin=0.001, ymax=1, colors='k', ls='-', lw=1, zorder=10)
+    plt.vlines(96, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
+    plt.xticks([0, 20, 29, 40, 60, 80, 90, 100])
+    plt.yscale('log'); 
+    plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
+
+
+    plt.xlabel("\% of Benchmark Environments")
+    if use_abs_error:
+        plt.ylabel("Absolute suboptimality [s]")
+    else:
+        # plt.ylabel("Relative\nsuboptimality [\%]")
+        plt.ylabel("Relative error\non $T^*$ [\%]")
+    # plt.gcf().legend(loc='lower center', ncol = 3, frameon=False)
+    plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = 3, frameon=False)
+
+
+    plt.tight_layout(rect=[0, 0.12, 1, 1])
+
+    REMOVE_ANNOTATION = True
+
+    # highlight the 0.95 percentile
+    for i in range(len(rel_errors)):
+        if methods[i] == "ARENA":
+            p = 1
+            idx = np.where(rel_errors[i] > p)[0]
+            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=7, zorder=11)
+            if not REMOVE_ANNOTATION:
+                arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+                arrow_end = (56, 34.6)
+                arrow_end = (40, 96)
+                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx[0]/len(rel_errors[i])*100:.0f}\% of\nenvironments",
+                            xy=arrow_start, xycoords='data',
+                            xytext=arrow_end, textcoords='data',
+                            # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                            # show a slightly curved arrow with a solid arrowhead
+                            arrowprops=dict(arrowstyle="-|>", 
+                                            connectionstyle="arc3,rad=.1", 
+                                            lw=1,
+                                            color='royalblue'),
+                            fontsize=15, color='royalblue'
+                            )
+            
+            p = 5
+            idx = np.where(rel_errors[i] > p)[0]
+            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=7, zorder=11)
+            if not REMOVE_ANNOTATION:
+                arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+                arrow_end = (71, 252)
+                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx[0]/len(rel_errors[i])*100:.0f}\% of\nenvironments",
+                            xy=arrow_start, xycoords='data',
+                            xytext=arrow_end, textcoords='data',
+                            # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                            # show a slightly curved arrow with a solid arrowhead
+                            arrowprops=dict(arrowstyle="-|>", 
+                                            connectionstyle="arc3,rad=-.1", 
+                                            lw=1,
+                                            color='royalblue'),
+                            fontsize=15, color='royalblue'
+                            )
+            
+        if methods[i] == "OmgTools":
+            p = 5
+            idx = np.where(rel_errors[i] > p)[0]
+            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='black', markersize=7, zorder=11)
+            if not REMOVE_ANNOTATION:
+                arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+                arrow_end = (4, 85)
+                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx[0]/len(rel_errors[i])*100:.0f}\% of\nenvironments",
+                            xy=arrow_start, xycoords='data',
+                            xytext=arrow_end, textcoords='data',
+                            # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+                            # show a slightly curved arrow with a solid arrowhead
+                            arrowprops=dict(arrowstyle="-|>", 
+                                            connectionstyle="arc3,rad=-.1", 
+                                            lw=1,
+                                            color='black'),
+                            fontsize=15, color='k'
+                            )
+
 def computation_time_comparison(results, method1, method2, color1, color2):
     t_comp_total_1 = np.array(results[method1]["t_comp_total"])
     t_comp_total_2 = np.array(results[method2]["t_comp_total"])
@@ -415,7 +565,7 @@ def show_histogram_densities(results, methods, colors):
     permutation = [2, 3, 1, 4, 0]
     all_handles = [all_handles[i] for i in permutation]
     all_labels = [all_labels[i] for i in permutation]
-    fig.legend(all_handles, all_labels, loc='lower center', ncol=3)  # Shared legend below
+    fig.legend(all_handles, all_labels, loc='lower center', ncol=3, frameon=False)  # Shared legend below
     plt.tight_layout(rect=[0, 0.15, 1, 1])  # Adjust layout to fit legend
     axes[1].set_xlim(right=650)
     axes[0].set_xlim(right=150)
@@ -537,6 +687,17 @@ def create_latex_table(results):
     # - worst case t_solver
     # - worst case t_total
     # - number of infeasible cases
+
+    # filter out all entries where ocp fails
+    failures = np.logical_or(
+        np.array(results["OCP-30"]["t_comp_solver"]) < 0,
+        np.array(results["OCP-30"]["t_comp_total"]) < 0)
+    
+    for method in results.keys():
+        results[method]["t_comp_solver"] = np.array(results[method]["t_comp_solver"])[~failures]
+        results[method]["t_comp_total"] = np.array(results[method]["t_comp_total"])[~failures]
+        results[method]["Tf"] = np.array(results[method]["Tf"])[~failures]
+        results[method]["corridor_infeasibilities_detected"] = np.array(results[method]["corridor_infeasibilities_detected"])[~failures]
 
     # create a dictionary with the data
     data = {}
@@ -664,7 +825,7 @@ import matplotlib.pyplot as plt
 # scatter(results, "OmgTools", "t_comp_solver", "Tf", "black")
 # plt.savefig("python-benchmark/figures/t_comp_solver_vs_Tf.png", dpi=300)
 
-optimality_comparison_extended_new(results, "OCP-30", 
+optimality_comparison_extended_new_new(results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
                                    ["orange", "black", "royalblue"])
 plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)

@@ -56,14 +56,14 @@ def show_environment(env):
                                           facecolor=color, edgecolor=None))
             
     # plot a light grid showing the cell
-    for i in range(env["nb_cell_cols"]+1):
-        plt.plot([i*cell_width, i*cell_width], 
-                 [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
-                 color='gray', zorder=0)
-    for j in range(env["nb_cell_rows"]+1):
-        plt.plot([0, cell_width*env["nb_cell_cols"]], 
-                 [j*cell_height, j*cell_height], linewidth=0.1, \
-                 color='gray', zorder=0)
+    # for i in range(env["nb_cell_cols"]+1):
+    #     plt.plot([i*cell_width, i*cell_width], 
+    #              [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
+    #              color='gray', zorder=0)
+    # for j in range(env["nb_cell_rows"]+1):
+    #     plt.plot([0, cell_width*env["nb_cell_cols"]], 
+    #              [j*cell_height, j*cell_height], linewidth=0.1, \
+    #              color='gray', zorder=0)
         
 def set_env_plot_limits(env):
     cell_width = env["cell_width"]
@@ -232,10 +232,10 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     plt.tight_layout()
     
     # remove axes box
-    plt.gca().spines['top'].set_visible(False)
-    plt.gca().spines['bottom'].set_visible(False)
-    plt.gca().spines['left'].set_visible(False)
-    plt.gca().spines['right'].set_visible(False)
+    # plt.gca().spines['top'].set_visible(False)
+    # plt.gca().spines['bottom'].set_visible(False)
+    # plt.gca().spines['left'].set_visible(False)
+    # plt.gca().spines['right'].set_visible(False)
     
     if fig_nb in filtered_list:
         plt.savefig(fig_folder[:-1] + f'_filtered/traj_{fig_nb:03d}.png', dpi=300)
@@ -246,7 +246,7 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
         plt.ylim(suboptimal_zoomboxes[fig_nb][2:])
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.png', dpi=300)
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.pdf')
-        plt.show()
+        # plt.show()
 
     plt.close()
 
