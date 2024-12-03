@@ -229,7 +229,11 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     // loop over corridors
     for (int w = 0; w < corridor_sequence.NbCorridors(); w++){
         corridor_idx = w;
-        local_corridor_time = std::fmod(local_corridor_time, dt_);
+        while (local_corridor_time > dt_){
+            local_corridor_time -= dt_;
+        }
+        // local_corridor_time = std::fmod(local_corridor_time, dt_);
+        std::cout << "starting time: " << local_corridor_time << std::endl;
 
         // set initial conditions for this corridor
         p0.CopyValues(waypoints[w]);
@@ -252,6 +256,7 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
                                              t_y[w][0]));
             ty_arc3 = std::max(0.0, std::min(t_y[w][2], local_corridor_time -
                                              t_y[w][0] - t_y[w][1]));
+            printf("%.3f  -  %.3f  -  %.3f\n", tx_arc1, tx_arc2, tx_arc3);
 
             if (local_x_timing == 0){
                 tx_arc1 = -1.0e-16; 

@@ -5,6 +5,7 @@ settings.json
 *.png
 *.gif
 *.json
+*.pdf
 
 *__pycache__*
 

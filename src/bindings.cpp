@@ -57,6 +57,7 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
     /// Environment ///
     ///////////////////
     pybind11::class_<Environment>(m, "Environment")
+        .def(pybind11::init<>())
         .def(pybind11::init<int, int, double, double>())
         .def("AddObstacle", &Environment::AddObstacle)
         .def("AddRandomObstacles", &Environment::AddRandomObstacles)
