@@ -123,6 +123,51 @@ def visualize_output(env, params, corridors, planner_methods,
     # plt.gca().spines['left'].set_visible(False)
 
     plt.tight_layout()
+
+    
+    # # make some space above the figure for the zoombox
+    # plt.subplots_adjust(top=0.7)
+
+
+    # # create a zoom-box around p2 and put it to the right side on top of the original axes
+    # from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
+    # axins = zoomed_inset_axes(plt.gca(), 1.5, loc='center', bbox_to_anchor=(0.5, 0.9), bbox_transform=plt.gcf().transFigure)
+    # axins.set_xlim(0.0, 0.15*3+0.05)
+    # axins.set_ylim(0.15*2-0.01, 0.15*4-0.05)
+    # show_environment(env)
+    # show_corridors(corridors, clip_on=True)
+    # show_waypoints(parametrizations[2])
+    # for i in range(len(trajectories)):
+    #     show_trajectory(trajectories[i], colors[i], 
+    #                     with_trace=(i == 2), 
+    #                     width=params["veh_width"], 
+    #                     height=params["veh_height"],
+    #                     with_footprints=(i == 0),
+    #                     nb_samples_to_show=-1,
+    #                     virtual_initial_footprint=False,
+    #                     virtual_final_footprint=False,
+    #                     show_markers=True,
+    #                     linewidth=1,
+    #                     with_line=(i != 1))
+    # # for i in range(len(trajectories)):
+    # #     if i == 2:
+    # #         show_waypoints(parametrizations[i])
+    # annotate_waypoint(parametrizations[2], 2, 0, 0.05)
+    # axins.set_xticks([])
+    # axins.set_yticks([])
+    # plt.yticks([])
+    # plt.xticks([])
+
+    # mark_inset(plt.gca(), axins, loc1=2, loc2=4, fc="none", ec="0.5")
+    # plt.gca().spines['top'].set_visible(False)
+    # plt.gca().spines['right'].set_visible(False)
+    # plt.gca().spines['bottom'].set_visible(False)
+    # plt.gca().spines['left'].set_visible(False)
+    # plt.tight_layout()
+
+    # plt.show()
+    
+
     plt.savefig(fig_folder + 'changes_to_parametrization.png', dpi=300)
     plt.savefig(fig_folder + 'changes_to_parametrization.pdf')
 

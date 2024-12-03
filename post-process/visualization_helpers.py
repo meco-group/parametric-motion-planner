@@ -57,18 +57,18 @@ def set_env_plot_limits(env):
     plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(1*cell_height))
     plt.gca().set_aspect('equal',adjustable='box')
 
-def show_corridors(corridors, color='green', max_alpha=1):
+def show_corridors(corridors, color='green', max_alpha=1, clip_on=False):
     for c in corridors["sequence"]:
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=True, facecolor=color, alpha=0.2*max_alpha, 
-                            edgecolor=None, clip_on=False))
+                            edgecolor=None, clip_on=clip_on))
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=False, edgecolor=color, linewidth=1,
-                            clip_on=False))
+                            clip_on=clip_on))
         
 def show_waypoints(parametrization):
     for w in range(0, parametrization["nb_corridors"] + 1):
