@@ -18,7 +18,16 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         parametrization_(corridor_sequence_, params) {
 
 	method_ = method;
-	opts_solver_["print_level"] = 0;
+
+    opts_casadi_["expand"] = true;
+
+    if (solver_name_ == "ipopt"){
+        opts_solver_["linear_solver"] = "ma57";
+    } else {
+        opts_casadi_["structure_detection"] = "auto";
+        opts_casadi_["debug"] = true;
+    }
+	// opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
 	InitializeRK4();
 
@@ -296,24 +305,18 @@ void MotionPlanner::PlanOCP(){
 
     // Construct OCP
     Opti opti = Opti(); 
-    MX xx = opti.variable(4, N+1);
-    MX uu = opti.variable(2, N);
-    MX tt = opti.variable(1, corridor_sequence_.NbCorridors());
-
-    // initial and terminal constraints
-    opti.subject_to(xx(0, 0) == start_.x());
-    opti.subject_to(xx(1, 0) == start_.y());
-    opti.subject_to(xx(2, 0) == start_vel_.x());
-    opti.subject_to(xx(3, 0) == start_vel_.y());
-    
-    opti.subject_to(xx(0, N) == dest_.x());
-    opti.subject_to(xx(1, N) == dest_.y());
-    opti.subject_to(xx(2, N) == 0);
-    opti.subject_to(xx(3, N) == 0);
-
-    // basic box constraints
-    opti.subject_to(-params_.GetAmax() <= (uu <= params_.GetAmax()));
-    opti.subject_to(tt > 0);
+    std::vector<MX> xx_MX(N+1);
+    std::vector<MX> tt_MX(N);
+    std::vector<MX> uu_MX(N);
+    for (int i = 0; i < N; i++){
+        xx_MX[i] = opti.variable(4);
+        tt_MX[i] = opti.variable(1);
+        uu_MX[i] = opti.variable(2);
+    }
+    xx_MX[N] = opti.variable(4);
+    MX xx = horzcat(xx_MX);
+    MX uu = horzcat(uu_MX);
+    MX tt = horzcat(tt_MX);
 
     // Prepare looping over corridors
     MX obj = 0;
@@ -334,21 +337,30 @@ void MotionPlanner::PlanOCP(){
         // initialize the time of the corridor
         initialization_distance = initialization_waypoints[s].Distance(
             initialization_waypoints[s+1]);
-        opti.set_initial(tt(s), initialization_distance/params_.GetVmax());
 
         // loop over time-steps
         k_offset = s * nb_points_per_corridor_;
         for (int k = k_offset; k < k_offset + nb_points_per_corridor_; k++){
             // add dynamics
-            // rk4_arguments_[0] = xx(Slice(), k);
-            // rk4_arguments_[1] = uu(Slice(), k);
-            // rk4_arguments_[2] = tt(s)/nb_points_per_corridor_;
-            // rk4_outputs_ = rk4_(rk4_arguments_);
-            // opti.subject_to(xx(Slice(), k + 1) == rk4_outputs_[0]);
-            opti.subject_to(xx(0, k+1) == xx(0, k) + xx(2, k)*tt(s)/nb_points_per_corridor_ + 0.5*uu(0, k)*tt(s)*tt(s)/(nb_points_per_corridor_*nb_points_per_corridor_));
-            opti.subject_to(xx(1, k+1) == xx(1, k) + xx(3, k)*tt(s)/nb_points_per_corridor_ + 0.5*uu(1, k)*tt(s)*tt(s)/(nb_points_per_corridor_*nb_points_per_corridor_));
-            opti.subject_to(xx(2, k+1) == xx(2, k) + uu(0, k)*tt(s)/nb_points_per_corridor_);
-            opti.subject_to(xx(3, k+1) == xx(3, k) + uu(1, k)*tt(s)/nb_points_per_corridor_);
+            opti.subject_to(xx(0, k+1) == xx(0, k) + xx(2, k)*tt(k)/nb_points_per_corridor_ + 0.5*uu(0, k)*tt(k)*tt(k)/(nb_points_per_corridor_*nb_points_per_corridor_));
+            opti.subject_to(xx(1, k+1) == xx(1, k) + xx(3, k)*tt(k)/nb_points_per_corridor_ + 0.5*uu(1, k)*tt(k)*tt(k)/(nb_points_per_corridor_*nb_points_per_corridor_));
+            opti.subject_to(xx(2, k+1) == xx(2, k) + uu(0, k)*tt(k)/nb_points_per_corridor_);
+            opti.subject_to(xx(3, k+1) == xx(3, k) + uu(1, k)*tt(k)/nb_points_per_corridor_);
+            if (k < k_offset + nb_points_per_corridor_ - 1){
+                opti.subject_to(tt(k+1) == tt(k));
+            }
+
+            // basic box constraints
+            opti.subject_to(-params_.GetAmax() <= (uu(Slice(), k) <= params_.GetAmax()));
+            opti.subject_to(tt(k) > 0);
+
+            // Add initial constraints
+            if (s == 0 && k == 0){
+                opti.subject_to(xx(0, 0) == start_.x());
+                opti.subject_to(xx(1, 0) == start_.y());
+                opti.subject_to(xx(2, 0) == start_vel_.x());
+                opti.subject_to(xx(3, 0) == start_vel_.y());
+            }
             
             // enforce corner points to be inside the current corridor
             corners[0].SetValues(xx(0, k) - width_offset, 
@@ -366,6 +378,28 @@ void MotionPlanner::PlanOCP(){
                         (corner.y() <= current_corridor.Ymax()));
             }
 
+            // the first point of a corridor should also be enforced to be 
+            // within the previous corridor to prevent corner cutting (if there 
+            // exists a previous corridor)
+            if (s > 0 && k == k_offset){
+                // current_corridor = corridor_sequence_.GetCorridor(s+1);
+                corners[0].SetValues(xx(0, k) - width_offset, 
+                                    xx(1, k) - height_offset);
+                corners[1].SetValues(xx(0, k) + width_offset,
+                                    xx(1, k) - height_offset);
+                corners[2].SetValues(xx(0, k) + width_offset,
+                                    xx(1, k) + height_offset);
+                corners[3].SetValues(xx(0, k) - width_offset,
+                                    xx(1, k) + height_offset);
+                Corridor previous_corridor = corridor_sequence_.GetCorridor(s-1);
+                for (Point2D<MX> corner : corners){
+                    opti.subject_to(previous_corridor.Xmin() <= 
+                            (corner.x() <= previous_corridor.Xmax()));
+                    opti.subject_to(previous_corridor.Ymin() <= 
+                            (corner.y() <= previous_corridor.Ymax()));
+                }
+            }
+
             // Add max velocity constraint
             opti.subject_to(-params_.GetVmax() <= 
                             (xx(Slice(2,4), k) <= params_.GetVmax()));
@@ -379,30 +413,17 @@ void MotionPlanner::PlanOCP(){
                 initialization_waypoints[s].y() + 
                 (k - k_offset)*(initialization_waypoints[s+1].y() - 
                 initialization_waypoints[s].y())/nb_points_per_corridor_);
-        }
+            opti.set_initial(tt(k), initialization_distance/params_.GetVmax());
 
-        // the final point of a corridor should also be enforced to be 
-        // within the next corridor to prevent corner cutting (if there 
-        // exists a next corridor)
-        if (s < corridor_sequence_.NbCorridors() - 1){
-            int k = k_offset + nb_points_per_corridor_;
-            // current_corridor = corridor_sequence_.GetCorridor(s+1);
-            corners[0].SetValues(xx(0, k) - width_offset, 
-                                 xx(1, k) - height_offset);
-            corners[1].SetValues(xx(0, k) + width_offset,
-                                 xx(1, k) - height_offset);
-            corners[2].SetValues(xx(0, k) + width_offset,
-                                 xx(1, k) + height_offset);
-            corners[3].SetValues(xx(0, k) - width_offset,
-                                 xx(1, k) + height_offset);
-            for (Point2D<MX> corner : corners){
-                opti.subject_to(current_corridor.Xmin() <= 
-                        (corner.x() <= current_corridor.Xmax()));
-                opti.subject_to(current_corridor.Ymin() <= 
-                        (corner.y() <= current_corridor.Ymax()));
+            // Add final constraints
+            if (s == corridor_sequence_.NbCorridors() - 1 && 
+                k == k_offset + nb_points_per_corridor_ - 1){
+                opti.subject_to(xx(0, N) == dest_.x());
+                opti.subject_to(xx(1, N) == dest_.y());
+                opti.subject_to(xx(2, N) == 0);
+                opti.subject_to(xx(3, N) == 0);
             }
         }
-
     }
 
     opti.minimize(obj);
@@ -435,7 +456,7 @@ void MotionPlanner::PlanOCP(){
     double accumulated_time = 0.0;
     double local_dt = 0.0;
     for (int s = 0; s < corridor_sequence_.NbCorridors(); s++){
-        local_dt = double(tt_sol(s)) / nb_points_per_corridor_;
+        local_dt = double(tt_sol(s*corridor_sequence_.NbCorridors())) / nb_points_per_corridor_;
         for (int i = 0; i < nb_points_per_corridor_; i++){
             t[s*nb_points_per_corridor_ + i] = accumulated_time + local_dt * i;
         }
