@@ -127,7 +127,7 @@ class Parametrization{
         void Solve();
 
         void ShowOptiDebugInfo();
-
+        void ShowOptiDebugInfoFailed();
 
         // Initialization functions
         void InitializeFirstArcNew(bool invert);

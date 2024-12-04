@@ -19,15 +19,18 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 
 	method_ = method;
 
+    solver_name_="fatrop";
+    // solver_name_ = "ipopt";
+
     opts_casadi_["expand"] = true;
 
     if (solver_name_ == "ipopt"){
         opts_solver_["linear_solver"] = "ma57";
     } else {
         opts_casadi_["structure_detection"] = "auto";
-        opts_casadi_["debug"] = true;
+        // opts_casadi_["debug"] = false;
     }
-	// opts_solver_["print_level"] = 0;
+	opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
 	InitializeRK4();
 
@@ -309,14 +312,14 @@ void MotionPlanner::PlanOCP(){
     std::vector<MX> tt_MX(N);
     std::vector<MX> uu_MX(N);
     for (int i = 0; i < N; i++){
-        xx_MX[i] = opti.variable(4);
-        tt_MX[i] = opti.variable(1);
-        uu_MX[i] = opti.variable(2);
+        xx_MX[i] = opti.variable(4, 1);
+        tt_MX[i] = opti.variable(1, 1);
+        uu_MX[i] = opti.variable(2, 1);
     }
     xx_MX[N] = opti.variable(4);
     MX xx = horzcat(xx_MX);
-    MX uu = horzcat(uu_MX);
     MX tt = horzcat(tt_MX);
+    MX uu = horzcat(uu_MX);
 
     // Prepare looping over corridors
     MX obj = 0;
@@ -331,7 +334,7 @@ void MotionPlanner::PlanOCP(){
 
     // Start looping over corridors
     for (int s = 0; s < corridor_sequence_.NbCorridors(); s++){
-        obj += tt(s);
+        obj += tt(s*nb_points_per_corridor_);
         current_corridor = corridor_sequence_.GetCorridor(s);
 
         // initialize the time of the corridor
@@ -456,11 +459,11 @@ void MotionPlanner::PlanOCP(){
     double accumulated_time = 0.0;
     double local_dt = 0.0;
     for (int s = 0; s < corridor_sequence_.NbCorridors(); s++){
-        local_dt = double(tt_sol(s*corridor_sequence_.NbCorridors())) / nb_points_per_corridor_;
+        local_dt = double(tt_sol(s*nb_points_per_corridor_)) / nb_points_per_corridor_;
         for (int i = 0; i < nb_points_per_corridor_; i++){
             t[s*nb_points_per_corridor_ + i] = accumulated_time + local_dt * i;
         }
-        accumulated_time += double(tt_sol(s));
+        accumulated_time += double(tt_sol(s*nb_points_per_corridor_));
     }
     t[N] = accumulated_time;
 
