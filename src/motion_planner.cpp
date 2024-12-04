@@ -477,8 +477,8 @@ void MotionPlanner::PlanARENA(){
 
             // Solve the parametrization
             parametrization_.OptimizeParametrization(
-                parametrization_update_token_, opts_casadi_, opts_solver_,
-                use_warm_start);
+                parametrization_update_token_, solver_name_, opts_casadi_, 
+                opts_solver_, use_warm_start);
 
             // Extract the solver time
             if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
