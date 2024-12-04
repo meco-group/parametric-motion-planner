@@ -15,7 +15,7 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
     : corridor_sequence_(corridor_sequence),
 	  params_(params),
       max_nb_corridors_(corridor_sequence.MaxNbCorridors()),
-	  opti_(Opti("nlp"))
+	  opti_(Opti())
 	  {
 	// true parameter variables
 	alpha_x_ = std::vector<double>(max_nb_corridors_ + 1),
@@ -51,7 +51,7 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 		t_y_sol_[i] = std::vector<double>(3);
 	}
 
-	InitializeParabolicSegmentConstraintFunction();
+	// InitializeParabolicSegmentConstraintFunction();
 
 	// scratch space
 	candidate_waypoints_ = std::vector<Point2D<double>>(4);
@@ -343,13 +343,6 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		for (int i : {0, 1}){
 			// NOTE: for some unknown reason, the double-sided inequalities
 			// can make the solver fail.
-
-			// opti_.subject_to(-range + curr_corridor.Xmin() + width_offset <= 
-			// 			   (intermediate_positions_[i].x() <= 
-			// 			   	curr_corridor.Xmax() - width_offset + range));
-			// opti_.subject_to(-range + curr_corridor.Ymin()  + height_offset <=
-			// 			   (intermediate_positions_[i].y() <= 
-			// 			   curr_corridor.Ymax() - height_offset + range));
 			opti_.subject_to(curr_corridor.Xmin() + width_offset <= intermediate_positions_[i].x());
 			opti_.subject_to(intermediate_positions_[i].x() <= curr_corridor.Xmax() - width_offset);
 			opti_.subject_to(curr_corridor.Ymin()  + height_offset <= intermediate_positions_[i].y());
