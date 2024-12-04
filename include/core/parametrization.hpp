@@ -47,6 +47,7 @@ class Parametrization{
         // only the motion planner can update the parametrization
         void UpdateParametrization(const UpdateToken&);
         void OptimizeParametrization(const UpdateToken&, 
+                                     std::string& solver_name_,
                                      casadi::Dict const &opts_casadi, 
                                      casadi::Dict const &opts_solver,
                                      bool use_prev_sol_as_init_guess);

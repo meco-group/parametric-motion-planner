@@ -406,7 +406,7 @@ void MotionPlanner::PlanOCP(){
     }
 
     opti.minimize(obj);
-    opti.solver("ipopt", opts_casadi_, opts_solver_);
+    opti.solver(solver_name_, opts_casadi_, opts_solver_);
     
     DM xx_sol, uu_sol, tt_sol;
     double solver_time;

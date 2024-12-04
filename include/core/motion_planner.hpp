@@ -166,6 +166,8 @@ class MotionPlanner{
         bool eliminate_suboptimalities_ = true;
 
         // other attributes
+        std::string solver_name_ = "ipopt";
+        // std::string solver_name_ = "fatrop";
         Dict opts_casadi_;
         Dict opts_solver_;
 

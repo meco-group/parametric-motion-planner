@@ -134,6 +134,7 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 };
 
 void Parametrization::OptimizeParametrization(const UpdateToken&,
+											  std::string& solver_name_,
 											  Dict const &opts_casadi,
 											  Dict const &opts_solver,
 											  bool use_prev_sol_as_init_guess){		
@@ -390,7 +391,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	/// Finish problem formulation ///
 	//////////////////////////////////
 	opti_.minimize(obj);
-	opti_.solver("ipopt", opts_casadi, opts_solver);
+	opti_.solver(solver_name_, opts_casadi, opts_solver);
 
 	//////////////////
 	/// Warm-start ///
