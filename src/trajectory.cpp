@@ -94,7 +94,7 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     solver_time_ = solver_time;
     tf_ = tt_ocp[tt_ocp.size() - 1];
 
-    curr_nb_samples_ = tf_ / dt_ + 1;
+    curr_nb_samples_ = tf_ / dt_ + 2;
 
     if (curr_nb_samples_ > max_nb_samples_){
         // throw std::runtime_error("Trajectory  is too long to be updated");
@@ -202,7 +202,7 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     tf_ = std::max(total_time_x, total_time_y);
 
     // compute the number of samples
-    curr_nb_samples_ = tf_ / dt_ + 1;
+    curr_nb_samples_ = tf_ / dt_ + 2;
 
     if (curr_nb_samples_ > max_nb_samples_){
         // throw std::runtime_error("Trajectory  is too long to be updated");
@@ -218,6 +218,7 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     // initialize the trajectory
     int sample_ptr = 0;
     double local_corridor_time = 0.0;
+    double prev_corridor_time = 0.0;
     double tx_arc1, tx_arc2, tx_arc3, ty_arc1, ty_arc2, ty_arc3;
     Point2D<double> p0;
     Point2D<double> v0;
@@ -229,10 +230,11 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     // loop over corridors
     for (int w = 0; w < corridor_sequence.NbCorridors(); w++){
         corridor_idx = w;
-        while (local_corridor_time > dt_){
-            local_corridor_time -= dt_;
-        }
+        // while (local_corridor_time > dt_){
+        //     local_corridor_time -= dt_;
+        // }
         // local_corridor_time = std::fmod(local_corridor_time, dt_);
+        local_corridor_time -= prev_corridor_time;
         std::cout << "starting time: " << local_corridor_time << std::endl;
 
         // set initial conditions for this corridor
@@ -321,6 +323,8 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
             sample_ptr++;
             local_corridor_time += dt_;
         }
+        prev_corridor_time = std::max(t_x[w][0] + t_x[w][1] + t_x[w][2],
+                                      t_y[w][0] + t_y[w][1] + t_y[w][2]);
     }
 
     // The last sample should be steady-state
