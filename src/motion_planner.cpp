@@ -19,8 +19,8 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 
 	method_ = method;
 
-    solver_name_="fatrop";
-    // solver_name_ = "ipopt";
+    // solver_name_="fatrop";
+    solver_name_ = "ipopt";
 
     opts_casadi_["expand"] = true;
 
@@ -492,6 +492,10 @@ void MotionPlanner::PlanARENA(){
         // Initialize the parametrization
         parametrization_.UpdateParametrization(parametrization_update_token_);
         // std::cout << parametrization_ << std::endl;
+
+        parametrization_.PrepareOptiInstance(parametrization_update_token_,
+                                             3, solver_name_, opts_casadi_,
+                                             opts_solver_);
 
         // Start the optimization loop
         bool made_modification = true;

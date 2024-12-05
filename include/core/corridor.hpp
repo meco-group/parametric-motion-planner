@@ -7,6 +7,7 @@
 #include "helper_types.hpp"
 #include "environment.hpp"
 #include "parameters.hpp"
+#include "casadi/casadi.hpp"
 
 using json = nlohmann::json;
 
@@ -114,6 +115,46 @@ class Corridor{
         double y_max_;
 
         Point2D<int> direction_;
+};
+
+using namespace casadi;
+class Corridor_MX{
+    public:
+        Corridor_MX() : x_min_(0.0), x_max_(0.0), y_min_(0.0), y_max_(0.0){};
+
+        Corridor_MX(MX x_min, MX x_max, MX y_min, MX y_max){
+            x_min_ = x_min; x_max_ = x_max;
+            y_min_ = y_min; y_max_ = y_max;
+        };
+
+        // Getters
+        MX Xmin() const { return x_min_;};
+        MX Xmax() const { return x_max_;};
+        MX Ymin() const { return y_min_;};
+        MX Ymax() const { return y_max_;};
+        MX Width() const { return x_max_ - x_min_;};
+        MX Height() const { return y_max_ - y_min_;};
+
+        // Setters
+        void SetXmin(MX x_min){ x_min_ = x_min;};
+        void SetXmax(MX x_max){ x_max_ = x_max;};
+        void SetYmin(MX y_min){ y_min_ = y_min;};
+        void SetYmax(MX y_max){ y_max_ = y_max;};
+
+        // Copy function
+        Corridor_MX Copy() const { return Corridor_MX(x_min_, x_max_, y_min_, y_max_);};
+
+        // take the values of another corridor
+        void CopyValues(Corridor_MX const &other) {
+            SetXmin(other.Xmin()); SetXmax(other.Xmax());
+            SetYmin(other.Ymin()); SetYmax(other.Ymax());
+        }
+
+    private:
+        MX x_min_;
+        MX x_max_;
+        MX y_min_;
+        MX y_max_;
 };
 
 // Sequence of corridors
