@@ -51,6 +51,7 @@ class Parametrization{
                                      casadi::Dict const &opts_casadi, 
                                      casadi::Dict const &opts_solver,
                                      bool use_prev_sol_as_init_guess);
+        void PrepareOptiInstance(const UpdateToken&, int nbCorridors);
         bool AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
 
