@@ -77,6 +77,8 @@ void Parametrization::PrepareOptiInstances(const UpdateToken&,
 void Parametrization::Solve(const UpdateToken&){
 	int n = corridor_sequence_.NbCorridors();
 
+	std::cout << "solving opti instance for n = " << n << ": " << prepared_opti_instances_[n] << std::endl;
+
 	// apply initial guess
 	InitializeOptimization();
 	int var_ptr = 0;
@@ -185,9 +187,6 @@ void Parametrization::Solve(const UpdateToken&){
 		opti_inputs_[n]["movable_distances"],
 		opti_inputs_[n]["parabolic_slacks"]
 	};
-	std::cout << "movable distances:" << std::endl;
-	std::cout << opti_inputs_[n]["movable_distances"] << std::endl;
-
 	// Sparsity J_sparsity = prepared_opti_instances_[n].jac_sparsity(7, 0);
 	// std::cout << "Jacobian sparsity: " << J_sparsity << std::endl;
 	// for (int i = 0; i < J_sparsity.size1(); i++){
@@ -1286,7 +1285,7 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		if (k > 0){
 			// Update waypoint
 			waypoints_mx_[k].SetX(waypoints_mx_[k].x() + 
-								 alpha_x_mx_(k)*offsets_MX[k-1](0));
+								  alpha_x_mx_(k)*offsets_MX[k-1](0));
 			waypoints_mx_[k].SetY(waypoints_mx_[k].y() + 
 								  alpha_y_mx_(k)*offsets_MX[k-1](1));
 		}
@@ -1340,6 +1339,8 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		opti_.subject_to(v_y_(w+1) == intermediate_velocities_[2].y());
 
 		// add gap-closing constraints on positions
+		// TODO: fix this error
+		// Uncaught Exception: .../casadi/interfaces/fatrop/fatrop_runtime.hpp:218: Structure mismatch: gap-closing constraints must be like this: x_{k+1}-F(xk,uk).
 		opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
 		opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
 
@@ -1469,11 +1470,15 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	//////////////////////////////////
 	opti_.minimize(obj);
 	opti_.solver(solver_name_, opts_casadi, opts_solver);
+	// Dict local_opts_casadi;
+	// local_opts_casadi["structure_detection"] = "auto";
+	// opti_.solver("fatrop", local_opts_casadi, opts_solver);
 
 	// Create function object
 	Dict opts;
 	opts["error_on_fail"] = true;
-	Function opti_f = opti_.to_function("opti_f", 
+	std::string name = "opti_ARENA_" + std::to_string(n);
+	Function opti_f = opti_.to_function("opti_ARENA_" + std::to_string(n), 
 		// inputs
 		{opti_.x(), vmax_p, amax_p, veh_width_p, veh_height_p, margin_p,
 		 waypoints_p, alpha_p, init_bottleneck, 
