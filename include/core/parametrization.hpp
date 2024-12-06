@@ -44,17 +44,20 @@ class Parametrization{
                 bool is_valid_ = true;
         };
 
+        void PrepareOptiInstances(const UpdateToken&, 
+                                  std::string& solver_name_,
+                                  casadi::Dict const &opts_casadi, 
+                                  casadi::Dict const &opts_solver);
+
         // only the motion planner can update the parametrization
         void UpdateParametrization(const UpdateToken&);
+        void Solve(const UpdateToken&);
         void OptimizeParametrization(const UpdateToken&, 
                                      std::string& solver_name_,
                                      casadi::Dict const &opts_casadi, 
                                      casadi::Dict const &opts_solver,
                                      bool use_prev_sol_as_init_guess);
-        void PrepareOptiInstance(const UpdateToken&, int nbCorridors,
-                                 std::string& solver_name_,
-                                 Dict const &opts_casadi,
-                                 Dict const &opts_solver);
+        bool AddOvershootingConstraintsOld(std::set<int> &add_list);
         bool AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
 
@@ -90,6 +93,10 @@ class Parametrization{
         Trajectory initialized_trajectory_;
 
     private:
+        void PrepareSingleOptiInstance(int nbCorridors,
+                                       std::string& solver_name_,
+                                       Dict const &opts_casadi,
+                                       Dict const &opts_solver);
         // waypoint with index waypoint_idx is in the overlapping region of 
         // corridor waypoint_idx - 1 and corridor waypoint_idx
         void ComputeSingleWaypoint(int waypoint_idx, bool second_sweep=false);
@@ -129,7 +136,8 @@ class Parametrization{
                                        casadi::MX alpha, double min_val, 
                                        double max_val, double offset,
                                        MX &obj);
-        void Solve();
+        void ExtractSolutionOld();
+        void ExtractSolution();
 
         void ShowOptiDebugInfo();
         void ShowOptiDebugInfoFailed();
@@ -177,6 +185,10 @@ class Parametrization{
         casadi::MX alpha_y_mx_;
         std::vector<Point2D<casadi::MX>> waypoints_mx_;
 
+        // prepared opti instances
+        std::map<int, casadi::Function> prepared_opti_instances_;
+        std::map<int, std::map<std::string, casadi::DM>> opti_inputs_;
+
         // initialization containers
         std::vector<std::vector<double>> t_x_init_;
         std::vector<std::vector<double>> t_y_init_;
@@ -191,6 +203,8 @@ class Parametrization{
         
         // optimized values
         std::optional<casadi::OptiSol> sol_;
+        std::map<std::string, casadi::DM> latest_solution_;
+        int latest_success_status_;
         std::vector<double> alpha_x_sol_;
         std::vector<double> alpha_y_sol_;
         std::vector<Point2D<double>> waypoints_sol_;

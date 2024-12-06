@@ -22,14 +22,35 @@ class OCPSolver{
                 bool is_valid_ = true;
         };
 
-        void PrepareOptiInstance(const UpdateToken&, int nbCorridors,
-                                 std::string& solver_name_,
-                                 casadi::Dict const &opts_casadi,
-                                 casadi::Dict const &opts_solver);        
+        void PrepareOptiInstances(const UpdateToken&, std::string& solver_name_,
+                                  casadi::Dict const &opts_casadi, 
+                                  casadi::Dict const &opts_solver);
+
+        void Solve(const UpdateToken&);
+
+        // basic getters
+        std::vector<casadi::DM> GetLatestSolution() const { return latest_solution_;};
+        double GetLatestSolverTime() const { return latest_solver_time_;};
+        int GetLatestSuccessStatus() const { return latest_success_status_;};
+        
     private:
+        void PrepareSingleOptiInstance(int nbCorridors,
+                                       std::string& solver_name_,
+                                       casadi::Dict const &opts_casadi,
+                                       casadi::Dict const &opts_solver);
+                                
         const CorridorSequence& corridor_sequence_;
         const Parameters& params_;
         const int max_nb_corridors_;
 
         int nb_points_per_corridor_ = 30;
+
+        // list of prepared opti instances
+        std::map<int, casadi::Function> prepared_opti_instances_;
+        std::map<int, std::vector<casadi::DM>> opti_inputs_;
+
+        // solution objects
+        std::vector<casadi::DM> latest_solution_;
+        double latest_solver_time_;
+        int latest_success_status_;
 };

@@ -17,7 +17,6 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         corridor_sequence_(environment_, params),
         parametrization_(corridor_sequence_, params),
         ocp_solver_(corridor_sequence_, params){
-
 	method_ = method;
 
     // solver_name_="fatrop";
@@ -34,6 +33,13 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 	opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
 	InitializeRK4();
+
+    ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+                                     solver_name_, opts_casadi_,
+                                     opts_solver_);
+    parametrization_.PrepareOptiInstances(parametrization_update_token_,
+                                          solver_name_, opts_casadi_,
+                                          opts_solver_);
 
 	// P2P method attributes
 	int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
@@ -304,11 +310,7 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 
 void MotionPlanner::PlanOCP(){
     std::cout << "Planning using OCP method" << std::endl;
-
-    ocp_solver_.PrepareOptiInstance(ocp_solver_update_token_,
-                                    corridor_sequence_.NbCorridors(), 
-                                    solver_name_, opts_casadi_,
-                                    opts_solver_);
+    ocp_solver_.Solve(ocp_solver_update_token_);
 
     int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor_;
 
@@ -500,11 +502,6 @@ void MotionPlanner::PlanARENA(){
         parametrization_.UpdateParametrization(parametrization_update_token_);
         // std::cout << parametrization_ << std::endl;
 
-        parametrization_.PrepareOptiInstance(parametrization_update_token_,
-                                             corridor_sequence_.NbCorridors(), 
-                                             solver_name_, opts_casadi_,
-                                             opts_solver_);
-
         // Start the optimization loop
         bool made_modification = true;
         bool use_warm_start = false;
@@ -512,9 +509,10 @@ void MotionPlanner::PlanARENA(){
             made_modification = false;
 
             // Solve the parametrization
-            parametrization_.OptimizeParametrization(
-                parametrization_update_token_, solver_name_, opts_casadi_, 
-                opts_solver_, use_warm_start);
+            parametrization_.Solve(parametrization_update_token_);
+            // parametrization_.OptimizeParametrization(
+            //     parametrization_update_token_, solver_name_, opts_casadi_, 
+            //     opts_solver_, use_warm_start);
 
             // Extract the solver time
             if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
@@ -526,7 +524,7 @@ void MotionPlanner::PlanARENA(){
             bool added_new_constraints = add_constraints_list_.size() > 0;
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
-                // std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
+                std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
                 added_new_constraints = 
                     parametrization_.AddOvershootingConstraints(
                                                     add_constraints_list_);
