@@ -955,6 +955,8 @@ void Parametrization::PrepareOptiInstance(const UpdateToken&, int nbCorridors,
 
 	// Create function object
 	std::cout << "creating function object" << std::endl;
+	Dict opts;
+	opts["error_on_fail"] = true;
 	Function opti_f = opti_.to_function("opti_f", 
 		// inputs
 		{opti_.x(), vmax_p, amax_p, waypoints_p, alpha_p, init_bottleneck, 
@@ -968,7 +970,9 @@ void Parametrization::PrepareOptiInstance(const UpdateToken&, int nbCorridors,
 		 "initial_bottleneck", "final_bottleneck", "start_vel", "corridors", 
 		 "movable_distances", "parabolic_slacks"},
 		// output names
-		{"t_x", "t_y", "v_x", "v_y", "alpha_x", "alpha_y", "offsets"}
+		{"t_x", "t_y", "v_x", "v_y", "alpha_x", "alpha_y", "offsets"},
+		// options
+		opts
 	);
 
 	std::cout << "Optimization function created:" << std::endl;
@@ -1012,6 +1016,8 @@ void Parametrization::PrepareOptiInstance(const UpdateToken&, int nbCorridors,
 
 	std::vector<DM> outputs(7);
 	// opti_f(&inputs, &outputs);
+
+	std::cout << "inputs: " << inputs << std::endl;
 	opti_f(inputs);
 
 	////////////////////////
