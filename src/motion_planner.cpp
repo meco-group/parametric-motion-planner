@@ -19,8 +19,8 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         ocp_solver_(corridor_sequence_, params){
 	method_ = method;
 
-    // solver_name_="fatrop";
-    solver_name_ = "ipopt";
+    solver_name_="fatrop";
+    // solver_name_ = "ipopt";
 
     opts_casadi_["expand"] = true;
 
@@ -29,8 +29,9 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
     } else {
         opts_casadi_["structure_detection"] = "auto";
         // opts_casadi_["debug"] = true;
+        opts_solver_["mu_init"] = 1.0e-1;
     }
-	opts_solver_["print_level"] = 0;
+	// opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
 	InitializeRK4();
 
