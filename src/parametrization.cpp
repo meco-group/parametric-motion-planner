@@ -67,7 +67,7 @@ void Parametrization::PrepareOptiInstances(const UpdateToken&,
 						  std::string& solver_name_,
 						  casadi::Dict const &opts_casadi, 
 						  casadi::Dict const &opts_solver){
-	std::cout << "preparing opti instances..." << std::endl;
+	std::cout << "preparing ARENA opti instances..." << std::endl;
 	for (int i = 1; i < max_nb_corridors_; i++){
 		PrepareSingleOptiInstance(i, solver_name_, opts_casadi, opts_solver);
 	}
@@ -83,9 +83,16 @@ void Parametrization::Solve(const UpdateToken&){
 	for (int i = 0; i < n; i++){
 		opti_inputs_[n]["x_init"](var_ptr) = waypoint_velocities_init_[i].x();
 		opti_inputs_[n]["x_init"](var_ptr+1) = waypoint_velocities_init_[i].y();
-		opti_inputs_[n]["x_init"](Slice(var_ptr+2, var_ptr+5)) = t_x_init_[i];
-		opti_inputs_[n]["x_init"](Slice(var_ptr+5, var_ptr+8)) = t_y_init_[i];
-		var_ptr += 8;
+		var_ptr += 2;
+
+		if (i > 0){
+			opti_inputs_[n]["x_init"](Slice(var_ptr, var_ptr+1)) = 0;
+			var_ptr += 2;
+		}
+
+		opti_inputs_[n]["x_init"](Slice(var_ptr, var_ptr+3)) = t_x_init_[i];
+		opti_inputs_[n]["x_init"](Slice(var_ptr+3, var_ptr+6)) = t_y_init_[i];
+		var_ptr += 6;
 
 		if (i == 0){
 			opti_inputs_[n]["x_init"](var_ptr) = 0;
@@ -96,11 +103,6 @@ void Parametrization::Solve(const UpdateToken&){
 		if (i == n-1){
 			opti_inputs_[n]["x_init"](var_ptr) = 0;
 			opti_inputs_[n]["x_init"](var_ptr+1) = alpha_f_init_;
-			var_ptr += 2;
-		}
-
-		if (i > 0){
-			opti_inputs_[n]["x_init"](Slice(var_ptr, var_ptr+1)) = 0;
 			var_ptr += 2;
 		}
 	}
@@ -127,20 +129,20 @@ void Parametrization::Solve(const UpdateToken&){
 			opti_inputs_[n]["parabolic_slacks"](3,i) = 10000;
 		}
 
-		if (i < n-1){
+		if (i > 0 && i < n){
 			if (max_waypoint_offsets_[i-1].x() > 0){
-				opti_inputs_[n]["movable_distances"](0,i) = 0;
-				opti_inputs_[n]["movable_distances"](1,i) = max_waypoint_offsets_[i-1].x();
+				opti_inputs_[n]["movable_distances"](0,i-1) = 0;
+				opti_inputs_[n]["movable_distances"](1,i-1) = max_waypoint_offsets_[i-1].x();
 			} else {
-				opti_inputs_[n]["movable_distances"](0,i) = max_waypoint_offsets_[i-1].x();
-				opti_inputs_[n]["movable_distances"](1,i) = 0;
+				opti_inputs_[n]["movable_distances"](0,i-1) = max_waypoint_offsets_[i-1].x();
+				opti_inputs_[n]["movable_distances"](1,i-1) = 0;
 			}
-			if (max_waypoint_offsets_[i-1].y() > 0){
-				opti_inputs_[n]["movable_distances"](2,i) = 0;
-				opti_inputs_[n]["movable_distances"](3,i) = max_waypoint_offsets_[i-1].y();
+			if (max_waypoint_offsets_[i].y() > 0){
+				opti_inputs_[n]["movable_distances"](2,i-1) = 0;
+				opti_inputs_[n]["movable_distances"](3,i-1) = max_waypoint_offsets_[i-1].y();
 			} else {
-				opti_inputs_[n]["movable_distances"](2,i) = max_waypoint_offsets_[i-1].y();
-				opti_inputs_[n]["movable_distances"](3,i) = 0;
+				opti_inputs_[n]["movable_distances"](2,i-1) = max_waypoint_offsets_[i-1].y();
+				opti_inputs_[n]["movable_distances"](3,i-1) = 0;
 			}
 		}
 	}	
@@ -183,6 +185,23 @@ void Parametrization::Solve(const UpdateToken&){
 		opti_inputs_[n]["movable_distances"],
 		opti_inputs_[n]["parabolic_slacks"]
 	};
+	std::cout << "movable distances:" << std::endl;
+	std::cout << opti_inputs_[n]["movable_distances"] << std::endl;
+
+	// Sparsity J_sparsity = prepared_opti_instances_[n].jac_sparsity(7, 0);
+	// std::cout << "Jacobian sparsity: " << J_sparsity << std::endl;
+	// for (int i = 0; i < J_sparsity.size1(); i++){
+	// 	for (int j = 0; j < J_sparsity.size2(); j++){
+	// 		if (J_sparsity.has_nz(i, j)){
+	// 			std::cout << "X ";
+	// 		} else {
+	// 			std::cout << ". ";
+	// 		}
+	// 	}
+	// 	std::cout << std::endl;
+	// }
+	// std::cout << std::endl;
+
 	std::vector<DM> output = prepared_opti_instances_[n](input);
 	latest_solution_.clear();
 	latest_solution_["t_x"] = output[0];
@@ -195,8 +214,8 @@ void Parametrization::Solve(const UpdateToken&){
 
 	std::cout << "Return status: " << prepared_opti_instances_[n].stats()["return_status"] << std::endl;
 
-	std::cout << "Tx_sol: "	<< latest_solution_["t_x"] << std::endl;
-	std::cout << "Ty_sol: "	<< latest_solution_["t_y"] << std::endl;
+	// std::cout << "Tx_sol: "	<< latest_solution_["t_x"] << std::endl;
+	// std::cout << "Ty_sol: "	<< latest_solution_["t_y"] << std::endl;
 
 	////////////////////////
 	/// Extract solution ///
@@ -1246,6 +1265,7 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		// Create variables
 		v_x_MX[k] = opti_.variable();
 		v_y_MX[k] = opti_.variable();
+		if (k > 0) {offsets_MX[k-1] = opti_.variable(2, 1);}
 		t_x_MX[k] = opti_.variable(3, 1);
 		t_y_MX[k] = opti_.variable(3, 1);
 		if (k == 0 && RELAX_INITIAL_ACCELERATION_){
@@ -1264,8 +1284,6 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		}
 
 		if (k > 0){
-			offsets_MX[k-1] = opti_.variable(2, 1);
-
 			// Update waypoint
 			waypoints_mx_[k].SetX(waypoints_mx_[k].x() + 
 								 alpha_x_mx_(k)*offsets_MX[k-1](0));
@@ -1321,16 +1339,28 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		opti_.subject_to(v_x_(w+1) == intermediate_velocities_[2].x());
 		opti_.subject_to(v_y_(w+1) == intermediate_velocities_[2].y());
 
+		// add gap-closing constraints on positions
+		opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
+		opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
+
 		//	basic box constraints
 		opti_.subject_to(0 <= (t_x_(Slice(), w) <= 100));
 		opti_.subject_to(0 <= (t_y_(Slice(), w) <= 100));
 
 		// deal with moving waypoints
 		if (w > 0){
-			// opti_.subject_to(movable_distances_p(0, w-1) <= 
-			// 				 (offsets_MX[w-1](0) <= movable_distances_p(1, w-1)));
-			// opti_.subject_to(movable_distances_p(2, w-1) <=
-			// 				 (offsets_MX[w-1](1) <= movable_distances_p(3, w-1)));
+			// opti_.subject_to(movable_distances_p(0, w-1) - position_tolerance <= 
+			// 				 (offsets_MX[w-1](0) <= 
+			// 				 movable_distances_p(1, w-1) + position_tolerance));
+			// opti_.subject_to(movable_distances_p(2, w-1) - position_tolerance <=
+			// 				 (offsets_MX[w-1](1) <= 
+			// 				 movable_distances_p(3, w-1) + position_tolerance));
+			// opti_.subject_to(0 - position_tolerance <= 
+			// 				 (offsets_MX[w-1](0) <= 
+			// 				 0 + position_tolerance));
+			// opti_.subject_to(0 - position_tolerance <=
+			// 				 (offsets_MX[w-1](1) <= 
+			// 				 0 + position_tolerance));
 			opti_.subject_to(0 == offsets_MX[w-1](0));
 			opti_.subject_to(0 == offsets_MX[w-1](1));
 		}
@@ -1346,7 +1376,9 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 
 			// Free initial acceleration
 			opti_.subject_to(-1 - pow(s_0, 2) <= 
-				(alpha_x_mx_(0)*(1-init_bottleneck) + alpha_y_mx_(0)*init_bottleneck <= 1 + pow(s_0, 2)));
+				(alpha_x_mx_(0)*(1-init_bottleneck) + 
+				alpha_y_mx_(0)*init_bottleneck <= 
+				1 + pow(s_0, 2)));
 		}
 
 		// last corridor: special cases
@@ -1355,14 +1387,6 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 			opti_.subject_to(-1 - pow(s_N, 2) <= 
 				(alpha_x_mx_(n)*(1-final_bottleneck) + alpha_y_mx_(n)*final_bottleneck <= 1 + pow(s_N, 2)));
 		}
-		
-		// add gap-closing constraints on positions
-		opti_.subject_to(next_waypoint.x() - position_tolerance <=
-					   (intermediate_positions_[2].x() <=
-						next_waypoint.x() + position_tolerance));
-		opti_.subject_to(next_waypoint.y() - position_tolerance <=
-					   (intermediate_positions_[2].y() <=
-						next_waypoint.y() + position_tolerance));
 
 		// constrain equal time
 		opti_.subject_to(t_x_(0, w) + t_x_(1, w) + t_x_(2, w) == 
@@ -1389,12 +1413,12 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 					0.5*alpha_x_mx_(w)*amax_p*pow(t_extreme, 2);
 		opti_.subject_to(lb - parabolic_slacks_p(0, w) <= (p_extreme <= ub + parabolic_slacks_p(0, w)));
 		}
-		// 		second arc
-		if (w < n-1){
-		t_extreme = v_x_(w+1) / (alpha_x_mx_(w+1)*amax_p);
-		p_extreme = waypoints_mx_[w+1].x() - v_x_(w+1)*t_extreme + 
-					0.5*alpha_x_mx_(w+1)*amax_p*pow(t_extreme, 2);
-		opti_.subject_to(lb - parabolic_slacks_p(1, w) <= (p_extreme <= ub + parabolic_slacks_p(1, w)));
+		// 		second arc of previous (!) corridor
+		if (w > 0){
+		t_extreme = v_x_(w) / (alpha_x_mx_(w)*amax_p);
+		p_extreme = waypoints_mx_[w].x() - v_x_(w)*t_extreme + 
+					0.5*alpha_x_mx_(w)*amax_p*pow(t_extreme, 2);
+		opti_.subject_to(lb - parabolic_slacks_p(1, w-1) <= (p_extreme <= ub + parabolic_slacks_p(1, w-1)));
 		}
 
 		// y - direction
@@ -1407,12 +1431,12 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 					0.5*alpha_y_mx_(w)*amax_p*pow(t_extreme, 2);
 		opti_.subject_to(lb - parabolic_slacks_p(2, w) <= (p_extreme <= ub + parabolic_slacks_p(2, w)));
 		}
-		// 		second arc
-		if (w < n-1){
-		t_extreme = v_y_(w+1) / (alpha_y_mx_(w+1)*amax_p);
-		p_extreme = waypoints_mx_[w+1].y() - v_y_(w+1)*t_extreme + 
-					0.5*alpha_y_mx_(w+1)*amax_p*pow(t_extreme, 2);
-		opti_.subject_to(lb - parabolic_slacks_p(3, w) <= (p_extreme <= ub + parabolic_slacks_p(3, w)));
+		// 		second arc of previous (!) corridor
+		if (w > 0){
+		t_extreme = v_y_(w) / (alpha_y_mx_(w)*amax_p);
+		p_extreme = waypoints_mx_[w].y() - v_y_(w)*t_extreme + 
+					0.5*alpha_y_mx_(w)*amax_p*pow(t_extreme, 2);
+		opti_.subject_to(lb - parabolic_slacks_p(3, w-1) <= (p_extreme <= ub + parabolic_slacks_p(3, w-1)));
 		}
 
 		// constrain velocities
@@ -1446,8 +1470,6 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	opti_.minimize(obj);
 	opti_.solver(solver_name_, opts_casadi, opts_solver);
 
-	// opti_.solve();
-
 	// Create function object
 	Dict opts;
 	opts["error_on_fail"] = true;
@@ -1459,21 +1481,20 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		 parabolic_slacks_p},
 		// {},
 		// outputs
-		 {t_x_, t_y_, v_x_, v_y_, alpha_x_mx_, alpha_y_mx_, offsets},
+		 {t_x_, t_y_, v_x_, v_y_, alpha_x_mx_, alpha_y_mx_, offsets, opti_.g()},
 		// input names
 		{"x_init", "v_max", "a_max", "veh_width", "veh_height", "margin", 
 		 "waypoints", "alpha", 
 		 "initial_bottleneck", "final_bottleneck", "start_vel", "corridors", 
 		 "movable_distances", "parabolic_slacks"},
 		// output names
-		{"t_x", "t_y", "v_x", "v_y", "alpha_x", "alpha_y", "offsets"},
+		{"t_x", "t_y", "v_x", "v_y", "alpha_x", "alpha_y", "offsets", "constraints"},
 		// options
 		opts
 	);
 
 	prepared_opti_instances_[n] = opti_f;
 
-	// Attempt to solve it
 	std::map<std::string, DM> inputs;
 	inputs["x_init"] = 	DM(2*(n+1) + 6*n + 4 + 2*(n-1), 1);
 	inputs["vmax"] = DM(params_.GetVmax());
