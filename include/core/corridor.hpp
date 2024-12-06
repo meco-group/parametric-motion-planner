@@ -203,6 +203,8 @@ class CorridorSequence{
         bool SequenceAvailable() const { return sequence_available_;};
         int GetVersion() const { return version_;};
 
+        std::vector<Point2D<double>> GetCorridorOverlapCenters() const;
+
         // printing
         friend std::ostream& operator<<(std::ostream &out, CorridorSequence const &sequence) {
             for (int i = 0; i < sequence.nb_of_corridors_; i++){
