@@ -10,6 +10,7 @@
 #include "helper_methods.hpp"
 #include "trajectory.hpp"
 #include "parametrization.hpp"
+#include "ocp_solver.hpp"
 
 using namespace casadi;
 
@@ -129,8 +130,11 @@ class MotionPlanner{
         const Environment& environment_;               
         CorridorSequence corridor_sequence_;    // contains a reference to the environment
         Parametrization parametrization_;       // contains a reference to the corridor sequence
+        OCPSolver ocp_solver_;                  // contains a reference to the corridor sequence
+
         Parametrization::UpdateToken parametrization_update_token_; // token to update the parametrization
         CorridorSequence::UpdateToken sequence_update_token_; // token to update the corridor sequence
+        OCPSolver::UpdateToken ocp_solver_update_token_; // token to update the ocp solver
 
         const Parameters& params_;
         PlannerMethod method_;

@@ -15,7 +15,8 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         params_(params),
         environment_(environment),
         corridor_sequence_(environment_, params),
-        parametrization_(corridor_sequence_, params) {
+        parametrization_(corridor_sequence_, params),
+        ocp_solver_(corridor_sequence_, params){
 
 	method_ = method;
 
@@ -304,6 +305,11 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 void MotionPlanner::PlanOCP(){
     std::cout << "Planning using OCP method" << std::endl;
 
+    ocp_solver_.PrepareOptiInstance(ocp_solver_update_token_,
+                                    corridor_sequence_.NbCorridors(), 
+                                    solver_name_, opts_casadi_,
+                                    opts_solver_);
+
     int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor_;
 
     // Construct OCP
@@ -439,6 +445,7 @@ void MotionPlanner::PlanOCP(){
         
         // Extract solution
         xx_sol = sol.value(xx);
+        std::cout << "xx: " << xx_sol << std::endl;
         uu_sol = sol.value(uu);
         tt_sol = sol.value(tt);
 
@@ -494,7 +501,8 @@ void MotionPlanner::PlanARENA(){
         // std::cout << parametrization_ << std::endl;
 
         parametrization_.PrepareOptiInstance(parametrization_update_token_,
-                                             3, solver_name_, opts_casadi_,
+                                             corridor_sequence_.NbCorridors(), 
+                                             solver_name_, opts_casadi_,
                                              opts_solver_);
 
         // Start the optimization loop
