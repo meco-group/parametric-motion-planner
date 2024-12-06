@@ -845,6 +845,8 @@ void Parametrization::PrepareOptiInstance(const UpdateToken&, int nbCorridors,
 							 (offsets_MX[w-1](0) <= movable_distances_p(1, w-1)));
 			opti_.subject_to(movable_distances_p(2, w-1) <=
 							 (offsets_MX[w-1](1) <= movable_distances_p(3, w-1)));
+			// opti_.subject_to(offsets_MX[w-1](0) == 0);
+			// opti_.subject_to(offsets_MX[w-1](1) == 0);
 		}
 
 		// first corridor: special cases
@@ -895,29 +897,37 @@ void Parametrization::PrepareOptiInstance(const UpdateToken&, int nbCorridors,
 		lb = curr_corridor.Xmin() + width_offset;
 		ub = curr_corridor.Xmax() - width_offset;
 		// 		first arc
+		if (w > 0){
 		t_extreme = -v_x_(w) / (alpha_x_mx_(w)*amax_p);
 		p_extreme = waypoints_mx_[w].y() + v_x_(w)*t_extreme + 
 					0.5*alpha_x_mx_(w)*amax_p*pow(t_extreme, 2);
 		opti_.subject_to(lb - parabolic_slacks_p(0, w) <= (p_extreme <= ub + parabolic_slacks_p(0, w)));
+		}
 		// 		second arc
+		if (w < n-1){
 		t_extreme = v_x_(w+1) / (alpha_x_mx_(w+1)*amax_p);
 		p_extreme = waypoints_mx_[w+1].x() - v_x_(w+1)*t_extreme + 
 					0.5*alpha_x_mx_(w+1)*amax_p*pow(t_extreme, 2);
 		opti_.subject_to(lb - parabolic_slacks_p(1, w) <= (p_extreme <= ub + parabolic_slacks_p(1, w)));
+		}
 
 		// y - direction
 		lb = curr_corridor.Ymin() + height_offset;
 		ub = curr_corridor.Ymax() - height_offset;
 		// 		first arc
+		if (w > 0){
 		t_extreme = -v_y_(w) / (alpha_y_mx_(w)*amax_p);
 		p_extreme = waypoints_mx_[w].y() + v_y_(w)*t_extreme + 
 					0.5*alpha_y_mx_(w)*amax_p*pow(t_extreme, 2);
 		opti_.subject_to(lb - parabolic_slacks_p(2, w) <= (p_extreme <= ub + parabolic_slacks_p(2, w)));
+		}
 		// 		second arc
+		if (w < n-1){
 		t_extreme = v_y_(w+1) / (alpha_y_mx_(w+1)*amax_p);
 		p_extreme = waypoints_mx_[w+1].y() - v_y_(w+1)*t_extreme + 
 					0.5*alpha_y_mx_(w+1)*amax_p*pow(t_extreme, 2);
 		opti_.subject_to(lb - parabolic_slacks_p(3, w) <= (p_extreme <= ub + parabolic_slacks_p(3, w)));
+		}
 
 		// constrain velocities
 		opti_.subject_to(-vmax_p <= (intermediate_velocities_[0].x() <= vmax_p));
@@ -980,45 +990,110 @@ void Parametrization::PrepareOptiInstance(const UpdateToken&, int nbCorridors,
 
 	// Attempt to solve it
 	std::vector<DM> inputs(11);
-	inputs[0] = DM(2*(n+1) + 6*n + 4 + 2*(n-1), 1);
-	inputs[1] = DM(params_.GetVmax());
-	inputs[2] = DM(params_.GetAmax());
-	// std::vector<double> waypoints_vec(2*(n+1), 0);
-	// std::vector<double> alpha_vec(2*(n+1), 1);
-	// for (int i = 0; i < n+1; i++){
-	// 	waypoints_vec[2*i] = waypoints_[i].x();
-	// 	waypoints_vec[2*i+1] = waypoints_[i].y();
-	// 	alpha_vec[2*i] = alpha_x_[i];
-	// 	alpha_vec[2*i+1] = alpha_y_[i];
-	// }
-	// inputs[3] = DM(waypoints_vec);
-	// inputs[4] = DM(alpha_vec);
-	inputs[3] = DM(2, n+1);
-	inputs[4] = DM(2, n+1);
-	inputs[5] = DM(0);
-	inputs[6] = DM(0);
-	inputs[7] = DM(2, 1);
-	// std::vector<double> corridors_vec(4*n, 0);
-	// for (int i = 0; i < n; i++){
-	// 	corridors_vec[4*i] = corridor_sequence_.GetCorridor(i).Xmin();
-	// 	corridors_vec[4*i+1] = corridor_sequence_.GetCorridor(i).Xmax();
-	// 	corridors_vec[4*i+2] = corridor_sequence_.GetCorridor(i).Ymin();
-	// 	corridors_vec[4*i+3] = corridor_sequence_.GetCorridor(i).Ymax();
-	// }
-	// inputs[8] = DM(corridors_vec);
-	inputs[8] = DM(4, n);
-	// std::vector<double> movable_distances_vec(4*(n-1), 0);
-	// inputs[9] = DM(movable_distances_vec);
-	inputs[9] = DM(4, n-1);
-	// std::vector<double> parabolic_slacks_vec(4*n, 10000);
-	// inputs[10] = DM(parabolic_slacks_vec);
-	inputs[10] = DM(4, n);
+	inputs[0] = DM(2*(n+1) + 6*n + 4 + 2*(n-1), 1);		// x_init
+	inputs[1] = DM(params_.GetVmax());					// vmax
+	inputs[2] = DM(params_.GetAmax());					// amax
+	inputs[3] = DM(2, n+1);								// waypoints
+	inputs[4] = DM(2, n+1);								// alpha
+	inputs[5] = DM(0);									// initial_bottleneck
+	inputs[6] = DM(0);									// final_bottleneck
+	inputs[7] = DM(2, 1);								// start_vel
+	inputs[8] = DM(4, n);								// corridors
+	inputs[9] = DM(4, n-1);								// movable_distances
+	inputs[10] = DM(4, n);								// parabolic_slacks
+
+	// apply initial guess
+	int var_ptr = 0;
+	for (int i = 0; i < n; i++){
+		inputs[0](var_ptr) = waypoint_velocities_init_[i].x();
+		inputs[0](var_ptr+1) = waypoint_velocities_init_[i].y();
+		inputs[0](Slice(var_ptr+2, var_ptr+5)) = t_x_init_[i];
+		inputs[0](Slice(var_ptr+5, var_ptr+8)) = t_y_init_[i];
+		var_ptr += 8;
+
+		if (i == 0){
+			inputs[0](var_ptr) = 0;
+			inputs[0](var_ptr+1) = alpha_0_init_;
+			var_ptr += 2;
+		}
+
+		if (i == n-1){
+			inputs[0](var_ptr) = 0;
+			inputs[0](var_ptr+1) = alpha_f_init_;
+			var_ptr += 2;
+		}
+
+		if (i > 0){
+			inputs[0](Slice(var_ptr, var_ptr+1)) = 0;
+			var_ptr += 2;
+		}
+	}
+	inputs[0](var_ptr) = waypoint_velocities_init_[n].x();
+	inputs[0](var_ptr+1) = waypoint_velocities_init_[n].y();
+
+	// Set parameter values
+	for (int i = 0; i < n; i++){
+		inputs[3](0,i) = waypoints_[i].x();
+		inputs[3](1,i) = waypoints_[i].y();
+
+		inputs[4](0,i) = alpha_x_[i];
+		inputs[4](1,i) = alpha_y_[i];
+
+		inputs[8](0,i) = corridor_sequence_.GetCorridor(i).Xmin();
+		inputs[8](1,i) = corridor_sequence_.GetCorridor(i).Xmax();
+		inputs[8](2,i) = corridor_sequence_.GetCorridor(i).Ymin();
+		inputs[8](3,i) = corridor_sequence_.GetCorridor(i).Ymax();
+
+		if (i < n-1){
+			if (max_waypoint_offsets_[i-1].x() > 0){
+				inputs[9](0,i) = 0;
+				inputs[9](1,i) = max_waypoint_offsets_[i-1].x();
+			} else {
+				inputs[9](0,i) = max_waypoint_offsets_[i-1].x();
+				inputs[9](1,i) = 0;
+			}
+			if (max_waypoint_offsets_[i-1].y() > 0){
+				inputs[9](2,i) = 0;
+				inputs[9](3,i) = max_waypoint_offsets_[i-1].y();
+			} else {
+				inputs[9](2,i) = max_waypoint_offsets_[i-1].y();
+				inputs[9](3,i) = 0;
+			}
+		}
+
+		inputs[10](0,i) = 10000;
+		inputs[10](1,i) = 10000;
+		inputs[10](2,i) = 10000;
+		inputs[10](3,i) = 10000;
+	}	
+
+	if (std::abs(waypoints_[0].x() - waypoints_[1].x()) <
+		std::abs(waypoints_[0].x() - waypoints_[1].x())){
+		inputs[5] = 1;
+	} else {
+		inputs[5] = 0;
+	}
+		
+	if (std::abs(waypoints_[n].x() - waypoints_[n-1].x()) <
+		std::abs(waypoints_[n].x() - waypoints_[n-1].x())){
+		inputs[6] = 1;
+	} else {
+		inputs[6] = 0;
+	}
+
+	inputs[7](0) = corridor_sequence_.GetStartVel().x();
+	inputs[7](1) = corridor_sequence_.GetStartVel().y();
 
 	std::vector<DM> outputs(7);
 	// opti_f(&inputs, &outputs);
 
-	std::cout << "inputs: " << inputs << std::endl;
-	opti_f(inputs);
+	// std::cout << "inputs: " << inputs << std::endl;
+	outputs = opti_f(inputs);
+
+	std::cout << "Tx_sol: "	<< outputs[0] << std::endl;
+	std::cout << "Ty_sol: "	<< outputs[1] << std::endl;
+
+
 
 	////////////////////////
 	/// Extract solution ///
@@ -1822,8 +1897,8 @@ void Parametrization::Solve(){
 		}
 	}
 
-	// std::cout << "Tx: " << t_x_sol_ << std::endl;
-	// std::cout << "Ty: " << t_y_sol_ << std::endl;
+	std::cout << "Tx: " << t_x_sol_ << std::endl;
+	std::cout << "Ty: " << t_y_sol_ << std::endl;
 }
 
 void Parametrization::ShowOptiDebugInfo(){
