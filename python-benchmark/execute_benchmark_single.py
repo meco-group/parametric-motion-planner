@@ -42,7 +42,11 @@ local_param.SetMargin(params[benchmark_idx].GetMargin())
 local_env.CopyObstacles(envs[benchmark_idx])
 
 # Run the planner
-motion_planner.Plan()
+try:
+    motion_planner.Plan()
+except Exception as e:
+    print(f"Exception: {e}")
+
 tf_arena = motion_planner.GetTravelTime()
 t_comp_total_arena = motion_planner.GetTotalComputationTime()
 t_comp_solver_arena = motion_planner.GetSolverTime()

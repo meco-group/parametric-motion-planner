@@ -188,7 +188,7 @@ for method, method_name in zip(methods, method_names):
 print(len(expected_failures))
 print(expected_failures)
 
-# store results as a json
-import json
-with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
-    json.dump(results, f, indent=4)
+# # store results as a json
+# import json
+# with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
+#     json.dump(results, f, indent=4)
