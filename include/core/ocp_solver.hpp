@@ -29,9 +29,10 @@ class OCPSolver{
         void Solve(const UpdateToken&);
 
         // basic getters
-        std::vector<casadi::DM> GetLatestSolution() const { return latest_solution_;};
+        std::map<std::string, casadi::DM> GetLatestSolution() const { return latest_solution_;};
         double GetLatestSolverTime() const { return latest_solver_time_;};
         int GetLatestSuccessStatus() const { return latest_success_status_;};
+        int GetNbPointsPerCorridor() const { return nb_points_per_corridor_;};
         
     private:
         void PrepareSingleOptiInstance(int nbCorridors,
@@ -47,10 +48,10 @@ class OCPSolver{
 
         // list of prepared opti instances
         std::map<int, casadi::Function> prepared_opti_instances_;
-        std::map<int, std::vector<casadi::DM>> opti_inputs_;
+        std::map<int, std::map<std::string, casadi::DM>> opti_inputs_;
 
         // solution objects
-        std::vector<casadi::DM> latest_solution_;
+        std::map<std::string, casadi::DM> latest_solution_;
         double latest_solver_time_;
         int latest_success_status_;
 };
