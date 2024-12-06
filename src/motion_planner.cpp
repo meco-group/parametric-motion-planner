@@ -28,7 +28,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         opts_solver_["linear_solver"] = "ma57";
     } else {
         opts_casadi_["structure_detection"] = "auto";
-        // opts_casadi_["debug"] = true;
+        opts_casadi_["debug"] = true;
         opts_solver_["mu_init"] = 1.0e-1;
     }
 	// opts_solver_["print_level"] = 0;
