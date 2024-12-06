@@ -163,7 +163,7 @@ void OCPSolver::PrepareSingleOptiInstance(int nbCorridors,
 
     Dict opts;
     opts["error_on_fail"] = true;
-    Function opti_f = opti.to_function("opti_f", 
+    Function opti_f = opti.to_function("opti_OCP_" + std::to_string(n), 
         // inputs
         {opti.x(), vmax_p, amax_p, veh_width_p, veh_height_p, margin_p, start, 
          dest, start_vel, corridor_p},
