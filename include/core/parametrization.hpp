@@ -51,7 +51,7 @@ class Parametrization{
 
         // only the motion planner can update the parametrization
         void UpdateParametrization(const UpdateToken&);
-        void Solve(const UpdateToken&);
+        void Solve(const UpdateToken&, bool use_warm_start=false);
         void OptimizeParametrization(const UpdateToken&, 
                                      std::string& solver_name_,
                                      casadi::Dict const &opts_casadi, 

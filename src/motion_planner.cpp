@@ -19,15 +19,16 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         ocp_solver_(corridor_sequence_, params){
 	method_ = method;
 
-    SetSolver("ipopt");
+    // SetSolver("ipopt");
+    SetSolver("fatrop");
 	InitializeRK4();
 
-    ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
-                                     solver_name_, opts_casadi_,
-                                     opts_solver_);
-    parametrization_.PrepareOptiInstances(parametrization_update_token_,
-                                          solver_name_, opts_casadi_,
-                                          opts_solver_);
+    // ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+    //                                  solver_name_, opts_casadi_,
+    //                                  opts_solver_);
+    // parametrization_.PrepareOptiInstances(parametrization_update_token_,
+    //                                       solver_name_, opts_casadi_,
+    //                                       opts_solver_);
 
 	// P2P method attributes
 	int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
@@ -136,9 +137,9 @@ void MotionPlanner::Plan(const Point2D<double> &start,
 void MotionPlanner::SetSolver(std::string solver_name){
     assert (solver_name == "ipopt" || solver_name == "fatrop");
 
-    if (solver_name == solver_name_){
-        return;
-    }
+    // if (solver_name == solver_name_){return;}
+    opts_casadi_.clear();
+    opts_solver_.clear();
 
     solver_name_ = solver_name;
     opts_casadi_["expand"] = true;
@@ -150,7 +151,7 @@ void MotionPlanner::SetSolver(std::string solver_name){
         opts_casadi_["debug"] = false;
         opts_solver_["mu_init"] = 1.0e-1;
     }
-	// opts_solver_["print_level"] = 0;
+	opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
 
     ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
@@ -390,7 +391,8 @@ void MotionPlanner::PlanARENA(){
             made_modification = false;
 
             // Solve the parametrization
-            parametrization_.Solve(parametrization_update_token_);
+            parametrization_.Solve(parametrization_update_token_, 
+                                   use_warm_start);
             // parametrization_.OptimizeParametrization(
             //     parametrization_update_token_, solver_name_, opts_casadi_, 
             //     opts_solver_, use_warm_start);
