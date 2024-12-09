@@ -21,7 +21,7 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 
 # decide which environment to run
 # ARENA infeasible cases (4): 393, 417, 484
-benchmark_idx = 79 #484
+benchmark_idx = 46 #484
 # TODO: 46
 
 # Create motion planner
