@@ -408,9 +408,8 @@ void MotionPlanner::PlanARENA(){
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
                 std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
-                added_new_constraints = 
-                    parametrization_.AddOvershootingConstraints(
-                                                    add_constraints_list_);
+                added_new_constraints = parametrization_.AddOvershootingConstraints(add_constraints_list_);
+                // added_new_constraints = parametrization_.AddOvershootingConstraintsOld(add_constraints_list_);
 
                 if (added_new_constraints){
                     // Extract the solver time
