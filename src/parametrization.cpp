@@ -1262,6 +1262,8 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	opti_ = Opti();
 	int n = nbCorridors;
 
+	bool ELIMINATE_OFFSETS = false;
+
 	////////////////////////////////
 	/// Definition of parameters ///
 	////////////////////////////////
@@ -1330,12 +1332,14 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 			alpha_y_mx_(n) = final_bottleneck*alpha_N + (1-final_bottleneck)*alpha_p(1, n);
 		}
 
-		if (k > 0){
-			// Update waypoint
-			waypoints_mx_[k].SetX(waypoints_mx_[k].x() + 
-								  alpha_x_mx_(k)*offsets_MX[k-1](0));
-			waypoints_mx_[k].SetY(waypoints_mx_[k].y() + 
-								  alpha_y_mx_(k)*offsets_MX[k-1](1));
+		if (!ELIMINATE_OFFSETS){
+			if (k > 0){
+				// Update waypoint
+				waypoints_mx_[k].SetX(waypoints_mx_[k].x() + 
+									  alpha_x_mx_(k)*offsets_MX[k-1](0));
+				waypoints_mx_[k].SetY(waypoints_mx_[k].y() + 
+									  alpha_y_mx_(k)*offsets_MX[k-1](1));
+			}
 		}
 	}
 	v_x_MX[n] = opti_.variable();
@@ -1400,12 +1404,13 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 			opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
 			opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
 		} else {
-			opti_.subject_to(offsets_MX[w](0) == (intermediate_positions_[2].x() - waypoints_p(0, w+1))/alpha_p(0, w+1));
-			opti_.subject_to(offsets_MX[w](1) == (intermediate_positions_[2].y() - waypoints_p(1, w+1))/alpha_p(1, w+1));
-			// opti_.subject_to(intermediate_positions_[2].x() == waypoints_p(0, w+1));
-			// opti_.subject_to(intermediate_positions_[2].y() == waypoints_p(1, w+1));
-			// opti_.subject_to(intermediate_positions_[2].x() == waypoints_mx_[w+1].x());
-			// opti_.subject_to(intermediate_positions_[2].y() == waypoints_mx_[w+1].y());
+			if (ELIMINATE_OFFSETS){
+				opti_.subject_to(intermediate_positions_[2].x() == waypoints_p(0, w+1));
+				opti_.subject_to(intermediate_positions_[2].y() == waypoints_p(1, w+1));
+			} else {
+				opti_.subject_to(offsets_MX[w](0) == (intermediate_positions_[2].x() - waypoints_p(0, w+1))/alpha_p(0, w+1));
+				opti_.subject_to(offsets_MX[w](1) == (intermediate_positions_[2].y() - waypoints_p(1, w+1))/alpha_p(1, w+1));
+			}
 		}
 
 		//	basic box constraints
@@ -1414,24 +1419,25 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 
 		// deal with moving waypoints
 		if (w > 0){
-			opti_.subject_to(movable_distances_p(0, w-1) - position_tolerance <= 
-							 (offsets_MX[w-1](0) <= 
-							 movable_distances_p(1, w-1) + position_tolerance));
-			opti_.subject_to(movable_distances_p(2, w-1) - position_tolerance <=
-							 (offsets_MX[w-1](1) <= 
-							 movable_distances_p(3, w-1) + position_tolerance));
+			if (ELIMINATE_OFFSETS){
+				opti_.subject_to(0 == offsets_MX[w-1](0));
+				opti_.subject_to(0 == offsets_MX[w-1](1));
+			} else {
+			// opti_.subject_to(movable_distances_p(0, w-1) - position_tolerance <= 
+			// 				 (offsets_MX[w-1](0) <= 
+			// 				 movable_distances_p(1, w-1) + position_tolerance));
+			// opti_.subject_to(movable_distances_p(2, w-1) - position_tolerance <=
+			// 				 (offsets_MX[w-1](1) <= 
+			// 				 movable_distances_p(3, w-1) + position_tolerance));
 			// opti_.subject_to(movable_distances_p(0, w-1) <= 
 			// 				 (offsets_MX[w-1](0) <= movable_distances_p(1, w-1)));
 			// opti_.subject_to(movable_distances_p(2, w-1) <=
 			// 				 (offsets_MX[w-1](1) <= movable_distances_p(3, w-1)));
-			// opti_.subject_to(0 - position_tolerance <= 
-			// 				 (offsets_MX[w-1](0) <= 
-			// 				 0 + position_tolerance));
-			// opti_.subject_to(0 - position_tolerance <=
-			// 				 (offsets_MX[w-1](1) <= 
-			// 				 0 + position_tolerance));
-			// opti_.subject_to(0 == offsets_MX[w-1](0));
-			// opti_.subject_to(0 == offsets_MX[w-1](1));
+				opti_.subject_to(movable_distances_p(0, w-1) <= offsets_MX[w-1](0));
+				opti_.subject_to(offsets_MX[w-1](0) <= movable_distances_p(1, w-1));
+				opti_.subject_to(movable_distances_p(2, w-1) <= offsets_MX[w-1](1));
+				opti_.subject_to(offsets_MX[w-1](1) <= movable_distances_p(3, w-1));
+			}
 		}
 
 		// first corridor: special cases
