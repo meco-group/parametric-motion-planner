@@ -19,20 +19,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         ocp_solver_(corridor_sequence_, params){
 	method_ = method;
 
-    solver_name_="fatrop";
-    // solver_name_ = "ipopt";
-
-    opts_casadi_["expand"] = true;
-
-    if (solver_name_ == "ipopt"){
-        opts_solver_["linear_solver"] = "ma57";
-    } else {
-        opts_casadi_["structure_detection"] = "auto";
-        opts_casadi_["debug"] = true;
-        opts_solver_["mu_init"] = 1.0e-1;
-    }
-	// opts_solver_["print_level"] = 0;
-	// opts_solver_["max_iter"] = 50;
+    SetSolver("ipopt");
 	InitializeRK4();
 
     ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
@@ -144,6 +131,34 @@ void MotionPlanner::Plan(const Point2D<double> &start,
     SetDest(dest);
     SetStartVel(start_vel);
     Plan();
+}
+
+void MotionPlanner::SetSolver(std::string solver_name){
+    assert (solver_name == "ipopt" || solver_name == "fatrop");
+
+    if (solver_name == solver_name_){
+        return;
+    }
+
+    solver_name_ = solver_name;
+    opts_casadi_["expand"] = true;
+
+    if (solver_name_ == "ipopt"){
+        opts_solver_["linear_solver"] = "ma57";
+    } else {
+        opts_casadi_["structure_detection"] = "auto";
+        opts_casadi_["debug"] = false;
+        opts_solver_["mu_init"] = 1.0e-1;
+    }
+	// opts_solver_["print_level"] = 0;
+	// opts_solver_["max_iter"] = 50;
+
+    ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+                                     solver_name_, opts_casadi_,
+                                     opts_solver_);
+    parametrization_.PrepareOptiInstances(parametrization_update_token_,
+                                          solver_name_, opts_casadi_,
+                                          opts_solver_);
 }
 
 json MotionPlanner::ToJson() const {

@@ -81,6 +81,7 @@ class MotionPlanner{
             nb_points_per_corridor_ = nb_points_per_corridor;};
         void SetSuboptimalityEliminationFeature(bool set){ 
             eliminate_suboptimalities_ = set;};
+        void SetSolver(std::string solver_name);
 
         // Printing
         void PrintEnvironment(){

@@ -97,7 +97,7 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("nbSamples", &Trajectory::NbSamples)
         ;
 
-    //////////////////
+    /////////////////////
     /// MotionPlanner ///
     /////////////////////
     pybind11::class_<MotionPlanner>(m, "MotionPlanner")
@@ -130,5 +130,6 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("ShowInitialization", &MotionPlanner::PrintInitialization)
         .def("SetPrintLevel", &MotionPlanner::SetPrintLevel)
         .def("SetMaxIter", &MotionPlanner::SetMaxIter)
+        .def("SetSolver", &MotionPlanner::SetSolver)
         ;
 }
