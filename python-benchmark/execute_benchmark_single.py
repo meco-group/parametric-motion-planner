@@ -21,10 +21,11 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 
 # decide which environment to run
 # ARENA infeasible cases (4): 393, 417, 484
-benchmark_idx = 484
+benchmark_idx = 46 #484
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
+motion_planner.SetSolver("ipopt")
 
 motion_planner.SetSuboptimalityEliminationFeature(True)
 motion_planner.SetPrintLevel(5)
