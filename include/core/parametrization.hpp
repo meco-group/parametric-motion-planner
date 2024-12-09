@@ -235,6 +235,7 @@ class Parametrization{
 
         std::vector<casadi::MX> p_extremes_ = {};
         
+        std::vector<int> temp_ = {};
 
 };
 
