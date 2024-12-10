@@ -21,7 +21,9 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 
 # decide which environment to run
 # ARENA infeasible cases (4): 393, 417, 484
-benchmark_idx = 46 #484
+# 6-corridor environments: 14, 56, 104, 439
+# 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
+benchmark_idx = 459 #484
 # TODO: 46
 
 # Create motion planner
@@ -54,7 +56,7 @@ t_comp_total_arena = motion_planner.GetTotalComputationTime()
 t_comp_solver_arena = motion_planner.GetSolverTime()
 motion_planner.DumpToJson("python-benchmark/files/single/single_case_ARENA.json", False)
 
-# motion_planner.PrintParametrization()
+motion_planner.PrintParametrization()
 # motion_planner.ShowInitialization()
 # motion_planner.SetPrintLevel(0)
 # motion_planner.SetMaxIter(3000)

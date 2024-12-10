@@ -151,15 +151,15 @@ void MotionPlanner::SetSolver(std::string solver_name){
         opts_casadi_["debug"] = false;
         opts_solver_["mu_init"] = 1.0e-1;
     }
-	opts_solver_["print_level"] = 5;
+	opts_solver_["print_level"] = 0;
 	// opts_solver_["max_iter"] = 50;
 
-    ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
-                                     solver_name_, opts_casadi_,
-                                     opts_solver_);
     parametrization_.PrepareOptiInstances(parametrization_update_token_,
                                           solver_name_, opts_casadi_,
                                           opts_solver_);
+    ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+                                     solver_name_, opts_casadi_,
+                                     opts_solver_);
 }
 
 json MotionPlanner::ToJson() const {
@@ -423,7 +423,7 @@ void MotionPlanner::PlanARENA(){
                     // in the solution either, so we're done
                 }
             }
-
+            // break;
             // If no modification was made, check if the parametrization is 
             // still sub-optimal
             if (eliminate_suboptimalities_){
