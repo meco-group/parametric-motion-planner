@@ -61,8 +61,9 @@ class Parametrization{
         bool AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
 
-        bool FlipAccelerationAtWaypoint(const UpdateToken&, int waypoint_idx,
-                                        bool x_flip, bool y_flip);
+        bool FlipAccelerationAtWaypoint(const UpdateToken&,
+                                        int waypoint_idx, bool x_flip, 
+                                        bool y_flip);
         void FilterAddConstraintsList(const UpdateToken&, std::set<int> &add_list) const;
 
         void ShowInitialization();
@@ -96,7 +97,8 @@ class Parametrization{
         void PrepareSingleOptiInstance(int nbCorridors,
                                        std::string& solver_name_,
                                        Dict const &opts_casadi,
-                                       Dict const &opts_solver);
+                                       Dict const &opts_solver,
+                                       bool MOVABLE_WAYPOINTS);
         // waypoint with index waypoint_idx is in the overlapping region of 
         // corridor waypoint_idx - 1 and corridor waypoint_idx
         void ComputeSingleWaypoint(int waypoint_idx, bool second_sweep=false);
@@ -186,8 +188,10 @@ class Parametrization{
         std::vector<Point2D<casadi::MX>> waypoints_mx_;
 
         // prepared opti instances
-        std::map<int, casadi::Function> prepared_opti_instances_;
-        std::map<int, std::map<std::string, casadi::DM>> opti_inputs_;
+        std::map<int, std::map<std::string, casadi::Function>> prepared_opti_instances_;
+        std::map<int, std::map<std::string, std::map<std::string, casadi::DM>>> opti_inputs_;
+        casadi::Function active_opti_instance_;
+        std::map<std::string, casadi::DM> active_opti_inputs_;
 
         // initialization containers
         std::vector<std::vector<double>> t_x_init_;
