@@ -19,8 +19,8 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         ocp_solver_(corridor_sequence_, params){
 	method_ = method;
 
-    // SetSolver("ipopt");
-    SetSolver("fatrop");
+    SetSolver("ipopt");
+    // SetSolver("fatrop");
 	InitializeRK4();
 
     // ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
@@ -151,7 +151,7 @@ void MotionPlanner::SetSolver(std::string solver_name){
         opts_casadi_["debug"] = false;
         opts_solver_["mu_init"] = 1.0e-1;
     }
-	opts_solver_["print_level"] = 0;
+	opts_solver_["print_level"] = 5;
 	// opts_solver_["max_iter"] = 50;
 
     ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
@@ -391,11 +391,11 @@ void MotionPlanner::PlanARENA(){
             made_modification = false;
 
             // Solve the parametrization
-            parametrization_.Solve(parametrization_update_token_, 
-                                   use_warm_start);
-            // parametrization_.OptimizeParametrization(
-            //     parametrization_update_token_, solver_name_, opts_casadi_, 
-            //     opts_solver_, use_warm_start);
+            // parametrization_.Solve(parametrization_update_token_, 
+            //                        use_warm_start);
+            parametrization_.OptimizeParametrization(
+                parametrization_update_token_, solver_name_, opts_casadi_, 
+                opts_solver_, use_warm_start);
 
             // Extract the solver time
             if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
@@ -408,8 +408,8 @@ void MotionPlanner::PlanARENA(){
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
                 std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
-                added_new_constraints = parametrization_.AddOvershootingConstraints(add_constraints_list_);
-                // added_new_constraints = parametrization_.AddOvershootingConstraintsOld(add_constraints_list_);
+                // added_new_constraints = parametrization_.AddOvershootingConstraints(add_constraints_list_);
+                added_new_constraints = parametrization_.AddOvershootingConstraintsOld(add_constraints_list_);
 
                 if (added_new_constraints){
                     // Extract the solver time

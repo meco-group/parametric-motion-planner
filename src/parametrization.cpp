@@ -127,10 +127,10 @@ void Parametrization::Solve(const UpdateToken&, bool use_warm_start){
 				opti_inputs_[n]["corridors"](2,i) = corridor_sequence_.GetCorridor(i).Ymin();
 				opti_inputs_[n]["corridors"](3,i) = corridor_sequence_.GetCorridor(i).Ymax();
 
-				opti_inputs_[n]["parabolic_slacks"](0,i) = 10000;
-				opti_inputs_[n]["parabolic_slacks"](1,i) = 10000;
-				opti_inputs_[n]["parabolic_slacks"](2,i) = 10000;
-				opti_inputs_[n]["parabolic_slacks"](3,i) = 10000;
+				opti_inputs_[n]["parabolic_slacks"](0,i) = 1.0e100;
+				opti_inputs_[n]["parabolic_slacks"](1,i) = 1.0e100;
+				opti_inputs_[n]["parabolic_slacks"](2,i) = 1.0e100;
+				opti_inputs_[n]["parabolic_slacks"](3,i) = 1.0e100;
 			}
 
 			if (i > 0 && i < n){
@@ -602,6 +602,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 
 	// start the optimization
 	opti_ = Opti();
+	my_slack_parameter_ = opti_.parameter();
 
 	////////////////////////////////////////////
 	/// Definition of optimization variables ///
@@ -741,7 +742,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 			opti_.subject_to(v_y_(w) == corridor_sequence_.GetStartVel().y());
 
 			// constraint to prevent initial overshooting
-			ApplyOvershootingPreventionConstraint(opti_, t_x_, t_y_);
+			// ApplyOvershootingPreventionConstraint(opti_, t_x_, t_y_);
 
 			// Free initial acceleration
 			if (std::abs(waypoints_[0].x() - waypoints_[1].x()) < 
@@ -787,12 +788,14 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		}
 		
 		// add gap-closing constraints on positions
-		opti_.subject_to(next_waypoint.x() - position_tolerance <=
-					   (intermediate_positions_[2].x() <=
-						next_waypoint.x() + position_tolerance));
-		opti_.subject_to(next_waypoint.y() - position_tolerance <=
-					   (intermediate_positions_[2].y() <=
-						next_waypoint.y() + position_tolerance));
+		// opti_.subject_to(next_waypoint.x() - position_tolerance <=
+		// 			   (intermediate_positions_[2].x() <=
+		// 				next_waypoint.x() + position_tolerance));
+		// opti_.subject_to(next_waypoint.y() - position_tolerance <=
+		// 			   (intermediate_positions_[2].y() <=
+		// 				next_waypoint.y() + position_tolerance));
+		opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
+		opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
 
 		// constrain equal time
 		opti_.subject_to(t_x_(0, w) + t_x_(1, w) + t_x_(2, w) == 
@@ -806,6 +809,17 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 			opti_.subject_to(intermediate_positions_[i].x() <= curr_corridor.Xmax() - width_offset);
 			opti_.subject_to(curr_corridor.Ymin()  + height_offset <= intermediate_positions_[i].y());
 			opti_.subject_to(intermediate_positions_[i].y() <= curr_corridor.Ymax() - height_offset);
+		}
+
+		if (w ==  1){
+		MX lb = curr_corridor.Ymin() + height_offset;
+		MX ub = curr_corridor.Ymax() - height_offset;
+		MX t_extreme = -v_y_(w) / (alpha_y_mx_(w)*params_.GetAmax());
+		MX p_extreme = waypoints_mx_[w].y() + v_y_(w)*t_extreme + 
+					0.5*alpha_y_mx_(w)*params_.GetAmax()*pow(t_extreme, 2);
+		opti_.subject_to(lb - my_slack_parameter_ <= p_extreme);
+		opti_.subject_to(p_extreme <= ub + my_slack_parameter_);
+		opti_.set_value(my_slack_parameter_, 1.0e100);
 		}
 
 		opti_.subject_to(-params_.GetVmax() <= 
@@ -863,6 +877,19 @@ bool Parametrization::AddOvershootingConstraintsOld(std::set<int> &add_list){
 	double lb;
 	double ub;
 	p_extremes_ = {};
+
+	opti_.set_value(my_slack_parameter_, 0);
+	for (int w : add_list){
+		added_constraints_list_first_arc_.insert(w);
+		added_constraints_list_second_arc_.insert(w);
+	}
+
+	if (add_list.count(0) >= 1){
+		added_something = false;
+	} else {
+		added_something = true;
+	}
+
 	for (int w : add_list){
 		// check in which direction constraints need to be added
 		if (std::abs(waypoints_[w+1].x() - waypoints_[w].x()) >
@@ -879,7 +906,7 @@ bool Parametrization::AddOvershootingConstraintsOld(std::set<int> &add_list){
 			if (added_constraints_list_first_arc_.count(w) == 0 && 
 					double(sol_.value().value(t_extreme)) < t_y_sol_[w][0] &&
 					w > 0){
-				// std::cout << "Adding constraint on first arc for corridor " << w << " in y" << std::endl;
+				std::cout << "Adding constraint on first arc for corridor " << w << " in y" << std::endl;
 				// std::cout << "t_extreme: " << double(sol_.value().value(t_extreme)) << std::endl;
 				// std::cout << "lb: " << lb << std::endl;
 				// std::cout << "ub: " << ub << std::endl;
@@ -898,7 +925,7 @@ bool Parametrization::AddOvershootingConstraintsOld(std::set<int> &add_list){
 			if (added_constraints_list_second_arc_.count(w) == 0 &&
 					double(sol_.value().value(t_extreme)) < t_y_sol_[w][2] &&
 					w+1 < corridor_sequence_.NbCorridors()){
-				// std::cout << "Adding constraint on second arc for corridor " << w << " in y" << std::endl;
+				std::cout << "Adding constraint on second arc for corridor " << w << " in y" << std::endl;
 				// std::cout << "t_extreme: " << double(sol_.value().value(t_extreme)) << std::endl;
 				// std::cout << "lb: " << lb << std::endl;
 				// std::cout << "ub: " << ub << std::endl;
@@ -925,7 +952,7 @@ bool Parametrization::AddOvershootingConstraintsOld(std::set<int> &add_list){
 			if (added_constraints_list_first_arc_.count(w) == 0 && 
 					double(sol_.value().value(t_extreme)) < t_x_sol_[w][0] &&
 					w > 0){
-				// std::cout << "Adding constraint on first arc for corridor " << w << " in x" << std::endl;
+				std::cout << "Adding constraint on first arc for corridor " << w << " in x" << std::endl;
 				added_constraints_list_first_arc_.insert(w);
 				added_something = true;
 
@@ -941,7 +968,7 @@ bool Parametrization::AddOvershootingConstraintsOld(std::set<int> &add_list){
 			if (added_constraints_list_second_arc_.count(w) == 0 &&
 					double(sol_.value().value(t_extreme)) < t_x_sol_[w][2] &&
 					w+1 < corridor_sequence_.NbCorridors()){
-				// std::cout << "Adding constraint on second arc for corridor " << w << " in x" << std::endl;
+				std::cout << "Adding constraint on second arc for corridor " << w << " in x" << std::endl;
 				added_constraints_list_second_arc_.insert(w);
 				added_something = true;
 
@@ -1262,7 +1289,7 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	opti_ = Opti();
 	int n = nbCorridors;
 
-	bool ELIMINATE_OFFSETS = false;
+	bool ELIMINATE_OFFSETS = true;
 
 	////////////////////////////////
 	/// Definition of parameters ///
@@ -1320,16 +1347,16 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		if (k == 0 && RELAX_INITIAL_ACCELERATION_){
 			s_0 = opti_.variable();
 			alpha_0 = opti_.variable();
-			// opti_.set_initial(alpha_0, alpha_0_init_);
-			alpha_x_mx_(0) = (1-init_bottleneck)*alpha_0 + init_bottleneck*alpha_p(0, 0);
-			alpha_y_mx_(0) = init_bottleneck*alpha_0 + (1-init_bottleneck)*alpha_p(1, 0);
+			// alpha_x_mx_(0) = (1-init_bottleneck)*alpha_0 + init_bottleneck*alpha_p(0, 0);
+			// alpha_y_mx_(0) = init_bottleneck*alpha_0 + (1-init_bottleneck)*alpha_p(1, 0);
+			alpha_x_mx_(0) = alpha_0;
+			alpha_y_mx_(0) = alpha_p(1, 0);
 		}
 		if (k == n - 1 && RELAX_FINAL_ACCELERATION_){
 			s_N = opti_.variable();
 			alpha_N = opti_.variable();
-			// opti_.set_initial(alpha_N, alpha_f_init_);
-			alpha_x_mx_(n) = (1-final_bottleneck)*alpha_N + final_bottleneck*alpha_p(0, n);
-			alpha_y_mx_(n) = final_bottleneck*alpha_N + (1-final_bottleneck)*alpha_p(1, n);
+			alpha_x_mx_(n) = alpha_N;
+			alpha_y_mx_(n) = alpha_p(1, n);
 		}
 
 		if (!ELIMINATE_OFFSETS){
@@ -1450,17 +1477,17 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 			// ApplyOvershootingPreventionConstraint(opti_, t_x_, t_y_);
 
 			// Free initial acceleration
-			opti_.subject_to(-1 - pow(s_0, 2) <= 
-				(alpha_x_mx_(0)*(1-init_bottleneck) + 
-				alpha_y_mx_(0)*init_bottleneck <= 
-				1 + pow(s_0, 2)));
+			// opti_.subject_to(-1 - pow(s_0, 2) <= 
+			// 	(alpha_x_mx_(0)*(1-init_bottleneck) + 
+			// 	alpha_y_mx_(0)*init_bottleneck <= 
+			// 	1 + pow(s_0, 2)));
+			opti_.subject_to(-1 - pow(s_0, 2) <= (alpha_0 <= 1 + pow(s_0, 2)));
 		}
 
 		// last corridor: special cases
 		if (w == n-1){
 			// free final acceleration
-			opti_.subject_to(-1 - pow(s_N, 2) <= 
-				(alpha_x_mx_(n)*(1-final_bottleneck) + alpha_y_mx_(n)*final_bottleneck <= 1 + pow(s_N, 2)));
+			opti_.subject_to(-1 - pow(s_N, 2) <= (alpha_N <= 1 + pow(s_N, 2)));
 		}
 
 		// constrain equal time
@@ -1480,49 +1507,52 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		// add parabolic overshooting prevention constraints
 		// x - direction
 		// 		first arc
-		if (w > 0){
-		lb = curr_corridor.Xmin() + width_offset;
-		ub = curr_corridor.Xmax() - width_offset;
-		t_extreme = -v_x_(w) / (alpha_x_mx_(w)*amax_p);
-		p_extreme = waypoints_mx_[w].x() + v_x_(w)*t_extreme + 
-					0.5*alpha_x_mx_(w)*amax_p*pow(t_extreme, 2);
-		opti_.subject_to(lb - parabolic_slacks_p(0, w) <= (p_extreme <= ub + parabolic_slacks_p(0, w)));
-		}
-		// 		second arc of previous (!) corridor
-		if (w > 0){
-		lb = prev_corridor.Xmin() + width_offset;
-		ub = prev_corridor.Xmax() - width_offset;
-		t_extreme = v_x_(w) / (alpha_x_mx_(w)*amax_p);
-		p_extreme = waypoints_mx_[w].x() - v_x_(w)*t_extreme + 
-					0.5*alpha_x_mx_(w)*amax_p*pow(t_extreme, 2);
-		opti_.subject_to(lb - parabolic_slacks_p(1, w-1) <= (p_extreme <= ub + parabolic_slacks_p(1, w-1)));
-		}
+		// if (w > 0){
+		// lb = curr_corridor.Xmin() + width_offset;
+		// ub = curr_corridor.Xmax() - width_offset;
+		// t_extreme = -v_x_(w) / (alpha_x_mx_(w)*amax_p);
+		// p_extreme = waypoints_mx_[w].x() + v_x_(w)*t_extreme + 
+		// 			0.5*alpha_x_mx_(w)*amax_p*pow(t_extreme, 2);
+		// opti_.subject_to(lb - parabolic_slacks_p(0, w) <= (p_extreme <= ub + parabolic_slacks_p(0, w)));
+		// }
+		// // 		second arc of previous (!) corridor
+		// if (w > 0){
+		// lb = prev_corridor.Xmin() + width_offset;
+		// ub = prev_corridor.Xmax() - width_offset;
+		// t_extreme = v_x_(w) / (alpha_x_mx_(w)*amax_p);
+		// p_extreme = waypoints_mx_[w].x() - v_x_(w)*t_extreme + 
+		// 			0.5*alpha_x_mx_(w)*amax_p*pow(t_extreme, 2);
+		// opti_.subject_to(lb - parabolic_slacks_p(1, w-1) <= (p_extreme <= ub + parabolic_slacks_p(1, w-1)));
+		// }
 
 		// y - direction
 		// 		first arc
-		if (w > 0){
+		if (w == 1){
 		lb = curr_corridor.Ymin() + height_offset;
 		ub = curr_corridor.Ymax() - height_offset;
 		t_extreme = -v_y_(w) / (alpha_y_mx_(w)*amax_p);
 		p_extreme = waypoints_mx_[w].y() + v_y_(w)*t_extreme + 
 					0.5*alpha_y_mx_(w)*amax_p*pow(t_extreme, 2);
 		opti_.subject_to(lb - parabolic_slacks_p(2, w) <= p_extreme);
-		opti_.subject_to(p_extreme <= ub +  parabolic_slacks_p(2, w));
+		opti_.subject_to(p_extreme <= ub + parabolic_slacks_p(2, w));
 		temp_mx(0, w) = lb - parabolic_slacks_p(2, w);
 		temp_mx(1, w) = ub + parabolic_slacks_p(2, w);
+		temp_mx(2, w) = waypoints_mx_[w].y();
+		temp_mx(3, w) = v_y_(w);
+		temp_mx(4, w) = p_extreme;
 		}
 		// 		second arc of previous (!) corridor
-		if (w > 0){
-		lb = prev_corridor.Ymin() + height_offset;
-		ub = prev_corridor.Ymax() - height_offset;
-		t_extreme = v_y_(w) / (alpha_y_mx_(w)*amax_p);
-		p_extreme = waypoints_mx_[w].y() - v_y_(w)*t_extreme + 
-					0.5*alpha_y_mx_(w)*amax_p*pow(t_extreme, 2);
-		opti_.subject_to(lb - parabolic_slacks_p(3, w-1) <= p_extreme);
-		opti_.subject_to(p_extreme <= ub + parabolic_slacks_p(3, w-1));
-		temp_mx(2, w) = lb - parabolic_slacks_p(3, w-1);
-		temp_mx(3, w) = ub + parabolic_slacks_p(3, w-1);
-		}
+		// if (w > 0){
+		// lb = prev_corridor.Ymin() + height_offset;
+		// ub = prev_corridor.Ymax() - height_offset;
+		// t_extreme = v_y_(w) / (alpha_y_mx_(w)*amax_p);
+		// p_extreme = waypoints_mx_[w].y() - v_y_(w)*t_extreme + 
+		// 			0.5*alpha_y_mx_(w)*amax_p*pow(t_extreme, 2);
+		// opti_.subject_to(lb - parabolic_slacks_p(3, w-1) <= p_extreme);
+		// opti_.subject_to(p_extreme <= ub + parabolic_slacks_p(3, w-1));
+		// temp_mx(2, w) = lb - parabolic_slacks_p(3, w-1);
+		// temp_mx(3, w) = ub + parabolic_slacks_p(3, w-1);
+		// }
 
 		// constrain velocities
 		opti_.subject_to(-vmax_p <= (intermediate_velocities_[0].x() <= vmax_p));
@@ -1543,14 +1573,14 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 
 	// Add terminal velocity constraint
 	double velocity_relaxation_tolerance = 1.0e-5;
-	// opti_.subject_to(-velocity_relaxation_tolerance <= 
-	// 				(curr_v_x <= velocity_relaxation_tolerance));
-	// opti_.subject_to(-velocity_relaxation_tolerance <=
-	// 				(curr_v_y <= velocity_relaxation_tolerance));
 	opti_.subject_to(-velocity_relaxation_tolerance <= 
-					(v_x_(n) <= velocity_relaxation_tolerance));
+					(curr_v_x <= velocity_relaxation_tolerance));
 	opti_.subject_to(-velocity_relaxation_tolerance <=
-					(v_y_(n) <= velocity_relaxation_tolerance));
+					(curr_v_y <= velocity_relaxation_tolerance));
+	// opti_.subject_to(-velocity_relaxation_tolerance <= 
+	// 				(v_x_(n) <= velocity_relaxation_tolerance));
+	// opti_.subject_to(-velocity_relaxation_tolerance <=
+	// 				(v_y_(n) <= velocity_relaxation_tolerance));
 	
 
 
@@ -2118,8 +2148,12 @@ void Parametrization::ExtractSolutionOld(){
 }
 
 void Parametrization::ExtractSolution(){
-	solver_time_ = prepared_opti_instances_[corridor_sequence_.NbCorridors()].stats()["t_wall_total"];
-	solver_time_ *= 1000; // convert to milliseconds
+	if (latest_success_status_ != 1){
+		solver_time_ = -1.0;
+	} else {
+		solver_time_ = prepared_opti_instances_[corridor_sequence_.NbCorridors()].stats()["t_wall_total"];
+		solver_time_ *= 1000; // convert to milliseconds
+	}
 
 	for (int i = 0; i < corridor_sequence_.NbCorridors() + 1; i++){
 		alpha_x_sol_[i] = double(latest_solution_["alpha_x"](i));
@@ -2390,9 +2424,11 @@ void Parametrization::InitializeOptimizationNew(){
 			 0.5*params_.GetAmax()*(alpha_y_[w] + alpha_y_[w+1]))/(2+K);
 		
 		if (Ax < Ay){
-			u = std::max(0.05, std::sqrt(std::abs(Ax/Bx)));
+			// u = std::max(0.05, std::sqrt(std::abs(Ax/Bx)));
+			u = std::max(0.1, std::sqrt(std::abs(Ax/Bx)));
 		} else {
-			u = std::max(0.05, std::sqrt(std::abs(Ay/By)));
+			// u = std::max(0.05, std::sqrt(std::abs(Ay/By)));
+			u = std::max(0.1, std::sqrt(std::abs(Ay/By)));
 		}
 		
 		t_x_init_[w][0] = u;
