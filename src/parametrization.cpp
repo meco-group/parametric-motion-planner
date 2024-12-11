@@ -321,7 +321,7 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 	latest_sequence_version_ = corridor_sequence_.GetVersion();
 };
 
-/*
+
 void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  std::string& solver_name_,
 											  Dict const &opts_casadi,
@@ -402,10 +402,11 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	// corridor entry velocities
 	// NOTE: in theory, only n velocities are needed (instead of n+1) but it 
 	// makes the implementation slightly easier
-	v_x_ = opti_.variable(corridor_sequence_.NbCorridors() + 0*1);
-	v_y_ = opti_.variable(corridor_sequence_.NbCorridors() + 0*1);
+	v_x_ = opti_.variable(corridor_sequence_.NbCorridors() + 1);
+	v_y_ = opti_.variable(corridor_sequence_.NbCorridors() + 1);
 	MX curr_v_x = corridor_sequence_.GetStartVel().x();
 	MX curr_v_y = corridor_sequence_.GetStartVel().y();
+	std::cout << "waypoint velocities init: " << waypoint_velocities_init_ << std::endl;
 	for (int i = 0; i < corridor_sequence_.NbCorridors(); i++){
 		opti_.set_initial(v_x_, waypoint_velocities_init_[i].x());
 		opti_.set_initial(v_y_, waypoint_velocities_init_[i].y());
@@ -518,12 +519,14 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 							  params_.GetAmax());
 		
 		// add gap-closing constraints on positions
-		opti_.subject_to(next_waypoint.x() - position_tolerance <=
-					   (intermediate_positions_[2].x() <=
-						next_waypoint.x() + position_tolerance));
-		opti_.subject_to(next_waypoint.y() - position_tolerance <=
-					   (intermediate_positions_[2].y() <=
-						next_waypoint.y() + position_tolerance));
+		// opti_.subject_to(next_waypoint.x() - position_tolerance <=
+		// 			   (intermediate_positions_[2].x() <=
+		// 				next_waypoint.x() + position_tolerance));
+		// opti_.subject_to(next_waypoint.y() - position_tolerance <=
+		// 			   (intermediate_positions_[2].y() <=
+		// 				next_waypoint.y() + position_tolerance));
+		opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
+		opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
 
 		// constrain equal time
 		opti_.subject_to(t_x_(0, w) + t_x_(1, w) + t_x_(2, w) == 
@@ -564,17 +567,32 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 
 	// Add terminal velocity constraint
 	double velocity_relaxation_tolerance = 1.0e-5;
+	opti_.subject_to(curr_v_x == v_x_(corridor_sequence_.NbCorridors()));
+	opti_.subject_to(curr_v_y == v_y_(corridor_sequence_.NbCorridors()));
 	opti_.subject_to(-velocity_relaxation_tolerance <= 
 					(curr_v_x <= velocity_relaxation_tolerance));
 	opti_.subject_to(-velocity_relaxation_tolerance <=
 					(curr_v_y <= velocity_relaxation_tolerance));
-
+	// opti_.subject_to(-velocity_relaxation_tolerance <= 
+	// 				(v_x_(corridor_sequence_.NbCorridors()) <= velocity_relaxation_tolerance));
+	// opti_.subject_to(-velocity_relaxation_tolerance <=
+	// 				(v_y_(corridor_sequence_.NbCorridors()) <= velocity_relaxation_tolerance));
+	// opti_.subject_to(v_x_(corridor_sequence_.NbCorridors()) == 0);
+	// opti_.subject_to(v_y_(corridor_sequence_.NbCorridors()) == 0);
 
 	//////////////////////////////////
 	/// Finish problem formulation ///
 	//////////////////////////////////
 	opti_.minimize(obj);
 	opti_.solver(solver_name_, opts_casadi, opts_solver);
+	// Dict local_opts_solver = opts_solver;
+	// local_opts_solver["max_iter"] = 0;
+	// opti_.solver(solver_name_, opts_casadi, local_opts_solver);
+	// try{
+	// 	OptiSol sol = opti_.solve();
+	// } catch (std::exception& e){
+	// 	std::cout << opti_.debug().value(opti_.x()) << std::endl;
+	// }
 
 	//////////////////
 	/// Warm-start ///
@@ -588,8 +606,8 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	////////////////////////
 	ExtractSolutionOld();
 };
-*/
 
+/*
 void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  std::string& solver_name_,
 											  Dict const &opts_casadi,
@@ -864,7 +882,16 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	/// Finish problem formulation ///
 	//////////////////////////////////
 	opti_.minimize(obj);
-	opti_.solver(solver_name_, opts_casadi, opts_solver);
+	// opti_.solver(solver_name_, opts_casadi, opts_solver);
+	Dict local_opts_solver = opts_solver;
+	local_opts_solver["max_iter"] = 0;
+	opti_.solver(solver_name_, opts_casadi, local_opts_solver);
+	try{
+		OptiSol sol = opti_.solve();
+	} catch (std::exception& e){
+		std::cout << opti_.debug().value(opti_.x()) << std::endl;
+	}
+
 
 	//////////////////
 	/// Warm-start ///
@@ -878,7 +905,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	////////////////////////
 	ExtractSolutionOld();
 };
-
+*/
 
 bool Parametrization::AddOvershootingConstraintsOld(std::set<int> &add_list){
 	bool added_something = false;
