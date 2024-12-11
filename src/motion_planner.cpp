@@ -391,11 +391,11 @@ void MotionPlanner::PlanARENA(){
             made_modification = false;
 
             // Solve the parametrization
-            // parametrization_.Solve(parametrization_update_token_, 
-            //                        use_warm_start);
-            parametrization_.OptimizeParametrization(
-                parametrization_update_token_, solver_name_, opts_casadi_, 
-                opts_solver_, use_warm_start);
+            parametrization_.Solve(parametrization_update_token_, 
+                                   use_warm_start);
+            // parametrization_.OptimizeParametrization(
+            //     parametrization_update_token_, solver_name_, opts_casadi_, 
+            //     opts_solver_, use_warm_start);
 
             // Extract the solver time
             if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
@@ -403,13 +403,15 @@ void MotionPlanner::PlanARENA(){
                 
             // Sample the trajectory and check if extra constraints are needed
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
-
+            
+            // break;
+            
             bool added_new_constraints = add_constraints_list_.size() > 0;
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
                 std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
-                // added_new_constraints = parametrization_.AddOvershootingConstraints(add_constraints_list_);
-                added_new_constraints = parametrization_.AddOvershootingConstraintsOld(add_constraints_list_);
+                added_new_constraints = parametrization_.AddOvershootingConstraints(add_constraints_list_);
+                // added_new_constraints = parametrization_.AddOvershootingConstraintsOld(add_constraints_list_);
 
                 if (added_new_constraints){
                     // Extract the solver time

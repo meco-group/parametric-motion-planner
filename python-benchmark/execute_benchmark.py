@@ -77,8 +77,8 @@ for method, method_name in zip(methods, method_names):
             motion_planner.SetSuboptimalityEliminationFeature(True)
 
     # loop over all environments
-    # for i in range(len(envs)):
-    for i in range(450, 500):
+    for i in range(len(envs)):
+    # for i in range(420, 460):
         print(f"\n\nRunning environment {i} with method {method_name}")
 
         motion_planner.SetStart(starts[i])
