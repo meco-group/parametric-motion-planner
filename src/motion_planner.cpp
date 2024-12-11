@@ -19,8 +19,8 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 
 	method_ = method;
 
-    solver_name_="fatrop";
-    // solver_name_ = "ipopt";
+    // solver_name_="fatrop";
+    solver_name_ = "ipopt";
 
     opts_casadi_["expand"] = true;
 

@@ -133,7 +133,7 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 	latest_sequence_version_ = corridor_sequence_.GetVersion();
 };
 
-/*
+
 void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  std::string& solver_name_,
 											  Dict const &opts_casadi,
@@ -399,8 +399,8 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	////////////////////////
 	Solve();
 };
-*/
 
+/*
 void Parametrization::OptimizeParametrization(const UpdateToken&,
 											  std::string& solver_name_,
 											  Dict const &opts_casadi,
@@ -675,6 +675,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	////////////////////////
 	Solve();
 };
+*/
 
 bool Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
 	bool added_something = false;
