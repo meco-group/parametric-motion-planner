@@ -93,6 +93,8 @@ class Parametrization{
 
         Trajectory initialized_trajectory_;
 
+        std::string optimization_problem_name_ = "original";
+
     private:
         void PrepareSingleOptiInstance(int nbCorridors,
                                        std::string& solver_name_,
