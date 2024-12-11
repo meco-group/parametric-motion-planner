@@ -668,8 +668,8 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		// Apply initial guesses
 		opti_.set_initial(t_x_MX[k], t_x_init_[k]);
 		opti_.set_initial(t_y_MX[k], t_y_init_[k]);
-		opti_.set_initial(v_x_MX[k], waypoint_velocities_init_[k].x());
-		opti_.set_initial(v_y_MX[k], waypoint_velocities_init_[k].y());
+		opti_.set_initial(v_x_MX[k], waypoint_velocities_init_[n-1].x());
+		opti_.set_initial(v_y_MX[k], waypoint_velocities_init_[n-1].y());
 
 		// Deal with moving waypoints
 		if (movable_waypoints_[k] && k > 0){
@@ -802,14 +802,23 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 		}
 		
 		// add gap-closing constraints on positions
-		// opti_.subject_to(next_waypoint.x() - position_tolerance <=
-		// 			   (intermediate_positions_[2].x() <=
-		// 				next_waypoint.x() + position_tolerance));
-		// opti_.subject_to(next_waypoint.y() - position_tolerance <=
-		// 			   (intermediate_positions_[2].y() <=
-		// 				next_waypoint.y() + position_tolerance));
-		opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
-		opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
+		opti_.subject_to(next_waypoint.x() - position_tolerance <=
+					   (intermediate_positions_[2].x() <=
+						next_waypoint.x() + position_tolerance));
+		opti_.subject_to(next_waypoint.y() - position_tolerance <=
+					   (intermediate_positions_[2].y() <=
+						next_waypoint.y() + position_tolerance));
+		
+		// opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
+		// opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
+
+		// MX temp = opti_.variable();
+		// opti_.subject_to(-position_tolerance <= (temp <= position_tolerance));
+		// opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x() + temp);
+
+		// temp = opti_.variable();
+		// opti_.subject_to(-position_tolerance <= (temp <= position_tolerance));
+		// opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y() + temp);
 
 		// constrain equal time
 		opti_.subject_to(t_x_(0, w) + t_x_(1, w) + t_x_(2, w) == 
@@ -2753,11 +2762,9 @@ void Parametrization::InitializeOptimizationNew(){
 			 0.5*params_.GetAmax()*(alpha_y_[w] + alpha_y_[w+1]))/(2+K);
 		
 		if (Ax < Ay){
-			// u = std::max(0.05, std::sqrt(std::abs(Ax/Bx)));
-			u = std::max(0.1, std::sqrt(std::abs(Ax/Bx)));
+			u = std::max(0.05, std::sqrt(std::abs(Ax/Bx)));
 		} else {
-			// u = std::max(0.05, std::sqrt(std::abs(Ay/By)));
-			u = std::max(0.1, std::sqrt(std::abs(Ay/By)));
+			u = std::max(0.05, std::sqrt(std::abs(Ay/By)));
 		}
 		
 		t_x_init_[w][0] = u;

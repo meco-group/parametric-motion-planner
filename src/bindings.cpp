@@ -131,5 +131,6 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("SetPrintLevel", &MotionPlanner::SetPrintLevel)
         .def("SetMaxIter", &MotionPlanner::SetMaxIter)
         .def("SetSolver", &MotionPlanner::SetSolver)
+        .def("SetOptimizationApproach", &MotionPlanner::SetParametrizationOptimizationApproach)
         ;
 }

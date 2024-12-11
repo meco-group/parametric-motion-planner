@@ -23,12 +23,14 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 # ARENA infeasible cases (4): 393, 417, 484
 # 6-corridor environments: 14, 56, 104, 439
 # 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
-benchmark_idx = 65 #459 #484
+benchmark_idx = 459 #459 #484
 # TODO: 46
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
 motion_planner.SetSolver("ipopt")
+# motion_planner.SetOptimizationApproach("original")
+motion_planner.SetOptimizationApproach("new formulation")
 
 motion_planner.SetSuboptimalityEliminationFeature(True)
 motion_planner.SetPrintLevel(5)

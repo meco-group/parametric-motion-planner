@@ -40,6 +40,8 @@ my_selection = arena_selection
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
 motion_planner.SetSolver("ipopt")
+# motion_planner.SetOptimizationApproach("original")
+motion_planner.SetOptimizationApproach("new formulation")
 
 # create containers for results
 # results = {}
@@ -49,6 +51,7 @@ motion_planner.SetSolver("ipopt")
 results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
 
 expected_failures = []
+failures = []
 
 # Benchmark
 for method, method_name in zip(methods, method_names):
@@ -107,6 +110,8 @@ for method, method_name in zip(methods, method_names):
             results[method_name]["t_comp_solver"].append(motion_planner.GetSolverTime())
             results[method_name]["corridor_infeasibilities_detected"].append(
                 motion_planner.CorridorInfeasibilitiesDetected())
+            if motion_planner.GetTotalComputationTime() < 0 or motion_planner.GetSolverTime() < 0:
+                failures.append(i)
 
             corridors = motion_planner.GetCorridorSequence()
             if (len(corridors) > 1):
@@ -146,8 +151,10 @@ for method, method_name in zip(methods, method_names):
 
 
             
-print(len(expected_failures))
-print(expected_failures)
+# print(len(expected_failures))
+# print(expected_failures)
+            
+print(f"Failures: {failures}")
 
 # # store results as a json
 # import json

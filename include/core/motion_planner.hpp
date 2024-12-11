@@ -82,6 +82,7 @@ class MotionPlanner{
         void SetSuboptimalityEliminationFeature(bool set){ 
             eliminate_suboptimalities_ = set;};
         void SetSolver(std::string solver_name);
+        void SetParametrizationOptimizationApproach(std::string name){parametrization_.optimization_problem_name_ = name;};
 
         // Printing
         void PrintEnvironment(){
