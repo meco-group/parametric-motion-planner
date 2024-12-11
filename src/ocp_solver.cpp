@@ -13,7 +13,7 @@ void OCPSolver::PrepareOptiInstances(const UpdateToken& token,
                                      casadi::Dict const &opts_casadi, 
                                      casadi::Dict const &opts_solver){
     std::cout << "preparing OCP opti instances..." << std::endl;
-    for (int i = 1; i < max_nb_corridors_; i++){
+    for (int i = 1; i < 7; i++){
         PrepareSingleOptiInstance(i, solver_name_, opts_casadi, opts_solver);
     }
     std::cout << "\t\tDone!" << std::endl;
