@@ -258,8 +258,8 @@ void TestRandomVehiclePositions(){
 }
 
 int main(){
-    SolveRandomProblem();
-    // SolveDynamicProblem();
+    // SolveRandomProblem();
+    SolveDynamicProblem();
     // TestRandomVehiclePositions();
 }
 

@@ -28,7 +28,7 @@ benchmark_idx = 56 #459 #484
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
-motion_planner.SetSolver("ipopt")
+motion_planner.SetSolver("fatrop")
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
 
