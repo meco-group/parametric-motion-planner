@@ -169,56 +169,77 @@ def show_histogram_densities(results, methods, colors):
     # Tf = [np.array(results[method]["Tf"]) for method in methods]
     # plot_densities(Tf, colors, methods, "Travel time [s]", "Density")
 
+    OMIT_TOTAL_TIME = True
 
-    fig, axes = plt.subplots(2, 1)  # Two subplots stacked vertically
+    if OMIT_TOTAL_TIME:
+        fig, axes = plt.subplots(1, 1, figsize=(6, 3))
 
-    # Total computation time
-    plt.sca(axes[1])
-    t_comp_total = [np.array(results[method]["t_comp_total"]) for method in methods]
-    t_comp_total.reverse()
-    colors.reverse()
-    methods.reverse()
-    omg_idx = methods.index("OmgTools")
-    # remove omg tools from lists
-    t_comp_total_copy = t_comp_total.copy()
-    colors_copy = colors.copy()
-    methods_copy = methods.copy()
-    t_comp_total_copy.pop(omg_idx)
-    colors_copy.pop(omg_idx)
-    methods_copy.pop(omg_idx)
-    plot_densities(t_comp_total_copy, colors_copy, methods_copy, "Total computation time [ms]", "Density")
-    colors.reverse()
-    methods.reverse()
-    
-    # Solver computation time
-    plt.sca(axes[0])
-    t_comp_solver = [np.array(results[method]["t_comp_solver"]) for method in methods]
-    # method_sequence = {"OCP-30-FATROP":2, "OmgTools":3, "ARENA":1, "ARENA-FATROP":0, "P2P":4}
-    method_sequence = {2:"OCP-30-FATROP", 1:"OmgTools", 3:"ARENA", 4:"ARENA-FATROP", 0:"P2P"}
-    idx = [methods.index(method_sequence[i]) for i in range(len(method_sequence))]
-    t_comp_solver = [t_comp_solver[i] for i in idx]
-    colors = [colors[i] for i in idx]
-    methods = [methods[i] for i in idx]
-    print(methods)
-    extra_handles, extra_labels = plot_densities(t_comp_solver, colors, methods, "Solver computation time [ms]", "Density")
-    # colors.reverse()
-    # methods.reverse()
+        # Solver computation time
+        plt.sca(axes)
+        t_comp_solver = [np.array(results[method]["t_comp_solver"]) for method in methods]
+        # method_sequence = {"OCP-30-FATROP":2, "OmgTools":3, "ARENA":1, "ARENA-FATROP":0, "P2P":4}
+        method_sequence = {2:"OCP-30-FATROP", 1:"OmgTools", 3:"ARENA", 4:"ARENA-FATROP", 0:"P2P"}
+        idx = [methods.index(method_sequence[i]) for i in range(len(method_sequence))]
+        t_comp_solver = [t_comp_solver[i] for i in idx]
+        colors = [colors[i] for i in idx]
+        methods = [methods[i] for i in idx]
+        extra_handles, extra_labels = plot_densities(t_comp_solver, colors, methods, "Solver computation time [ms]", "Density")
 
-    handles, labels = axes[0].get_legend_handles_labels()  # Get legend items from one subplot
-    all_handles = handles + extra_handles
-    all_labels = labels + extra_labels
-    # permutation = [4, 2, 0, 1, 3]
-    permutation = [2, 3, 1, 4, 0, 5]
-    all_handles = [all_handles[i] for i in permutation]
-    all_labels = [all_labels[i] for i in permutation]
-    all_labels = translate_method_names(all_labels)
-    fig.legend(all_handles, all_labels, loc='lower center', ncol=3, frameon=False)  # Shared legend below
-    plt.tight_layout(rect=[0, 0.15, 1, 1])  # Adjust layout to fit legend
-    axes[1].set_xlim(right=85)
-    axes[0].set_xlim(right=85)
-    # plt.tight_layout()
-    # plt.subplots_adjust(bottom=0.2)
-    # plt.show()
+        handles, labels = axes.get_legend_handles_labels()  # Get legend items from one subplot
+        all_handles = handles + extra_handles
+        all_labels = labels + extra_labels
+        # permutation = [4, 2, 0, 1, 3]
+        permutation = [2, 3, 1, 4, 0, 5]
+        all_handles = [all_handles[i] for i in permutation]
+        all_labels = [all_labels[i] for i in permutation]
+        all_labels = translate_method_names(all_labels)
+        fig.legend(all_handles, all_labels, loc='lower center', ncol=3, frameon=False)  # Shared legend below
+        plt.tight_layout(rect=[0, 0.2, 1, 1])  # Adjust layout to fit legend
+        axes.set_xlim(right=78)
+    else:
+        fig, axes = plt.subplots(2, 1)  # Two subplots stacked vertically
+
+        # Total computation time
+        plt.sca(axes[1])
+        t_comp_total = [np.array(results[method]["t_comp_total"]) for method in methods]
+        t_comp_total.reverse()
+        colors.reverse()
+        methods.reverse()
+        omg_idx = methods.index("OmgTools")
+        # remove omg tools from lists
+        t_comp_total_copy = t_comp_total.copy()
+        colors_copy = colors.copy()
+        methods_copy = methods.copy()
+        t_comp_total_copy.pop(omg_idx)
+        colors_copy.pop(omg_idx)
+        methods_copy.pop(omg_idx)
+        plot_densities(t_comp_total_copy, colors_copy, methods_copy, "Total computation time [ms]", "Density")
+        colors.reverse()
+        methods.reverse()
+        
+        # Solver computation time
+        plt.sca(axes[0])
+        t_comp_solver = [np.array(results[method]["t_comp_solver"]) for method in methods]
+        # method_sequence = {"OCP-30-FATROP":2, "OmgTools":3, "ARENA":1, "ARENA-FATROP":0, "P2P":4}
+        method_sequence = {2:"OCP-30-FATROP", 1:"OmgTools", 3:"ARENA", 4:"ARENA-FATROP", 0:"P2P"}
+        idx = [methods.index(method_sequence[i]) for i in range(len(method_sequence))]
+        t_comp_solver = [t_comp_solver[i] for i in idx]
+        colors = [colors[i] for i in idx]
+        methods = [methods[i] for i in idx]
+        extra_handles, extra_labels = plot_densities(t_comp_solver, colors, methods, "Solver computation time [ms]", "Density")
+
+        handles, labels = axes[0].get_legend_handles_labels()  # Get legend items from one subplot
+        all_handles = handles + extra_handles
+        all_labels = labels + extra_labels
+        # permutation = [4, 2, 0, 1, 3]
+        permutation = [2, 3, 1, 4, 0, 5]
+        all_handles = [all_handles[i] for i in permutation]
+        all_labels = [all_labels[i] for i in permutation]
+        all_labels = translate_method_names(all_labels)
+        fig.legend(all_handles, all_labels, loc='lower center', ncol=3, frameon=False)  # Shared legend below
+        plt.tight_layout(rect=[0, 0.15, 1, 1])  # Adjust layout to fit legend
+        axes[1].set_xlim(right=85)
+        axes[0].set_xlim(right=85)
 
 def plot_densities(data, colors, labels, xlabel, ylabel):
     # plt.figure()
@@ -226,11 +247,12 @@ def plot_densities(data, colors, labels, xlabel, ylabel):
     for i in range(len(data)):
         if labels[i] == "P2P":
             continue
-
-        print(f"Method: {labels[i]}")
         
         # plot density
-        sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0.5)
+        if labels[i] == "ARENA-FATROP":
+            sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0., hatch='//')
+        else:
+            sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0.5)
 
         # compute the mean
         mean = np.mean(data[i])
@@ -467,6 +489,13 @@ import matplotlib.pyplot as plt
 
 filtered_results = filter_results_for_fair_comparison(results)
 
+# tfs_arena = np.array(filtered_results["ARENA"]["Tf"])
+# tfs_arena_fatrop = np.array(filtered_results["ARENA-FATROP"]["Tf"])
+# diff = tfs_arena - tfs_arena_fatrop
+# plt.figure()
+# sns.kdeplot(diff, color='royalblue', label="ARENA - ARENA-FATROP", fill=True, alpha=0.5)
+# plt.show()
+
 optimality_comparison_extended_new_new(filtered_results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
                                    ["orange", "black", "royalblue"])
@@ -476,7 +505,7 @@ plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
 # plt.figure()
 # compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
 
-show_histogram_densities(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["navy", "royalblue", "red", "orange", "black"])
+show_histogram_densities(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
 plt.savefig("python-benchmark/figures/densities.png", dpi=300)
 plt.savefig("python-benchmark/figures/densities.pdf")
 
