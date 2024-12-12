@@ -104,8 +104,10 @@ void Parametrization::Solve(const UpdateToken&, bool use_warm_start){
 		InitializeOptimization();
 		int var_ptr = 0;
 		for (int i = 0; i < n; i++){
-			active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[i].x();
-			active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[i].y();
+			// active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[i].x();
+			// active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[i].y();
+			active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n-1].x();
+			active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n-1].y();
 			var_ptr += 2;
 
 			if (i > 0 && code[i] == '1'){
@@ -129,8 +131,10 @@ void Parametrization::Solve(const UpdateToken&, bool use_warm_start){
 				var_ptr += 2;
 			}
 		}
-		active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n].x();
-		active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n].y();
+		// active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n].x();
+		// active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n].y();
+		active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n-1].x();
+		active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n-1].y();
 
 		// Set parameter values
 		int offset_ptr = 0;
@@ -1675,6 +1679,7 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	std::vector<MX> offsets_MX;
 	offsets_MX = std::vector<MX>(nb_movable_waypoints);
 	int offset_ptr = 0;
+	std::map<int, int> offset_map; // waypoint_index to offset_index
 
 	MX s_0, alpha_0, s_N, alpha_N;
 	for (int k = 0; k < n; k++){
@@ -1711,6 +1716,7 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 									alpha_x_mx_(k)*offsets_MX[offset_ptr](0));
 			waypoints_mx_[k].SetY(waypoints_mx_[k].y() + 
 									alpha_y_mx_(k)*offsets_MX[offset_ptr](1));
+			offset_map[k] = offset_ptr;
 			offset_ptr++;
 		}
 	}
@@ -1741,7 +1747,6 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	Corridor_MX curr_corridor, prev_corridor;
 	double position_tolerance = 1.0e-5;
 	MX temp_mx(6, n);
-	offset_ptr = 0;
 	for (int w = 0; w < n; w++){
 		// std::cout << "\t\tw = " << w << std::endl;
 		auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
@@ -1776,18 +1781,23 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		// TODO: fix this error
 		// Uncaught Exception: .../casadi/interfaces/fatrop/fatrop_runtime.hpp:218: Structure mismatch: gap-closing constraints must be like this: x_{k+1}-F(xk,uk).
 		if (w == n-1){
-			opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
-			opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
+			// opti_.subject_to(next_waypoint.x() == intermediate_positions_[2].x());
+			// opti_.subject_to(next_waypoint.y() == intermediate_positions_[2].y());
+			opti_.subject_to(next_waypoint.x() - position_tolerance <= (intermediate_positions_[2].x() <= next_waypoint.x() + position_tolerance));
+			opti_.subject_to(next_waypoint.y() - position_tolerance <= (intermediate_positions_[2].y() <= next_waypoint.y() + position_tolerance));
 		} else {
 			if (movable_waypoints_code[w+1] == '1'){
-				opti_.subject_to(offsets_MX[offset_ptr](0) == (intermediate_positions_[2].x() - waypoints_p(0, w+1))/alpha_p(0, w+1));
-				opti_.subject_to(offsets_MX[offset_ptr](1) == (intermediate_positions_[2].y() - waypoints_p(1, w+1))/alpha_p(1, w+1));
-				offset_ptr++;
+				opti_.subject_to(offsets_MX[offset_map[w+1]](0) == (intermediate_positions_[2].x() - waypoints_p(0, w+1))/alpha_p(0, w+1));
+				opti_.subject_to(offsets_MX[offset_map[w+1]](1) == (intermediate_positions_[2].y() - waypoints_p(1, w+1))/alpha_p(1, w+1));
 			} else {
-				opti_.subject_to(intermediate_positions_[2].x() == waypoints_p(0, w+1));
-				opti_.subject_to(intermediate_positions_[2].y() == waypoints_p(1, w+1));
+				// opti_.subject_to(intermediate_positions_[2].x() == waypoints_p(0, w+1));
+				// opti_.subject_to(intermediate_positions_[2].y() == waypoints_p(1, w+1));
+				opti_.subject_to(waypoints_p(0,w+1) - position_tolerance <= (intermediate_positions_[2].x() <= waypoints_p(0,w+1) + position_tolerance));
+				opti_.subject_to(waypoints_p(1,w+1) - position_tolerance <= (intermediate_positions_[2].y() <= waypoints_p(1,w+1) + position_tolerance));
 			}
 		}
+		// opti_.subject_to(next_waypoint.x() - position_tolerance <= (intermediate_positions_[2].x() <= next_waypoint.x() + position_tolerance));
+		// opti_.subject_to(next_waypoint.y() - position_tolerance <= (intermediate_positions_[2].y() <= next_waypoint.y() + position_tolerance));
 
 		//	basic box constraints
 		opti_.subject_to(0 <= (t_x_(Slice(), w) <= 100));
@@ -1795,10 +1805,10 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 
 		// deal with moving waypoints
 		if (movable_waypoints_code[w] == '1'){
-			opti_.subject_to(movable_distances_p(0, offset_ptr-1) <= offsets_MX[offset_ptr-1](0));
-			opti_.subject_to(offsets_MX[offset_ptr-1](0) <= movable_distances_p(1, offset_ptr-1));
-			opti_.subject_to(movable_distances_p(2, offset_ptr-1) <= offsets_MX[offset_ptr-1](1));
-			opti_.subject_to(offsets_MX[offset_ptr-1](1) <= movable_distances_p(3, offset_ptr-1));
+			opti_.subject_to(movable_distances_p(0, offset_map[w]) <= offsets_MX[offset_map[w]](0));
+			opti_.subject_to(offsets_MX[offset_map[w]](0) <= movable_distances_p(1, offset_map[w]));
+			opti_.subject_to(movable_distances_p(2, offset_map[w]) <= offsets_MX[offset_map[w]](1));
+			opti_.subject_to(offsets_MX[offset_map[w]](1) <= movable_distances_p(3, offset_map[w]));
 		}
 
 		// first corridor: special cases
@@ -1900,10 +1910,14 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 
 	// Add terminal velocity constraint
 	double velocity_relaxation_tolerance = 1.0e-5;
+	// opti_.subject_to(-velocity_relaxation_tolerance <= 
+	// 				(v_x_(n) <= velocity_relaxation_tolerance));
+	// opti_.subject_to(-velocity_relaxation_tolerance <=
+	// 				(v_y_(n) <= velocity_relaxation_tolerance));
 	opti_.subject_to(-velocity_relaxation_tolerance <= 
-					(v_x_(n) <= velocity_relaxation_tolerance));
+					(curr_v_x <= velocity_relaxation_tolerance));
 	opti_.subject_to(-velocity_relaxation_tolerance <=
-					(v_y_(n) <= velocity_relaxation_tolerance));
+					(curr_v_y <= velocity_relaxation_tolerance));
 	
 
 
