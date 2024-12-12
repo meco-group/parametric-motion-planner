@@ -24,24 +24,24 @@ methods = [pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.P2P]
 method_names = ["ARENA", 
-                "ARENA+",
+                "ARENA-FATROP",
                 "OCP-5", 
                 "OCP-10", 
                 "OCP-20", 
-                "OCP-30", 
-                "OCP-40", 
+                "OCP-30",
+                "OCP-30-FATROP", 
                 "P2P"]
-default_selection = [1, 0, 0, 0, 0, 1, 0, 1]
-arena_selection = [1, 0, 0, 0, 0, 0, 0, 0]
+default_selection = [1, 1, 0, 0, 0, 1, 1, 1]
+arena_selection = [1, 1, 0, 0, 0, 1, 1, 1]
 assert len(methods) == len(method_names)
 
 my_selection = arena_selection
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
-motion_planner.SetSolver("ipopt")
+# motion_planner.SetSolver("ipopt")
 # motion_planner.SetOptimizationApproach("original")
-motion_planner.SetOptimizationApproach("new formulation")
+# motion_planner.SetOptimizationApproach("new formulation")
 
 # create containers for results
 # results = {}
@@ -52,6 +52,7 @@ results = json.load(open('python-benchmark/files/results' + file_name_appendix +
 
 expected_failures = []
 failures = []
+avg_solver_time = 0
 
 # Benchmark
 for method, method_name in zip(methods, method_names):
@@ -65,19 +66,16 @@ for method, method_name in zip(methods, method_names):
         motion_planner.SetMethod(method)
 
     # Set the correct number of points per corridor for the OCP method
-    if method_name.startswith("OCP"):
+    if method_name.startswith("OCP") and not method_name.endswith("FATROP"):
         method_name_split = method_name.split("-")
         assert len(method_name_split) == 2
         n = int(method_name_split[1])
         motion_planner.SetOCPNumberOfPointsPerCorridor(n)
-    
-    # Toggle the EliminateSuboptimalityFeature for ARENA+
-    if method_name.startswith("ARENA"):
-        method_name_split = method_name.split("+")
-        if len(method_name_split) == 2:
-            motion_planner.SetSuboptimalityEliminationFeature(True)
-        else:
-            motion_planner.SetSuboptimalityEliminationFeature(True)
+
+    if method_name.endswith("FATROP"):
+        motion_planner.SetSolver("fatrop")
+    else:
+        motion_planner.SetSolver("ipopt")
 
     # loop over all environments
     for i in range(len(envs)):
@@ -112,6 +110,7 @@ for method, method_name in zip(methods, method_names):
                 motion_planner.CorridorInfeasibilitiesDetected())
             if motion_planner.GetTotalComputationTime() < 0 or motion_planner.GetSolverTime() < 0:
                 failures.append(i)
+            avg_solver_time += motion_planner.GetSolverTime()
 
             corridors = motion_planner.GetCorridorSequence()
             if (len(corridors) > 1):
@@ -155,8 +154,10 @@ for method, method_name in zip(methods, method_names):
 # print(expected_failures)
             
 print(f"Failures: {failures}")
+avg_solver_time /= len(envs)
+print(f"Average solver time: {avg_solver_time}")
 
 # # store results as a json
-# import json
-# with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
-#     json.dump(results, f, indent=4)
+import json
+with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
+    json.dump(results, f, indent=4)
