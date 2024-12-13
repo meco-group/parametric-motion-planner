@@ -21,14 +21,6 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 
     // SetSolver("ipopt");
     SetSolver("fatrop");
-	InitializeRK4();
-
-    // ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
-    //                                  solver_name_, opts_casadi_,
-    //                                  opts_solver_);
-    // parametrization_.PrepareOptiInstances(parametrization_update_token_,
-    //                                       solver_name_, opts_casadi_,
-    //                                       opts_solver_);
 
 	// P2P method attributes
 	int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
@@ -120,9 +112,6 @@ void MotionPlanner::Plan(){
         planning_computation_time_end - planning_computation_time_start;
     std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
     last_solution_.SetTotalComputationTime(planning_computation_time.count());
-
-    // std::cout << "Solution obtained:" << std::endl;
-    // std::cout << last_solution_ << std::endl;
 }
 
 void MotionPlanner::Plan(const Point2D<double> &start, 
@@ -137,7 +126,6 @@ void MotionPlanner::Plan(const Point2D<double> &start,
 void MotionPlanner::SetSolver(std::string solver_name){
     assert (solver_name == "ipopt" || solver_name == "fatrop");
 
-    // if (solver_name == solver_name_){return;}
     opts_casadi_.clear();
     opts_solver_.clear();
 
@@ -151,15 +139,30 @@ void MotionPlanner::SetSolver(std::string solver_name){
         opts_casadi_["debug"] = true;
         opts_solver_["mu_init"] = 1.0e-1;
     }
-	opts_solver_["print_level"] = 0;
-	// opts_solver_["max_iter"] = 50;
+	opts_solver_["print_level"] = print_level_;
+	opts_solver_["max_iter"] = max_iter_;
 
-    parametrization_.PrepareOptiInstances(parametrization_update_token_,
-                                          solver_name_, opts_casadi_,
-                                          opts_solver_);
-    ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
-                                     solver_name_, opts_casadi_,
-                                     opts_solver_);
+    if (!just_in_time_preparation_mode_){
+        parametrization_.PrepareOptiInstances(parametrization_update_token_,
+                                            solver_name_, opts_casadi_,
+                                            opts_solver_);
+        ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+                                        solver_name_, opts_casadi_,
+                                        opts_solver_);
+    }
+}
+
+void MotionPlanner::SetJustInTimePreparationMode(bool set){
+    if (set && !just_in_time_preparation_mode_){
+        just_in_time_preparation_mode_ = set;
+        parametrization_.PrepareOptiInstances(parametrization_update_token_,
+                                             solver_name_, opts_casadi_,
+                                             opts_solver_);
+        ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+                                         solver_name_, opts_casadi_,
+                                         opts_solver_);
+    }
+    just_in_time_preparation_mode_ = set;
 }
 
 json MotionPlanner::ToJson() const {
@@ -326,7 +329,8 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 
 void MotionPlanner::PlanOCP(){
     std::cout << "Planning using OCP method" << std::endl;
-    ocp_solver_.Solve(ocp_solver_update_token_);
+    ocp_solver_.Solve(ocp_solver_update_token_, solver_name_, opts_solver_,
+                      opts_casadi_, just_in_time_preparation_mode_);
 
     std::map<std::string, DM> latest_solution = ocp_solver_.GetLatestSolution();
 
@@ -390,7 +394,9 @@ void MotionPlanner::PlanARENA(){
             made_modification = false;
 
             // Solve the parametrization
-            parametrization_.Solve(parametrization_update_token_, 
+            parametrization_.Solve(parametrization_update_token_, solver_name_,
+                                   opts_casadi_, opts_solver_,
+                                   just_in_time_preparation_mode_,
                                    use_warm_start);
             // parametrization_.OptimizeParametrization(
             //     parametrization_update_token_, solver_name_, opts_casadi_, 
@@ -402,14 +408,15 @@ void MotionPlanner::PlanARENA(){
                 
             // Sample the trajectory and check if extra constraints are needed
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
-            
-            // break;
-            
+                       
             bool added_new_constraints = add_constraints_list_.size() > 0;
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
                 std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
-                added_new_constraints = parametrization_.AddOvershootingConstraints(add_constraints_list_);
+                added_new_constraints = 
+                    parametrization_.AddOvershootingConstraints(
+                        add_constraints_list_, solver_name_, opts_casadi_, 
+                        opts_solver_, just_in_time_preparation_mode_);
                 // added_new_constraints = parametrization_.AddOvershootingConstraintsOld(add_constraints_list_);
 
                 if (added_new_constraints){
@@ -424,7 +431,6 @@ void MotionPlanner::PlanARENA(){
                     // in the solution either, so we're done
                 }
             }
-            // break;
             // If no modification was made, check if the parametrization is 
             // still sub-optimal
             if (eliminate_suboptimalities_){
@@ -433,17 +439,6 @@ void MotionPlanner::PlanARENA(){
             } 
         }
     }
-
-    // Update the solution
-    // std::cout << "updating solution " << std::endl;
-    // last_solution_.Update(corridor_sequence_,
-    //                       parametrization_.GetTxSol(), 
-    //                       parametrization_.GetTySol(), 
-    //                       parametrization_.GetAlphaXSol(), 
-    //                       parametrization_.GetAlphaYSol(), 
-    //                       parametrization_.GetWaypointsSol(),
-    //                       parametrization_.GetWaypointVelocitiesSol(),
-    //                       params_);
 }
 
 
@@ -479,27 +474,6 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
                a*std::pow(T - tau, 2)/2;
 
     // select a feasible final point
-}
-
-void MotionPlanner::InitializeRK4(){
-    MX xk = MX::sym("xk", 4);
-    MX uk = MX::sym("uk", 2);
-    MX dt = MX::sym("dt");
-
-    Function rhs = Function("rhs", {xk, uk}, {vertcat(xk(2), xk(3), uk(0), uk(1))});
-    std::vector<MX> rhs_arguments = {xk, uk};
-    MX k1 = dt*rhs(rhs_arguments)[0];
-
-    rhs_arguments[0] = xk + 0.5*k1;
-    MX k2 = dt*rhs(rhs_arguments)[0];
-
-    rhs_arguments[0] = xk + 0.5*k2;
-    MX k3 = dt*rhs(rhs_arguments)[0];
-
-    rhs_arguments[0] = xk + k3;
-    MX k4 = dt*rhs(rhs_arguments)[0];
-
-    rk4_ = Function("rk4", {xk, uk, dt}, {xk + (k1 + 2*k2 + 2*k3 + k4)/6});
 }
 
 std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){

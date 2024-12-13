@@ -52,8 +52,6 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 		t_y_sol_[i] = std::vector<double>(3);
 	}
 
-	// InitializeParabolicSegmentConstraintFunction();
-
 	// scratch space
 	candidate_waypoints_ = std::vector<Point2D<double>>(4);
 	candidate_valid_ = std::vector<bool>(4);
@@ -66,8 +64,8 @@ Parametrization::Parametrization(CorridorSequence const &corridor_sequence,
 
 void Parametrization::PrepareOptiInstances(const UpdateToken&, 
 						  std::string& solver_name_,
-						  casadi::Dict const &opts_casadi, 
-						  casadi::Dict const &opts_solver){
+						  casadi::Dict& opts_casadi, 
+						  casadi::Dict& opts_solver){
 	std::cout << "preparing ARENA opti instances..." << std::endl;
 	std::string movable_points_code;
 	for (int i = 1; i < 7; i++){
@@ -83,7 +81,10 @@ void Parametrization::PrepareOptiInstances(const UpdateToken&,
 	std::cout << "\t\tDone!" << std::endl;
 }
 
-void Parametrization::Solve(const UpdateToken&, bool use_warm_start){
+void Parametrization::Solve(const UpdateToken&, std::string& solver_name, 
+							Dict& opts_casadi, Dict& opts_solver,
+							bool just_in_time_preparation_mode,
+							bool use_warm_start){
 	int n = corridor_sequence_.NbCorridors();
 
 	// create the code describing the movable waypoints
@@ -96,6 +97,12 @@ void Parametrization::Solve(const UpdateToken&, bool use_warm_start){
 	if (use_warm_start){
 		active_opti_inputs_["x_init"] = latest_solution_["opti_x"];
 	} else {
+		// Check if the opti_instance is prepared
+		if (just_in_time_preparation_mode || 
+			prepared_opti_instances_[n].find(code) == prepared_opti_instances_[n].end()){
+			PrepareSingleOptiInstance(n, solver_name, opts_casadi, opts_solver, code);
+			std::cout << "Prepared opti instance for " << n << " corridors with code " << code << std::endl;
+		}
 		active_opti_instance_ = prepared_opti_instances_[n][code];
 		active_opti_inputs_ = opti_inputs_[n][code];
 		active_opti_code_ = code;
@@ -319,9 +326,9 @@ void Parametrization::UpdateParametrization(const UpdateToken&){
 };
 
 void Parametrization::OptimizeParametrization(const UpdateToken&,
-											  std::string& solver_name_,
-											  Dict const &opts_casadi,
-											  Dict const &opts_solver,
+											  std::string& solver_name,
+											  Dict& opts_casadi,
+											  Dict& opts_solver,
 											  bool use_prev_sol_as_init_guess){		
 
 	if (optimization_problem_name_ == "original"){
@@ -571,7 +578,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	/// Finish problem formulation ///
 	//////////////////////////////////
 	opti_.minimize(obj);
-	opti_.solver(solver_name_, opts_casadi, opts_solver);
+	opti_.solver(solver_name, opts_casadi, opts_solver);
 
 	//////////////////
 	/// Warm-start ///
@@ -843,7 +850,7 @@ void Parametrization::OptimizeParametrization(const UpdateToken&,
 	/// Finish problem formulation ///
 	//////////////////////////////////
 	opti_.minimize(obj);
-	opti_.solver(solver_name_, opts_casadi, opts_solver);
+	opti_.solver(solver_name, opts_casadi, opts_solver);
 
 	//////////////////
 	/// Warm-start ///
@@ -958,7 +965,9 @@ bool Parametrization::AddOvershootingConstraintsOld(std::set<int> &add_list){
 	return added_something;
 }
 
-bool Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
+bool Parametrization::AddOvershootingConstraints(std::set<int> &add_list,
+		std::string& solver_name, casadi::Dict& opts_casadi,
+		casadi::Dict& opts_solver, bool just_in_time_preparation_mode){
 	bool added_something = false;
 
 	double t_extreme;
@@ -1023,7 +1032,8 @@ bool Parametrization::AddOvershootingConstraints(std::set<int> &add_list){
 	}
 
 	if (added_something){
-		Solve(UpdateToken(), true);
+		Solve(UpdateToken(), solver_name, opts_casadi, opts_solver, 
+			  just_in_time_preparation_mode, true);
 		// ExtractSolutionOld();
 	}
 
@@ -1257,8 +1267,8 @@ json Parametrization::ToJson() const {
 
 void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 										  		std::string& solver_name_,
-										  		Dict const &opts_casadi,
-										  		Dict const &opts_solver,
+										  		Dict& opts_casadi,
+										  		Dict& opts_solver,
 												std::string movable_waypoints_code){		
 	// reset mx containers
 	alpha_x_mx_ = MX(max_nb_corridors_ + 1, 1);
@@ -1977,70 +1987,6 @@ void Parametrization::ApplyOvershootingPreventionConstraint(
 						 (params_.GetAmax());
 		opti.subject_to(t0 <= t_limit);
 	} 
-}
-
-void Parametrization::InitializeParabolicSegmentConstraintFunction(){
-	// function inputs
-	MX p0 = MX::sym("p0");
-	MX v0 = MX::sym("v0");
-	MX alpha = MX::sym("alpha");
-	MX T = MX::sym("T");
-	
-	// define the signmoids
-	MX x = MX::sym("x");
-	double lmbd = 5.0;
-	Function s = Function("s", {x}, {1.0/(1.0 + exp(-lmbd*x/0.01))});
-	Function s1 = Function("s1", {x}, {s(-x + 0.0)[0]});
-	Function s2 = Function("s2", {x}, {s(x - 0.0)[0] * s(T - x)[0]});
-	Function s3 = Function("s3", {x}, {s(x - T)[0]});
-
-	// get the smooth extreme point of the parabolic segment
-	MX t_extreme = -v0/(params_.GetAmax()*alpha);
-	MX p_extreme = s1(t_extreme)[0]*p0 + 
-				   s2(t_extreme)[0]*
-						(p0 + v0*t_extreme + 0.5*alpha*params_.GetAmax()*pow(t_extreme, 2)) + 
-				   s3(t_extreme)[0]*
-				   		(p0 + v0*T + 0.5*alpha*params_.GetAmax()*pow(T, 2));
-	// MX p_extreme = p0 + v0*t_extreme + 0.5*alpha*params_.GetAmax()*pow(t_extreme, 2);
-
-	parabolic_segment_extremum_ = Function("parabolic_segment_extremum", 
-											{p0, v0, alpha, T}, {p_extreme});
-}
-
-void Parametrization::ConstrainParabolicSegment(Opti &opti, MX T, MX p0,
-												MX v0, MX alpha,
-												double min_val, 
-												double max_val, 
-												double offset,
-												MX &obj){
-	// return;
-	int approach_selector = 2;
-
-	if (approach_selector == 0){			// constraint extremum (suboptimal)
-		MX t_extreme = -v0/(params_.GetAmax()*alpha);
-		MX p_extreme = p0 + v0*t_extreme + 0.5*alpha*params_.GetAmax()*pow(t_extreme, 2);
-
-		opti.subject_to(min_val + offset <= 
-						(p_extreme <= max_val - offset));
-
-	} else if (approach_selector == 1){		// use soft extremum formulation
-		MX p_extreme = parabolic_segment_extremum_({p0, v0, alpha, T})[0];
-		// p_extremes_.push_back(p_extreme);
-
-		double relaxation = 0.001;
-		opti.subject_to(min_val + offset - relaxation <= 
-						(p_extreme <= max_val - offset + relaxation));
-	
-	} else if (approach_selector == 2){		// use slack-based approach
-		MX s = opti.variable();
-		MX t_extreme = -v0/(params_.GetAmax()*alpha) + s;
-		opti.subject_to(0 <= (t_extreme <= T));
-		MX p_extreme = p0 + v0*t_extreme + 0.5*alpha*params_.GetAmax()*pow(t_extreme, 2);
-		opti.subject_to(min_val + offset <= (p_extreme <= max_val - offset));
-		obj += 1.0e1*T*s*s;
-
-		p_extremes_.push_back(p_extreme);
-	}
 }
 
 void Parametrization::ExtractSolutionOld(){

@@ -10,8 +10,8 @@ OCPSolver::OCPSolver(CorridorSequence const &CorridorSequence,
 
 void OCPSolver::PrepareOptiInstances(const UpdateToken& token,
                                      std::string& solver_name_,
-                                     casadi::Dict const &opts_casadi, 
-                                     casadi::Dict const &opts_solver){
+                                     casadi::Dict& opts_casadi, 
+                                     casadi::Dict& opts_solver){
     std::cout << "preparing OCP opti instances..." << std::endl;
     for (int i = 1; i < 7; i++){
         PrepareSingleOptiInstance(i, solver_name_, opts_casadi, opts_solver);
@@ -20,9 +20,9 @@ void OCPSolver::PrepareOptiInstances(const UpdateToken& token,
 }
 
 void OCPSolver::PrepareSingleOptiInstance(int nbCorridors,
-                                          std::string& solver_name_,
-                                          casadi::Dict const &opts_casadi,
-                                          casadi::Dict const &opts_solver){
+                                          std::string& solver_name,
+                                          casadi::Dict& opts_casadi,
+                                          casadi::Dict& opts_solver){
     int n = nbCorridors;
     int N = n * nb_points_per_corridor_;
 
@@ -159,7 +159,7 @@ void OCPSolver::PrepareSingleOptiInstance(int nbCorridors,
     }
 
     opti.minimize(obj);
-    opti.solver(solver_name_, opts_casadi, opts_solver);
+    opti.solver(solver_name, opts_casadi, opts_solver);
 
     Dict opts;
     opts["error_on_fail"] = true;
@@ -195,9 +195,18 @@ void OCPSolver::PrepareSingleOptiInstance(int nbCorridors,
     opti_inputs_[nbCorridors] = inputs;
 };
 
-void OCPSolver::Solve(const UpdateToken&){
+void OCPSolver::Solve(const UpdateToken&, std::string& solver_name,
+                      casadi::Dict& opts_solver,
+                      casadi::Dict& opts_casadi,
+                      bool just_in_time_preparation_mode){
     int n = corridor_sequence_.NbCorridors();
     int N = n * nb_points_per_corridor_;
+
+    // Check if the desired opti instance is available
+    if (just_in_time_preparation_mode ||
+        prepared_opti_instances_.find(n) == prepared_opti_instances_.end()){
+        PrepareSingleOptiInstance(n, solver_name, opts_casadi, opts_solver);
+    }
 
     // Prepare initialization
     std::vector<Point2D<double>> initialization_waypoints = 

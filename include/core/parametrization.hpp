@@ -6,7 +6,6 @@
 #include <casadi/casadi.hpp>
 #include <optional>
 
-#include "helper_methods.hpp"
 #include "helper_types.hpp"
 #include "corridor.hpp"
 #include "trajectory.hpp"
@@ -46,19 +45,27 @@ class Parametrization{
 
         void PrepareOptiInstances(const UpdateToken&, 
                                   std::string& solver_name_,
-                                  casadi::Dict const &opts_casadi, 
-                                  casadi::Dict const &opts_solver);
+                                  casadi::Dict& opts_casadi, 
+                                  casadi::Dict& opts_solver);
 
         // only the motion planner can update the parametrization
         void UpdateParametrization(const UpdateToken&);
-        void Solve(const UpdateToken&, bool use_warm_start=false);
+        void Solve(const UpdateToken&, std::string& solver_name,
+                   casadi::Dict& opts_casadi,
+                   casadi::Dict& opts_solver,
+                   bool just_in_time_preparation_mode,
+                   bool use_warm_start=false);
         void OptimizeParametrization(const UpdateToken&, 
-                                     std::string& solver_name_,
-                                     casadi::Dict const &opts_casadi, 
-                                     casadi::Dict const &opts_solver,
+                                     std::string& solver_name,
+                                     casadi::Dict& opts_casadi, 
+                                     casadi::Dict& opts_solver,
                                      bool use_prev_sol_as_init_guess);
         bool AddOvershootingConstraintsOld(std::set<int> &add_list);
-        bool AddOvershootingConstraints(std::set<int> &add_list);
+        bool AddOvershootingConstraints(std::set<int> &add_list,
+                                        std::string& solver_name,
+                                        casadi::Dict& opts_casadi,
+                                        casadi::Dict& opts_solver,
+                                        bool just_in_time_preparation_mode);
         void OptimizeSingleArc(const UpdateToken&);
 
         bool FlipAccelerationAtWaypoint(const UpdateToken&,
@@ -85,6 +92,9 @@ class Parametrization{
         std::vector<Point2D<double>>& GetWaypointVelocitiesSol();
         double GetSolverTime() const { return solver_time_;};
 
+        void SetParametrizationOptimizationApproach(std::string approach){
+            optimization_problem_name_ = approach;}
+
         // printing overload
         friend std::ostream& operator<<(std::ostream &out, 
                             Parametrization const &parametrization);
@@ -93,13 +103,11 @@ class Parametrization{
 
         Trajectory initialized_trajectory_;
 
-        std::string optimization_problem_name_ = "original";
-
     private:
         void PrepareSingleOptiInstance(int nbCorridors,
                                        std::string& solver_name_,
-                                       Dict const &opts_casadi,
-                                       Dict const &opts_solver,
+                                       Dict& opts_casadi,
+                                       Dict& opts_solver,
                                        std::string movable_points_code);
         // waypoint with index waypoint_idx is in the overlapping region of 
         // corridor waypoint_idx - 1 and corridor waypoint_idx
@@ -134,12 +142,7 @@ class Parametrization{
         void ApplyOvershootingPreventionConstraint(casadi::Opti &opti, 
                                                    casadi::MX &t_x, 
                                                    casadi::MX &t_y);
-        void InitializeParabolicSegmentConstraintFunction();
-        void ConstrainParabolicSegment(casadi::Opti &opti, casadi::MX T, 
-                                       casadi::MX p0, casadi::MX v0, 
-                                       casadi::MX alpha, double min_val, 
-                                       double max_val, double offset,
-                                       MX &obj);
+
         void ExtractSolutionOld();
         void ExtractSolution();
 
@@ -160,6 +163,7 @@ class Parametrization{
         const CorridorSequence& corridor_sequence_; // Reference to the corridor sequence object
         bool use_smart_update_ = false;
         int latest_sequence_version_ = -1;    // version of the corridor sequence when the parametrization was last updated
+        std::string optimization_problem_name_ = "original";
 
         const Parameters& params_;
 
@@ -237,8 +241,6 @@ class Parametrization{
         std::vector<Point2D<casadi::MX>> intermediate_positions_;
         std::vector<Point2D<casadi::MX>> intermediate_velocities_;
         int nb_fine_grid_samples_ = 0;
-
-        casadi::Function parabolic_segment_extremum_;
 
         std::vector<casadi::MX> p_extremes_ = {};
         

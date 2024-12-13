@@ -132,5 +132,6 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("SetMaxIter", &MotionPlanner::SetMaxIter)
         .def("SetSolver", &MotionPlanner::SetSolver)
         .def("SetOptimizationApproach", &MotionPlanner::SetParametrizationOptimizationApproach)
+        .def("SetJustInTimePreparationMode", &MotionPlanner::SetJustInTimePreparationMode)
         ;
 }

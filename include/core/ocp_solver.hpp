@@ -1,6 +1,5 @@
 #include "corridor.hpp"
 #include "helper_types.hpp"
-#include "helper_methods.hpp"
 
 // forward decalaration
 class MotionPlanner;
@@ -23,10 +22,13 @@ class OCPSolver{
         };
 
         void PrepareOptiInstances(const UpdateToken&, std::string& solver_name_,
-                                  casadi::Dict const &opts_casadi, 
-                                  casadi::Dict const &opts_solver);
+                                  casadi::Dict& opts_casadi, 
+                                  casadi::Dict& opts_solver);
 
-        void Solve(const UpdateToken&);
+        void Solve(const UpdateToken&, std::string& solver_name,
+                   casadi::Dict& opts_casadi,
+                   casadi::Dict& opts_solver,
+                   bool just_in_time_preparation_mode);
 
         // basic getters
         std::map<std::string, casadi::DM> GetLatestSolution() const { return latest_solution_;};
@@ -36,9 +38,9 @@ class OCPSolver{
         
     private:
         void PrepareSingleOptiInstance(int nbCorridors,
-                                       std::string& solver_name_,
-                                       casadi::Dict const &opts_casadi,
-                                       casadi::Dict const &opts_solver);
+                                       std::string& solver_name,
+                                       casadi::Dict& opts_casadi,
+                                       casadi::Dict& opts_solver);
                                 
         const CorridorSequence& corridor_sequence_;
         const Parameters& params_;

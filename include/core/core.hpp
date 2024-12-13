@@ -4,7 +4,6 @@
 #include "corridor.hpp"
 #include "environment.hpp"
 #include "exceptions.hpp"
-#include "helper_methods.hpp"
 #include "motion_planner.hpp"
 #include "parameters.hpp"
 #include "parametrization.hpp"

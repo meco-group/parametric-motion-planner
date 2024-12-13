@@ -7,7 +7,6 @@
 #include "helper_types.hpp"
 #include "environment.hpp"
 #include "corridor.hpp"
-#include "helper_methods.hpp"
 #include "trajectory.hpp"
 #include "parametrization.hpp"
 #include "ocp_solver.hpp"
@@ -75,14 +74,16 @@ class MotionPlanner{
             return last_solution_.CorridorInfeasibilitiesDetected();};
 
         // Basic setters
-        void SetPrintLevel(int print_level) { opts_solver_["print_level"] = print_level;};
-        void SetMaxIter(int max_iter) { opts_solver_["max_iter"] = max_iter;};
+        void SetPrintLevel(int print_level) { print_level_ = print_level;};
+        void SetMaxIter(int max_iter) { max_iter_ = max_iter;};
         void SetOCPNumberOfPointsPerCorridor(int nb_points_per_corridor){ 
             nb_points_per_corridor_ = nb_points_per_corridor;};
         void SetSuboptimalityEliminationFeature(bool set){ 
             eliminate_suboptimalities_ = set;};
         void SetSolver(std::string solver_name);
-        void SetParametrizationOptimizationApproach(std::string name){parametrization_.optimization_problem_name_ = name;};
+        void SetParametrizationOptimizationApproach(std::string name){
+            parametrization_.SetParametrizationOptimizationApproach(name);};
+        void SetJustInTimePreparationMode(bool set);
 
         // Printing
         void PrintEnvironment(){
@@ -117,9 +118,6 @@ class MotionPlanner{
 
         void ComputeEmergencyBrakingTrajectory();
 
-        // Initialize the rk4 integrator
-        void InitializeRK4();
-
         std::set<int> CheckOutOfCorridor(double solver_time);
         bool EliminateSubOptimalParametrization();
 
@@ -147,7 +145,6 @@ class MotionPlanner{
 
         Trajectory last_solution_ = Trajectory();
         
-
         // P2P method attributes
         std::vector<Point2D<double>> p2p_waypoints_;
         std::vector<double> coarse_samples_time_;
@@ -160,9 +157,6 @@ class MotionPlanner{
         Point2D<double> curr_acc_;
 
         // OCP method attributes
-        Function rk4_;
-        std::vector<MX> rk4_arguments_ = std::vector<MX>(3);
-        std::vector<MX> rk4_outputs_ = std::vector<MX>(1);
         int nb_points_per_corridor_ = 30;
 
         // ARENA method attributes
@@ -175,8 +169,9 @@ class MotionPlanner{
         std::string solver_name_ = "fatrop";
         Dict opts_casadi_;
         Dict opts_solver_;
-
-
+        int print_level_ = 0;
+        int max_iter_ = 3000;
+        bool just_in_time_preparation_mode_ = true;
 };
 
 #endif
