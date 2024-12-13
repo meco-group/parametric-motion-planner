@@ -68,7 +68,7 @@ void Parametrization::PrepareOptiInstances(const UpdateToken&,
 						  casadi::Dict& opts_solver){
 	std::cout << "preparing ARENA opti instances..." << std::endl;
 	std::string movable_points_code;
-	for (int i = 1; i < 7; i++){
+	for (int i = 1; i < 9; i++){
 		// std::cout << "preparing opti instances for " << i << " corridors" << std::endl;
 		for (int nb_movable_waypoints = 0; nb_movable_waypoints < std::pow(2,i-1); nb_movable_waypoints++){
 			movable_points_code = std::bitset<32>(nb_movable_waypoints).to_string();
@@ -111,10 +111,10 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 		InitializeOptimization();
 		int var_ptr = 0;
 		for (int i = 0; i < n; i++){
-			// active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[i].x();
-			// active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[i].y();
-			active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n-1].x();
-			active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n-1].y();
+			active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[i].x();
+			active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[i].y();
+			// active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n-1].x();
+			// active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n-1].y();
 			var_ptr += 2;
 
 			if (i > 0 && code[i] == '1'){
@@ -138,10 +138,10 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 				var_ptr += 2;
 			}
 		}
-		// active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n].x();
-		// active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n].y();
-		active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n-1].x();
-		active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n-1].y();
+		active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n].x();
+		active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n].y();
+		// active_opti_inputs_["x_init"](var_ptr) = waypoint_velocities_init_[n-1].x();
+		// active_opti_inputs_["x_init"](var_ptr+1) = waypoint_velocities_init_[n-1].y();
 
 		// Set parameter values
 		int offset_ptr = 0;
@@ -2310,19 +2310,19 @@ void Parametrization::InitializeFirstArcNew(bool invert){
 
 void Parametrization::InitializeOptimizationNew(){
 	InitializeFirstArcNew(false);
-
-	// t0 = u, t1 = K*u, y2 = u
-	// v_0(u) = (A + Bu^2)/u
+	// 		t0 = u, t1 = K*u, y2 = L*u
+	// 		v_0(u) = (A + Bu^2)/u
 	double Ax, Bx, Ay, By, u;
-	double K = 5;
+	double K = 7;
+	double L = 0.2;
 	for (int w = 1; w < corridor_sequence_.NbCorridors()-1; w++){
-		Ax = (waypoints_[w+1].x() - waypoints_[w].x())/(2+K);
-		Bx = ((1+K)*alpha_x_[w]*params_.GetAmax() - 
-			 0.5*params_.GetAmax()*(alpha_x_[w] + alpha_x_[w+1]))/(2+K);
+		Ax = (waypoints_[w+1].x() - waypoints_[w].x())/(1+K+L);
+		Bx = ((L+K)*alpha_x_[w]*params_.GetAmax() - 
+			0.5*params_.GetAmax()*(alpha_x_[w] + alpha_x_[w+1]*L*L))/(1+K+L);
 
-		Ay = (waypoints_[w+1].y() - waypoints_[w].y())/(2+K);
-		By = ((1+K)*alpha_y_[w]*params_.GetAmax() - 
-			 0.5*params_.GetAmax()*(alpha_y_[w] + alpha_y_[w+1]))/(2+K);
+		Ay = (waypoints_[w+1].y() - waypoints_[w].y())/(1+K+L);
+		By = ((L+K)*alpha_y_[w]*params_.GetAmax() - 
+			0.5*params_.GetAmax()*(alpha_y_[w] + alpha_y_[w+1]*L*L))/(1+K+L);
 		
 		if (Ax < Ay){
 			u = std::max(0.05, std::sqrt(std::abs(Ax/Bx)));
@@ -2332,11 +2332,11 @@ void Parametrization::InitializeOptimizationNew(){
 		
 		t_x_init_[w][0] = u;
 		t_x_init_[w][1] = K*u;
-		t_x_init_[w][2] = u;
+		t_x_init_[w][2] = L*u;
 		waypoint_velocities_init_[w].SetX((Ax + Bx*u*u)/u);
 		t_y_init_[w][0] = u;
 		t_y_init_[w][1] = K*u;
-		t_y_init_[w][2] = u;
+		t_y_init_[w][2] = L*u;
 		waypoint_velocities_init_[w].SetY((Ay + By*u*u)/u);
 	}
 
