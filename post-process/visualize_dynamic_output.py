@@ -349,8 +349,8 @@ def visualize_dynamic_solution_comparison(data_arena, data_ocp, T=-1, counter=0,
                             color='k', fontsize=12, ha='center')
                 
             # Add a below the figure for the different trajectories
-            plt.plot([], [], 'o-', color='blue', linewidth=1.0, label='ARENA')
-            plt.plot([], [], 'o-', color='red', linewidth=1.0, label='OCP')
+            plt.plot([], [], 'o-', color='blue', linewidth=1.0, label='PMP-F')
+            plt.plot([], [], 'o-', color='red', linewidth=1.0, label='OCP-F')
             plt.plot([], [], 'o-', color='black', linewidth=1.0, label='OmgTools')
 
             # make some room for the legend
@@ -431,7 +431,22 @@ def visualize_controls(trajectories, params):
 
     plt.savefig(f"post-process/figures/dynamic_solution_accel.png", dpi=200)
 
+def translate_method_names(method_names):
+    translation = []
 
+    for method in method_names:
+        if method == "ARENA":
+            translation.append("PMP")
+        elif method == "ARENA-FATROP":
+            translation.append("PMP-F")
+        elif method == "OCP-30":
+            translation.append("OCP")
+        elif method == "OCP-30-FATROP":
+            translation.append("OCP-F")
+        else:
+            translation.append(method)
+
+    return translation
 
 PLOT_COMPARISON = True
 
@@ -519,15 +534,15 @@ if PLOT_COMPARISON:
     print("\t\\begin{tabular}{c|ccc|ccc}")
     print("\t\t& \\multicolumn{3}{c|}{Solver time [ms]} & \\multicolumn{3}{c}{Total computation time [ms]} \\\\")
     # print("\t\t\\hline")
-    print("\t\tTime [s] & ARENA & OmgTools & OCP & ARENA & OmgTools & OCP \\\\")
+    print("\t\tTime [s] & PMP-F & OCP-F & OmgTools & PMP-F & OCP & OmgTools\\\\")
     print("\t\t\\hline")
     times = [-0.01] + data_arena["replanning_times"]
     for i in range(len(arena_solver_times)):
-        solver_times = [float(arena_solver_times[i]), float(omg_solver_times[i]), float(ocp_solver_times[i])]
+        solver_times = [float(arena_solver_times[i]), float(ocp_solver_times[i]), float(omg_solver_times[i])]
         min_idx = solver_times.index(min(solver_times))
         solver_strings = [f"{solver_times[t]:.2f}" if t != min_idx else f"\\textbf{{{solver_times[t]:.2f}}}" for t in range(len(solver_times))]
 
-        total_times = [float(arena_total_times[i]), float(omg_total_times[i]), float(ocp_total_times[i])]
+        total_times = [float(arena_total_times[i]), float(ocp_total_times[i]), float(omg_total_times[i])]
         min_idx = total_times.index(min(total_times))
         total_strings = [f"{total_times[t]:.2f}" if t != min_idx else f"\\textbf{{{total_times[t]:.2f}}}" for t in range(len(total_times))]
         

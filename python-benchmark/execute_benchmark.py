@@ -24,21 +24,24 @@ methods = [pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.P2P]
 method_names = ["ARENA", 
-                "ARENA+",
+                "ARENA-FATROP",
                 "OCP-5", 
                 "OCP-10", 
                 "OCP-20", 
-                "OCP-30", 
-                "OCP-40", 
+                "OCP-30",
+                "OCP-30-FATROP", 
                 "P2P"]
-default_selection = [1, 0, 0, 0, 0, 1, 0, 1]
-arena_selection = [1, 0, 0, 0, 0, 0, 0, 0]
+default_selection = [1, 1, 0, 0, 0, 1, 1, 1]
+arena_selection = [1, 1, 0, 0, 0, 1, 1, 1]
 assert len(methods) == len(method_names)
 
 my_selection = arena_selection
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
+# motion_planner.SetSolver("ipopt")
+# motion_planner.SetOptimizationApproach("original")
+# motion_planner.SetOptimizationApproach("new formulation")
 
 # create containers for results
 # results = {}
@@ -49,6 +52,7 @@ results = json.load(open('python-benchmark/files/results' + file_name_appendix +
 
 expected_failures = []
 failures = []
+avg_solver_time = 0
 
 # Benchmark
 for method, method_name in zip(methods, method_names):
@@ -62,61 +66,21 @@ for method, method_name in zip(methods, method_names):
         motion_planner.SetMethod(method)
 
     # Set the correct number of points per corridor for the OCP method
-    if method_name.startswith("OCP"):
+    if method_name.startswith("OCP") and not method_name.endswith("FATROP"):
         method_name_split = method_name.split("-")
         assert len(method_name_split) == 2
         n = int(method_name_split[1])
         motion_planner.SetOCPNumberOfPointsPerCorridor(n)
-    
-    # Toggle the EliminateSuboptimalityFeature for ARENA+
-    if method_name.startswith("ARENA"):
-        method_name_split = method_name.split("+")
-        if len(method_name_split) == 2:
-            motion_planner.SetSuboptimalityEliminationFeature(True)
-        else:
-            motion_planner.SetSuboptimalityEliminationFeature(True)
+
+    if method_name.endswith("FATROP"):
+        motion_planner.SetSolver("fatrop")
+    else:
+        motion_planner.SetSolver("ipopt")
 
     # loop over all environments
     for i in range(len(envs)):
+    # for i in range(420, 460):
         print(f"\n\nRunning environment {i} with method {method_name}")
-        # [large]: suboptimal cases: [229 451 497 438 139 375 267 399 242 437]
-        # 437: heuristics fail in last corridor leading to suboptimal AND infeasible solution
-        # 242: ARENA+ solves this issue
-        # 399: ARENA+ solves this issue
-        # 267: ARENA+ solves this issue
-        # 375: ARENA+ solves this issue
-        # 139: heuristics fail in first corridor
-        # ...
-        
-        # [large_double]: infeasible cases: [45, 46, 66, 69, 80, 88, 96, 98, 105, 110, 117, 119, 127, 130, 137, 138, 141, 165, 172, 211, 220, 225, 233, 236, 241, 248, 265, 281, 301, 309, 313, 314, 347, 371, 373, 394, 403, 404, 407, 431, 439, 443, 445, 451, 462, 469, 472, 482, 490]
-        #
-        idx_to_show = -66
-        # idx_to_show = 162
-        method_to_show = "ARENA"#"OCP-30"
-        if i == idx_to_show and method_name == method_to_show:
-            print(f"\tcorridor_meta_data = ['nominal']*len(corridors)")
-            print(f"\tp0 = [{starts[i].x()}, {starts[i].y()}]")
-            print(f"\tpf = [{dests[i].x()}, {dests[i].y()}]")
-            print(f"\tv0 = [0, 0]")
-            print(f"\tparams = {{'a_max': {params[i].GetAmax()}, 'v_max': {params[i].GetVmax()}, 'veh_width': {params[i].GetVehWidth()}, 'veh_height': {params[i].GetVehHeight()}, 'M': {params[i].GetMargin()}}}")
-
-            env = json.loads(envs[i].ToJson())
-            print(env)
-            grid = env["occupancy_grid"]
-            rr = []
-            cc = []
-            for ii in range(len(grid)):
-                for jj in range(len(grid[ii])):
-            #         print(i, j)
-                    if grid[ii][jj] != 0:
-                        rr.append(ii)
-                        cc.append(jj)
-            print(f"rr_test: {rr}")
-            print(f"cc_test: {cc}")
-
-        if (i == idx_to_show+1 and method_name == method_to_show):
-            exit()
-            # break
 
         motion_planner.SetStart(starts[i])
         motion_planner.SetDest(dests[i])
@@ -130,11 +94,11 @@ for method, method_name in zip(methods, method_names):
 
         if method is not None:
             print("Planning...")
-            try:
-                motion_planner.Plan()
-            except:
-                failures.append(i)
-                pass
+            # try:
+            #     motion_planner.Plan()
+            # except:
+            #     pass
+            motion_planner.Plan()
             print("Done.")
             print("Travel time: ", motion_planner.GetTravelTime())
 
@@ -144,12 +108,9 @@ for method, method_name in zip(methods, method_names):
             results[method_name]["t_comp_solver"].append(motion_planner.GetSolverTime())
             results[method_name]["corridor_infeasibilities_detected"].append(
                 motion_planner.CorridorInfeasibilitiesDetected())
-            if (motion_planner.GetTotalComputationTime() < 0 or motion_planner.GetSolverTime() < 0):
+            if motion_planner.GetTotalComputationTime() < 0 or motion_planner.GetSolverTime() < 0:
                 failures.append(i)
-            
-            if i == idx_to_show and method_name == method_to_show:
-                print("infeasiblities: ", motion_planner.CorridorInfeasibilitiesDetected())
-                motion_planner.PrintParametrization()
+            avg_solver_time += motion_planner.GetSolverTime()
 
             corridors = motion_planner.GetCorridorSequence()
             if (len(corridors) > 1):
@@ -192,9 +153,11 @@ for method, method_name in zip(methods, method_names):
 # print(len(expected_failures))
 # print(expected_failures)
             
-print(f"failures: {failures}")
+print(f"Failures: {failures}")
+avg_solver_time /= len(envs)
+print(f"Average solver time: {avg_solver_time}")
 
-# store results as a json
+# # store results as a json
 import json
 with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
     json.dump(results, f, indent=4)

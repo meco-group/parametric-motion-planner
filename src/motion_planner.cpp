@@ -15,25 +15,20 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
         params_(params),
         environment_(environment),
         corridor_sequence_(environment_, params),
-        parametrization_(corridor_sequence_, params) {
-
+        parametrization_(corridor_sequence_, params),
+        ocp_solver_(corridor_sequence_, params){
 	method_ = method;
 
-    // solver_name_="fatrop";
-    solver_name_ = "ipopt";
-
-    opts_casadi_["expand"] = true;
-
-    if (solver_name_ == "ipopt"){
-        opts_solver_["linear_solver"] = "ma27";
-    } else {
-        // opts_casadi_["structure_detection"] = "auto";
-        // opts_casadi_["debug"] = false;
-        opts_solver_["mu_init"] = 1.0e-1;
-    }
-	// opts_solver_["print_level"] = 0;
-	// opts_solver_["max_iter"] = 5;
+    // SetSolver("ipopt");
+    SetSolver("fatrop");
 	InitializeRK4();
+
+    // ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+    //                                  solver_name_, opts_casadi_,
+    //                                  opts_solver_);
+    // parametrization_.PrepareOptiInstances(parametrization_update_token_,
+    //                                       solver_name_, opts_casadi_,
+    //                                       opts_solver_);
 
 	// P2P method attributes
 	int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
@@ -139,6 +134,34 @@ void MotionPlanner::Plan(const Point2D<double> &start,
     Plan();
 }
 
+void MotionPlanner::SetSolver(std::string solver_name){
+    assert (solver_name == "ipopt" || solver_name == "fatrop");
+
+    // if (solver_name == solver_name_){return;}
+    opts_casadi_.clear();
+    opts_solver_.clear();
+
+    solver_name_ = solver_name;
+    opts_casadi_["expand"] = true;
+
+    if (solver_name_ == "ipopt"){
+        opts_solver_["linear_solver"] = "ma57";
+    } else {
+        opts_casadi_["structure_detection"] = "auto";
+        opts_casadi_["debug"] = true;
+        opts_solver_["mu_init"] = 1.0e-1;
+    }
+	opts_solver_["print_level"] = 0;
+	// opts_solver_["max_iter"] = 50;
+
+    parametrization_.PrepareOptiInstances(parametrization_update_token_,
+                                          solver_name_, opts_casadi_,
+                                          opts_solver_);
+    ocp_solver_.PrepareOptiInstances(ocp_solver_update_token_,
+                                     solver_name_, opts_casadi_,
+                                     opts_solver_);
+}
+
 json MotionPlanner::ToJson() const {
     json motion_planner_json;
     motion_planner_json["environment"] = environment_.ToJson();
@@ -186,8 +209,7 @@ void MotionPlanner::PlanP2P(){
     }
 
     // Get the waypoints
-    p2p_waypoints_ = 
-        helper_.GetCorridorOverlapCenters(corridor_sequence_, start_, dest_);
+    p2p_waypoints_ = corridor_sequence_.GetCorridorOverlapCenters();
     
     for (int i = 0; i < corridor_sequence_.NbCorridors(); i++){
         PlanP2PLine(i);
@@ -304,158 +326,25 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 
 void MotionPlanner::PlanOCP(){
     std::cout << "Planning using OCP method" << std::endl;
+    ocp_solver_.Solve(ocp_solver_update_token_);
 
-    int N = corridor_sequence_.NbCorridors() * nb_points_per_corridor_;
+    std::map<std::string, DM> latest_solution = ocp_solver_.GetLatestSolution();
 
-    // Construct OCP
-    Opti opti = Opti(); 
-    std::vector<MX> xx_MX(N+1);
-    std::vector<MX> tt_MX(N);
-    std::vector<MX> uu_MX(N);
-    for (int i = 0; i < N; i++){
-        xx_MX[i] = opti.variable(4, 1);
-        tt_MX[i] = opti.variable(1, 1);
-        uu_MX[i] = opti.variable(2, 1);
-    }
-    xx_MX[N] = opti.variable(4);
-    MX xx = horzcat(xx_MX);
-    MX tt = horzcat(tt_MX);
-    MX uu = horzcat(uu_MX);
+    DM xx_sol = latest_solution["xx"];
+    DM uu_sol = latest_solution["uu"];
+    DM tt_sol = latest_solution["tt"];
 
-    // Prepare looping over corridors
-    MX obj = 0;
-    int k_offset = 0;
-    std::vector<Point2D<MX>> corners(4);
-    Corridor current_corridor;
-    std::vector<Point2D<double>> initialization_waypoints = 
-        helper_.GetCorridorOverlapCenters(corridor_sequence_, start_, dest_);
-    double initialization_distance = 0;
-    double width_offset = params_.GetVehWidth()/2.0 + params_.GetMargin();
-    double height_offset = params_.GetVehHeight()/2.0 + params_.GetMargin();
-
-    // Start looping over corridors
-    for (int s = 0; s < corridor_sequence_.NbCorridors(); s++){
-        obj += tt(s*nb_points_per_corridor_);
-        current_corridor = corridor_sequence_.GetCorridor(s);
-
-        // initialize the time of the corridor
-        initialization_distance = initialization_waypoints[s].Distance(
-            initialization_waypoints[s+1]);
-
-        // loop over time-steps
-        k_offset = s * nb_points_per_corridor_;
-        for (int k = k_offset; k < k_offset + nb_points_per_corridor_; k++){
-            // add dynamics
-            opti.subject_to(xx(0, k+1) == xx(0, k) + xx(2, k)*tt(k)/nb_points_per_corridor_ + 0.5*uu(0, k)*tt(k)*tt(k)/(nb_points_per_corridor_*nb_points_per_corridor_));
-            opti.subject_to(xx(1, k+1) == xx(1, k) + xx(3, k)*tt(k)/nb_points_per_corridor_ + 0.5*uu(1, k)*tt(k)*tt(k)/(nb_points_per_corridor_*nb_points_per_corridor_));
-            opti.subject_to(xx(2, k+1) == xx(2, k) + uu(0, k)*tt(k)/nb_points_per_corridor_);
-            opti.subject_to(xx(3, k+1) == xx(3, k) + uu(1, k)*tt(k)/nb_points_per_corridor_);
-            if (k < k_offset + nb_points_per_corridor_ - 1){
-                opti.subject_to(tt(k+1) == tt(k));
-            }
-
-            // basic box constraints
-            opti.subject_to(-params_.GetAmax() <= (uu(Slice(), k) <= params_.GetAmax()));
-            opti.subject_to(tt(k) > 0);
-
-            // Add initial constraints
-            if (s == 0 && k == 0){
-                opti.subject_to(xx(0, 0) == start_.x());
-                opti.subject_to(xx(1, 0) == start_.y());
-                opti.subject_to(xx(2, 0) == start_vel_.x());
-                opti.subject_to(xx(3, 0) == start_vel_.y());
-            }
-            
-            // enforce corner points to be inside the current corridor
-            corners[0].SetValues(xx(0, k) - width_offset, 
-                                 xx(1, k) - height_offset);
-            corners[1].SetValues(xx(0, k) + width_offset,
-                                 xx(1, k) - height_offset);
-            corners[2].SetValues(xx(0, k) + width_offset,
-                                 xx(1, k) + height_offset);
-            corners[3].SetValues(xx(0, k) - width_offset,
-                                 xx(1, k) + height_offset);
-            for (Point2D<MX> corner : corners){
-                opti.subject_to(current_corridor.Xmin() <= 
-                        (corner.x() <= current_corridor.Xmax()));
-                opti.subject_to(current_corridor.Ymin() <= 
-                        (corner.y() <= current_corridor.Ymax()));
-            }
-
-            // the first point of a corridor should also be enforced to be 
-            // within the previous corridor to prevent corner cutting (if there 
-            // exists a previous corridor)
-            if (s > 0 && k == k_offset){
-                // current_corridor = corridor_sequence_.GetCorridor(s+1);
-                corners[0].SetValues(xx(0, k) - width_offset, 
-                                    xx(1, k) - height_offset);
-                corners[1].SetValues(xx(0, k) + width_offset,
-                                    xx(1, k) - height_offset);
-                corners[2].SetValues(xx(0, k) + width_offset,
-                                    xx(1, k) + height_offset);
-                corners[3].SetValues(xx(0, k) - width_offset,
-                                    xx(1, k) + height_offset);
-                Corridor previous_corridor = corridor_sequence_.GetCorridor(s-1);
-                for (Point2D<MX> corner : corners){
-                    opti.subject_to(previous_corridor.Xmin() <= 
-                            (corner.x() <= previous_corridor.Xmax()));
-                    opti.subject_to(previous_corridor.Ymin() <= 
-                            (corner.y() <= previous_corridor.Ymax()));
-                }
-            }
-
-            // Add max velocity constraint
-            opti.subject_to(-params_.GetVmax() <= 
-                            (xx(Slice(2,4), k) <= params_.GetVmax()));
-
-            // Add initial guess
-            opti.set_initial(xx(0, k), 
-                initialization_waypoints[s].x() + 
-                (k - k_offset)*(initialization_waypoints[s+1].x() - 
-                initialization_waypoints[s].x())/nb_points_per_corridor_);
-            opti.set_initial(xx(1, k), 
-                initialization_waypoints[s].y() + 
-                (k - k_offset)*(initialization_waypoints[s+1].y() - 
-                initialization_waypoints[s].y())/nb_points_per_corridor_);
-            opti.set_initial(tt(k), initialization_distance/params_.GetVmax());
-
-            // Add final constraints
-            if (s == corridor_sequence_.NbCorridors() - 1 && 
-                k == k_offset + nb_points_per_corridor_ - 1){
-                opti.subject_to(xx(0, N) == dest_.x());
-                opti.subject_to(xx(1, N) == dest_.y());
-                opti.subject_to(xx(2, N) == 0);
-                opti.subject_to(xx(3, N) == 0);
-            }
-        }
-    }
-
-    opti.minimize(obj);
-    opti.solver(solver_name_, opts_casadi_, opts_solver_);
-    
-    DM xx_sol, uu_sol, tt_sol;
     double solver_time;
-    try {
-        OptiSol sol = opti.solve();
-        
-        // Extract solution
-        xx_sol = sol.value(xx);
-        uu_sol = sol.value(uu);
-        tt_sol = sol.value(tt);
 
-        solver_time = sol.stats()["t_wall_total"];
-        solver_time *= 1000; // convert to milliseconds
+    solver_time = ocp_solver_.GetLatestSolverTime();
+    solver_time *= 1000; // convert to milliseconds
 
-    } catch (std::exception &e){
-        std::cout << "An error occurred: " << e.what() << std::endl;
-        xx_sol = opti.debug().value(xx);
-        uu_sol = opti.debug().value(uu);
-        tt_sol = opti.debug().value(tt);
-
-        solver_time = -1;
+    if (ocp_solver_.GetLatestSuccessStatus() != 1){
+        solver_time = -1.0;
     }
 
     // Construct a time-grid for the current samples
+    int N = corridor_sequence_.NbCorridors() * ocp_solver_.GetNbPointsPerCorridor();
     std::vector<double> t(N+1);
     double accumulated_time = 0.0;
     double local_dt = 0.0;
@@ -501,9 +390,11 @@ void MotionPlanner::PlanARENA(){
             made_modification = false;
 
             // Solve the parametrization
-            parametrization_.OptimizeParametrization(
-                parametrization_update_token_, solver_name_, opts_casadi_, 
-                opts_solver_, use_warm_start);
+            parametrization_.Solve(parametrization_update_token_, 
+                                   use_warm_start);
+            // parametrization_.OptimizeParametrization(
+            //     parametrization_update_token_, solver_name_, opts_casadi_, 
+            //     opts_solver_, use_warm_start);
 
             // Extract the solver time
             if (parametrization_.GetSolverTime() < 0){ solver_time = -1;
@@ -511,14 +402,15 @@ void MotionPlanner::PlanARENA(){
                 
             // Sample the trajectory and check if extra constraints are needed
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
-
+            
+            // break;
+            
             bool added_new_constraints = add_constraints_list_.size() > 0;
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
-                // std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
-                added_new_constraints = 
-                    parametrization_.AddOvershootingConstraints(
-                                                    add_constraints_list_);
+                std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
+                added_new_constraints = parametrization_.AddOvershootingConstraints(add_constraints_list_);
+                // added_new_constraints = parametrization_.AddOvershootingConstraintsOld(add_constraints_list_);
 
                 if (added_new_constraints){
                     // Extract the solver time
@@ -532,7 +424,7 @@ void MotionPlanner::PlanARENA(){
                     // in the solution either, so we're done
                 }
             }
-
+            // break;
             // If no modification was made, check if the parametrization is 
             // still sub-optimal
             if (eliminate_suboptimalities_){

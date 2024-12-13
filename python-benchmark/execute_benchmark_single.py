@@ -21,10 +21,16 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 
 # decide which environment to run
 # ARENA infeasible cases (4): 393, 417, 484
-benchmark_idx = 211
+# 6-corridor environments: 14, 56, 104, 439
+# 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
+benchmark_idx = 56 #459 #484
+# TODO: 46
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
+motion_planner.SetSolver("fatrop")
+# motion_planner.SetOptimizationApproach("original")
+# motion_planner.SetOptimizationApproach("new formulation")
 
 motion_planner.SetSuboptimalityEliminationFeature(True)
 motion_planner.SetPrintLevel(5)
@@ -42,18 +48,22 @@ local_param.SetMargin(params[benchmark_idx].GetMargin())
 local_env.CopyObstacles(envs[benchmark_idx])
 
 # Run the planner
-motion_planner.Plan()
+try:
+    motion_planner.Plan()
+except Exception as e:
+    print(f"Exception: {e}")
+
 tf_arena = motion_planner.GetTravelTime()
 t_comp_total_arena = motion_planner.GetTotalComputationTime()
 t_comp_solver_arena = motion_planner.GetSolverTime()
 motion_planner.DumpToJson("python-benchmark/files/single/single_case_ARENA.json", False)
 
 motion_planner.PrintParametrization()
-motion_planner.ShowInitialization()
+# motion_planner.ShowInitialization()
 # motion_planner.SetPrintLevel(0)
 # motion_planner.SetMaxIter(3000)
-print(f"v_max: {params[benchmark_idx].GetVmax()}")
-print(f"a_max: {params[benchmark_idx].GetAmax()}")
+# print(f"v_max: {params[benchmark_idx].GetVmax()}")
+# print(f"a_max: {params[benchmark_idx].GetAmax()}")
 
 motion_planner.SetMethod(pmp.PlannerMethod.OCP)
 motion_planner.Plan()

@@ -143,6 +143,7 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h,
             j = {"trajectory": {"t":t, "px": px, "py": py, "vx": vx, "vy": vy}}
             with open(file_name, 'w') as f:
                 json.dump(j, f, indent=4)
+            print(f"Tf: {t[-1]:.3f}")
     except:
         t0 = 0    
 
@@ -151,7 +152,8 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h,
     solver_time = comp_time
     # total_time = time_b-time_a
     travel_time = t0
-    print(f"solver_time: {solver_time}")
+    print(f"Tf: {travel_time:.3f}\n")
+    # print(f"solver_time: {solver_time}")
 
     return solver_time[-1], travel_time
 
@@ -161,7 +163,7 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h,
 # start = [0.5, 4.5]
 # destination = [4.5, 0.5]
 
-# traj = omg_example(corridors, start, destination)
+# traj = omg_example(corridors, start, destination, 2.0, 6.0, 0.115, 0.115)
 
 # problematic example:
 # corridors = [(0, 1, 0, 2), (0, 3, 1, 2), (2, 3, 1, 5), (2, 5, 4, 5),

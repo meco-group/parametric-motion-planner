@@ -44,18 +44,26 @@ class Parametrization{
                 bool is_valid_ = true;
         };
 
+        void PrepareOptiInstances(const UpdateToken&, 
+                                  std::string& solver_name_,
+                                  casadi::Dict const &opts_casadi, 
+                                  casadi::Dict const &opts_solver);
+
         // only the motion planner can update the parametrization
         void UpdateParametrization(const UpdateToken&);
+        void Solve(const UpdateToken&, bool use_warm_start=false);
         void OptimizeParametrization(const UpdateToken&, 
                                      std::string& solver_name_,
                                      casadi::Dict const &opts_casadi, 
                                      casadi::Dict const &opts_solver,
                                      bool use_prev_sol_as_init_guess);
+        bool AddOvershootingConstraintsOld(std::set<int> &add_list);
         bool AddOvershootingConstraints(std::set<int> &add_list);
         void OptimizeSingleArc(const UpdateToken&);
 
-        bool FlipAccelerationAtWaypoint(const UpdateToken&, int waypoint_idx,
-                                        bool x_flip, bool y_flip);
+        bool FlipAccelerationAtWaypoint(const UpdateToken&,
+                                        int waypoint_idx, bool x_flip, 
+                                        bool y_flip);
         void FilterAddConstraintsList(const UpdateToken&, std::set<int> &add_list) const;
 
         void ShowInitialization();
@@ -85,7 +93,14 @@ class Parametrization{
 
         Trajectory initialized_trajectory_;
 
+        std::string optimization_problem_name_ = "original";
+
     private:
+        void PrepareSingleOptiInstance(int nbCorridors,
+                                       std::string& solver_name_,
+                                       Dict const &opts_casadi,
+                                       Dict const &opts_solver,
+                                       std::string movable_points_code);
         // waypoint with index waypoint_idx is in the overlapping region of 
         // corridor waypoint_idx - 1 and corridor waypoint_idx
         void ComputeSingleWaypoint(int waypoint_idx, bool second_sweep=false);
@@ -114,7 +129,8 @@ class Parametrization{
                                    casadi::MX const &alpha_x,
                                    casadi::MX const &alpha_y,
                                    casadi::MX const &alpha_x_next,
-                                   casadi::MX const &alpha_y_next);
+                                   casadi::MX const &alpha_y_next,
+                                   MX const &a_max);
         void ApplyOvershootingPreventionConstraint(casadi::Opti &opti, 
                                                    casadi::MX &t_x, 
                                                    casadi::MX &t_y);
@@ -124,7 +140,8 @@ class Parametrization{
                                        casadi::MX alpha, double min_val, 
                                        double max_val, double offset,
                                        MX &obj);
-        void Solve();
+        void ExtractSolutionOld();
+        void ExtractSolution();
 
         void ShowOptiDebugInfo();
         void ShowOptiDebugInfoFailed();
@@ -172,6 +189,13 @@ class Parametrization{
         casadi::MX alpha_y_mx_;
         std::vector<Point2D<casadi::MX>> waypoints_mx_;
 
+        // prepared opti instances
+        std::map<int, std::map<std::string, casadi::Function>> prepared_opti_instances_;
+        std::map<int, std::map<std::string, std::map<std::string, casadi::DM>>> opti_inputs_;
+        casadi::Function active_opti_instance_;
+        std::map<std::string, casadi::DM> active_opti_inputs_;
+        std::string active_opti_code_;
+
         // initialization containers
         std::vector<std::vector<double>> t_x_init_;
         std::vector<std::vector<double>> t_y_init_;
@@ -186,6 +210,8 @@ class Parametrization{
         
         // optimized values
         std::optional<casadi::OptiSol> sol_;
+        std::map<std::string, casadi::DM> latest_solution_;
+        int latest_success_status_;
         std::vector<double> alpha_x_sol_;
         std::vector<double> alpha_y_sol_;
         std::vector<Point2D<double>> waypoints_sol_;
@@ -216,6 +242,8 @@ class Parametrization{
 
         std::vector<casadi::MX> p_extremes_ = {};
         
+        std::vector<int> temp_ = {};
+        MX my_slack_parameter_;
 
 };
 
