@@ -16,19 +16,20 @@ def print_stats(Tf, t_comp_total, t_comp_solver):
 # file_name_appendix = "_cell"
 # file_name_appendix = "_double"
 # file_name_appendix = "_large"
-file_name_appendix = "_large_double"
+# file_name_appendix = "_large_double"
+file_name_appendix = "_large_double_more_obstacles_10"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # decide which environment to run
 # ARENA infeasible cases (4): 393, 417, 484
 # 6-corridor environments: 14, 56, 104, 439
 # 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
-benchmark_idx = 12
+benchmark_idx = 3
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
+motion_planner.SetSolver("ipopt")
 motion_planner.SetJustInTimePreparationMode(False)
-motion_planner.SetSolver("fatrop")
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
 

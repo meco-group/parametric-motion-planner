@@ -5,12 +5,12 @@ import parametric_motion_planner_module as pmp
 from load_random_environments import extract_data
 
 # Extract the data
-file_name_appendix = "_large_double"
+file_name_appendix = "_large_double_more_obstacles_10"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # loop over all environments and compute the corridor sequence using a motion planner object
 corridor_number_distribution = []
-dist = {"6":[], "5":[], "4":[], "3":[], "2":[], "1":[]}
+dist = {"8":[], "7":[], "6":[], "5":[], "4":[], "3":[], "2":[], "1":[]}
 
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
 

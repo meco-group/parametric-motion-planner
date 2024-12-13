@@ -24,7 +24,9 @@ latexify()
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
 # with open('python-benchmark/files/results_double.json', 'r') as f:
 # with open('python-benchmark/files/results_large.json', 'r') as f:
-with open('python-benchmark/files/results_large_double.json', 'r') as f:
+# with open('python-benchmark/files/results_large_double.json', 'r') as f:
+# with open('python-benchmark/files/results_large_double_more_obstacles.json', 'r') as f:
+with open('python-benchmark/files/results_large_double_more_obstacles_10.json', 'r') as f:
     results = json.load(f)
 
 def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, use_abs_error=False):
@@ -358,19 +360,12 @@ def create_latex_table(results):
     # - number of infeasible cases
 
     # filter out all entries where ocp fails
-    failures = np.logical_or(
-        np.logical_or(
-            np.array(results["OCP-30"]["t_comp_solver"]) < 0,
-            np.array(results["OCP-30"]["t_comp_total"]) < 0),
-        np.logical_or(
-            np.array(results["ARENA-FATROP"]["t_comp_solver"]) < 0,
-            np.array(results["ARENA-FATROP"]["t_comp_total"]) < 0))
-    failures = np.logical_or(
-        failures,
-        np.logical_or(
-            np.array(results["OmgTools"]["t_comp_solver"]) < 0,
-            np.array(results["OmgTools"]["t_comp_total"]) < 0),
-    )
+    failures = np.array([False]*len(results["OCP-30"]["t_comp_solver"]))
+    for method in results.keys():
+        failures = np.logical_or(failures, np.array(results[method]["t_comp_solver"]) < 0)
+        failures = np.logical_or(failures, np.array(results[method]["t_comp_total"]) < 0)
+        failures = np.logical_or(failures, np.array(results[method]["Tf"]) < 0)
+
     
     for method in results.keys():
         results[method]["t_comp_solver"] = np.array(results[method]["t_comp_solver"])
@@ -499,15 +494,15 @@ filtered_results = filter_results_for_fair_comparison(results)
 optimality_comparison_extended_new_new(filtered_results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
                                    ["orange", "black", "royalblue"])
-plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
-plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
+# plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
+# plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
 
 # plt.figure()
 # compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
 
 show_histogram_densities(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
-plt.savefig("python-benchmark/figures/densities.png", dpi=300)
-plt.savefig("python-benchmark/figures/densities.pdf")
+# plt.savefig("python-benchmark/figures/densities.png", dpi=300)
+# plt.savefig("python-benchmark/figures/densities.pdf")
 
 create_latex_table(results)
 

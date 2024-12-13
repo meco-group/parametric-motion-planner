@@ -154,12 +154,20 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
                                virtual_position=virtual_final_footprint)
         
 def visualize_output(env, params, corridors, planner_methods, trajectories, fig_nb, parametrization=None):
-    filtered_list = [45, 79, 104, 387]
-    suboptimal_list = [108, 416, 203, 172]
-    suboptimal_zoomboxes = {108: [0.92, 1.901, 0.826, 1.794],
-                            172: [0.612, 1.487, 0.706, 1.581],
-                            203: [0.341, 1.348, 0.536, 1.384],
-                            416: [1.277, 1.645, 1.058, 1.420]}
+    # large_double:
+    # filtered_list = [45, 79, 104, 387]
+    # suboptimal_list = [108, 416, 203, 172]
+    # suboptimal_zoomboxes = {108: [0.92, 1.901, 0.826, 1.794],
+    #                         172: [0.612, 1.487, 0.706, 1.581],
+    #                         203: [0.341, 1.348, 0.536, 1.384],
+    #                         416: [1.277, 1.645, 1.058, 1.420]}
+    # fig_folder = 'python-benchmark/benchmark_environments/large_double/figures/'
+
+    # large_double_more_obstacles_10:
+    filtered_list = [64, 446, 252, 131]
+    suboptimal_list = [456, 294, 106, 347]
+    suboptimal_zoomboxes = {}
+    fig_folder = 'python-benchmark/benchmark_environments/large_double_more_obstacles_10/figures/'
 
     # modify the zoomboxes minimally to make them square
     for key in suboptimal_zoomboxes:
@@ -178,8 +186,6 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     if fig_nb not in filtered_list and fig_nb not in suboptimal_list:
         return
 
-    # fig_folder = 'post-process/figures/'
-    fig_folder = 'python-benchmark/benchmark_environments/large_double/figures/'
 
     first_arena_idx = 0
     while planner_methods[first_arena_idx] != "ARENA":
@@ -225,7 +231,7 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
 
     plt.tight_layout()
 
-    plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=300)
+    # plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=300)
     
     plt.xticks([])
     plt.yticks([])
@@ -242,11 +248,13 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
         plt.savefig(fig_folder[:-1] + f'_filtered/traj_{fig_nb:03d}.pdf')
     if fig_nb in suboptimal_list:
         show_waypoints(parametrization)
-        plt.xlim(suboptimal_zoomboxes[fig_nb][:2])
-        plt.ylim(suboptimal_zoomboxes[fig_nb][2:])
+        # plt.xlim(suboptimal_zoomboxes[fig_nb][:2])
+        # plt.ylim(suboptimal_zoomboxes[fig_nb][2:])
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.png', dpi=300)
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.pdf')
         # plt.show()
+
+    # plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=60)
 
     plt.close()
 
@@ -255,14 +263,15 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
 ###############################################################################
 ###############################################################################
 
-
+# bechmark_name = "large_double"
+benchmark_name = "large_double_more_obstacles_10"
 
 N = 500
 
 for i in range(N):
     print(f"{100.0*i/(N-1):.2f}% completion")
     digit = f'00{i}' if i < 10 else f'0{i}' if i < 100 else f'{i}'
-    file_prefix = f"python-benchmark/benchmark_environments/large_double/json_files/"
+    file_prefix = f"python-benchmark/benchmark_environments/{benchmark_name}/json_files/"
     file_appendix = f"_{digit}.json"
     files = [file_prefix + f"P2P{file_appendix}", 
              file_prefix + f"OMG{file_appendix}", 

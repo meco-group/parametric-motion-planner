@@ -32,7 +32,7 @@ for i in range(N):
     j['params'].append(json.loads(params.ToJson()))
 
     # randomize obstacles
-    env.AddRandomObstacles(0.05)
+    env.AddRandomObstacles(0.10)
     j['envs'].append(json.loads(env.ToJson()))
 
     # randomize start and destination points
@@ -54,6 +54,9 @@ for i in range(N):
 # file_appendix = "_cell"
 # file_appendix = "_double"
 # file_appendix = "_large"
-file_appendix = "_large_double"
+# file_appendix = "_large_double"
+# file_appendix = "_large_double_more_obstacles" # 0.15 obstacle probability
+file_appendix = "_large_double_more_obstacles_10"
+        
 with open('python-benchmark/files/random_environments' + file_appendix + '.json', 'w') as f:
     json.dump(j, f, indent=4)

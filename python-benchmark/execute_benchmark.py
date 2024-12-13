@@ -11,7 +11,9 @@ from load_random_environments import extract_data
 # file_name_appendix = "_cell"
 # file_name_appendix = "_double"
 # file_name_appendix = "_large"
-file_name_appendix = "_large_double"
+# file_name_appendix = "_large_double"
+# file_name_appendix = "_large_double_more_obstacles"
+file_name_appendix = "_large_double_more_obstacles_10"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
@@ -32,10 +34,11 @@ method_names = ["ARENA",
                 "OCP-30-FATROP", 
                 "P2P"]
 default_selection = [1, 1, 0, 0, 0, 1, 1, 1]
-arena_selection = [1, 1, 0, 0, 0, 1, 1, 1]
+arena_selection = [1, 1, 0, 0, 0, 0, 0, 0]
 assert len(methods) == len(method_names)
 
-my_selection = arena_selection
+my_selection = default_selection
+# my_selection = arena_selection
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
@@ -48,7 +51,15 @@ motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
 # for m in method_names:
 #     results[m] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [], 
 #                   "corridor_infeasibilities_detected": []}
-results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
+try:
+    results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
+except FileNotFoundError:
+    results = {}
+    with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
+        json.dump(results, f, indent=4)
+    
+    results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
+
 
 expected_failures = []
 failures = []
