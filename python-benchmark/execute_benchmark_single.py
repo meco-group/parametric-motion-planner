@@ -23,11 +23,11 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 # ARENA infeasible cases (4): 393, 417, 484
 # 6-corridor environments: 14, 56, 104, 439
 # 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
-benchmark_idx = 56 #459 #484
-# TODO: 46
+benchmark_idx = 12
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
+motion_planner.SetJustInTimePreparationMode(False)
 motion_planner.SetSolver("fatrop")
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
