@@ -171,7 +171,7 @@ class MotionPlanner{
         Dict opts_solver_;
         int print_level_ = 0;
         int max_iter_ = 3000;
-        bool just_in_time_preparation_mode_ = true;
+        bool just_in_time_preparation_mode_ = false;
 };
 
 #endif

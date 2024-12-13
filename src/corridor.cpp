@@ -217,6 +217,7 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     std::vector<Point2D<int>> path = environment_.PerformBreadthFirstSearch(start_cell, dest_cell);
     if (path.size() == 0){
         sequence_available_ = false;
+        throw std::runtime_error("No path found from start to destination");
         return;
     }
 
