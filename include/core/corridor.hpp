@@ -37,10 +37,17 @@ class Corridor{
         // overlap is not modified
         bool GetOverlap(Corridor &other, Corridor &overlap) const;
 
+        // Check if this corridor is completely within another corridor
         bool IsCompletelyWithin(Corridor* const &other) const;
+
+        // Check if this corridor is completely within union of two other corridors
         bool IsCompletelyWithin(Corridor* const &other1, 
                                 Corridor* const &other2) const;
+
+        // Check if this corridor contains the given point
         bool ContainsPoint(Point2D<double> const &point) const;
+
+        // Check if this corridor contains the given vehicle
         bool ContainsVehicle(const Point2D<double> &vehicle_position, 
                              const Parameters &params) const;
 
@@ -72,12 +79,6 @@ class Corridor{
         void SetYmax(double y_max){ y_max_ = y_max; UpdateDirection();};
 
         // printing
-        // friend std::ostream& operator<<(std::ostream &out, Corridor &corridor) {
-        //     out << "[" << corridor.Xmin() << ", " << 
-        //             corridor.Xmax() << "] x [" << corridor.Ymin() << 
-        //             ", " << corridor.Ymax() << "]";
-        //     return out;
-        // }
         friend std::ostream& operator<<(std::ostream &out, Corridor corridor) {
             // out << "[" << corridor.Xmin() << ", " << 
             //         corridor.Xmax() << "] x [" << corridor.Ymin() << 
@@ -117,6 +118,7 @@ class Corridor{
         Point2D<int> direction_;
 };
 
+// Minimalistic corridor class with attributes of type MX
 using namespace casadi;
 class Corridor_MX{
     public:

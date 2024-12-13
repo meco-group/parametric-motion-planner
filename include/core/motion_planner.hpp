@@ -140,7 +140,6 @@ class MotionPlanner{
 
         const Parameters& params_;
         PlannerMethod method_;
-        Helper helper_;
 
         Point2D<double> start_;
         Point2D<double> dest_;

@@ -209,8 +209,7 @@ void MotionPlanner::PlanP2P(){
     }
 
     // Get the waypoints
-    p2p_waypoints_ = 
-        helper_.GetCorridorOverlapCenters(corridor_sequence_, start_, dest_);
+    p2p_waypoints_ = corridor_sequence_.GetCorridorOverlapCenters();
     
     for (int i = 0; i < corridor_sequence_.NbCorridors(); i++){
         PlanP2PLine(i);
