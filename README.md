@@ -11,10 +11,16 @@ The motion planner constructs a corridor sequence simplifying the environment re
 
 ## Validation of the approach
 This approach has been validated in simulation and on real hardware.
-![image](doc/illustrative-figures/simulation-results/traj_064.png)
+<p float="center">
+  <img src="doc/illustrative-figures/simulation-results/traj_064" width="100" />
+  <img src="doc/illustrative-figures/simulation-results/traj_131" width="100" /> 
+  <img src="doc/illustrative-figures/simulation-results/traj_252" width="100" />
+  <img src="doc/illustrative-figures/simulation-results/traj_446" width="100" />
+</p>
+<!-- ![image](doc/illustrative-figures/simulation-results/traj_064.png)
 ![image](doc/illustrative-figures/simulation-results/traj_131.png)
 ![image](doc/illustrative-figures/simulation-results/traj_252.png)
-![image](doc/illustrative-figures/simulation-results/traj_446.png)
+![image](doc/illustrative-figures/simulation-results/traj_446.png) -->
 
 ![image](doc/illustrative-figures/hardware/demo.gif)
 
