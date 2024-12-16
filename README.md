@@ -7,7 +7,9 @@ The user defines a set of parameters describing the vehicle and an environment t
 
 ## Overview of the approach
 The motion planner constructs a corridor sequence simplifying the environment representation and will plan a dynamically feasible trajectory through these corridors. This can be done either using an OCP-solver or using the parametric motion primitives. Based on heuristics and the corridor layout, these motion primitives represent the solution up to some degrees of freedom. These are fixed by solving an optimization problem.
-![image](doc/illustrative-figures/code-overview.drawio.svg)
+<p float="center">
+    <img src="doc/illustrative-figures/code-overview.drawio.svg" width=300/>
+</p>
 
 ## Validation of the approach
 This approach has been validated in simulation and on real hardware.
