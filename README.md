@@ -28,4 +28,6 @@ This approach has been validated in simulation and on real hardware.
 
 ## Online replanning in dynamic environments
 By simulating moving obstacles, a simple event-based replanning scheme can be implemented. When the current corridors are found not to be obstacle-free, the motion planner is triggered to replan.
-![image](doc/illustrative-figures/simulation-results/dynamic-simulation.gif)
+<p float="center">
+    <img src="doc/illustrative-figures/simulation-results/dynamic-simulation.gif" width=600/>
+</p>
