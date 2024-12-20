@@ -31,8 +31,17 @@ for i in range(len(envs)):
 
     dist[str(n)].append(i)
 
-# make a histogram of the amount of corridors
-print(dist)
+# make a normalized histogram of the amount of corridors
+# print(dist)
+densities = [len(dist[str(i)])*100.0/len(corridor_number_distribution) for i in range(1, 9)]
+# print(densities)
 import matplotlib.pyplot as plt
-plt.hist(corridor_number_distribution, bins=range(1, 10))
+# plt.hist(densities, bins=range(1, 10))
+plt.bar(range(1, 9), densities)
+
+import numpy as np
+plt.vlines(np.mean(corridor_number_distribution), ymin=0, ymax=50, color='r')
+print(np.mean(corridor_number_distribution))
+plt.vlines(np.median(corridor_number_distribution), ymin=0, ymax=50, color='g')
+print(np.median(corridor_number_distribution))
 plt.show()

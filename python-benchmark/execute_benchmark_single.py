@@ -24,12 +24,12 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 # ARENA infeasible cases (4): 393, 417, 484
 # 6-corridor environments: 14, 56, 104, 439
 # 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
-benchmark_idx = 3
+benchmark_idx = 83
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
-motion_planner.SetSolver("ipopt")
-motion_planner.SetJustInTimePreparationMode(False)
+motion_planner.SetJustInTimePreparationMode(True)
+motion_planner.SetSolver("fatrop")
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
 
@@ -61,7 +61,7 @@ motion_planner.DumpToJson("python-benchmark/files/single/single_case_ARENA.json"
 
 motion_planner.PrintParametrization()
 # motion_planner.ShowInitialization()
-# motion_planner.SetPrintLevel(0)
+motion_planner.SetPrintLevel(5)
 # motion_planner.SetMaxIter(3000)
 # print(f"v_max: {params[benchmark_idx].GetVmax()}")
 # print(f"a_max: {params[benchmark_idx].GetAmax()}")

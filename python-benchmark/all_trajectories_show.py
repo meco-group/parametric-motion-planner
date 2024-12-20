@@ -97,7 +97,7 @@ def show_waypoints(parametrization):
                     zorder=13,
                     markeredgecolor='white', markersize=7)
 
-def show_trajectory(trajectory, color, with_trace=False, width=0, height=0, 
+def show_trajectory(trajectory, color, start, dest, with_trace=False, width=0, height=0, 
                     with_footprints=False, nb_samples_to_show=-1,
                     virtual_initial_footprint=False,
                     virtual_final_footprint=True,
@@ -145,12 +145,9 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
     
     if with_footprints:
         # show vehicle footprint
-        plot_vehicle_footprint(plt.gca(), trajectory["px"][0], 
-                               trajectory["py"][0], width, height, 
+        plot_vehicle_footprint(plt.gca(), start["x"], start["y"], width, height, 
                                virtual_position=virtual_initial_footprint)
-        final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
-        plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
-                               trajectory["py"][final_ind], width, height,
+        plot_vehicle_footprint(plt.gca(), dest["x"], dest["y"], width, height,
                                virtual_position=virtual_final_footprint)
         
 def visualize_output(env, params, corridors, planner_methods, trajectories, fig_nb, parametrization=None):
@@ -165,8 +162,11 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
 
     # large_double_more_obstacles_10:
     filtered_list = [64, 446, 252, 131]
-    suboptimal_list = [456, 294, 106, 347]
-    suboptimal_zoomboxes = {}
+    suboptimal_list = [476, 308, 112, 363]
+    suboptimal_zoomboxes = {112: [1.11, 1.55, 1.11, 1.59],
+                            308: [0.94, 1.79, 0.11, 0.92],
+                            363: [0.80, 1.48, 0.12, 0.72],
+                            476: [0.39, 1.00, 1.15, 1.65]}
     fig_folder = 'python-benchmark/benchmark_environments/large_double_more_obstacles_10/figures/'
 
     # modify the zoomboxes minimally to make them square
@@ -181,7 +181,7 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
             suboptimal_zoomboxes[key][3] = y_center + x_diff / 2
         else:
             suboptimal_zoomboxes[key][0] = x_center - y_diff / 2
-            suboptimal_zoomboxes[key][1] = x_center + y_diff
+            suboptimal_zoomboxes[key][1] = x_center + y_diff /2
 
     if fig_nb not in filtered_list and fig_nb not in suboptimal_list:
         return
@@ -217,9 +217,11 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
                            
     # plot trajectory
     for i in range(len(trajectories)):
-        show_trajectory(trajectories[i], colors[i], 
-                        planner_methods[i] == "ARENA", params["veh_width"], 
-                        params["veh_height"], i == 0)
+        if fig_nb not in suboptimal_list or (fig_nb in suboptimal_list and planner_methods[i] in ["ARENA", "OCP"]):
+            show_trajectory(trajectories[i], colors[i], parametrization["waypoints"][0], 
+                            parametrization["waypoints"][parametrization["nb_corridors"]],
+                            planner_methods[i] == "ARENA", params["veh_width"], 
+                            params["veh_height"], i == first_arena_idx)
 
  
     # pts = [0.511041, 0.172393, 0.511041, 0.177022, 0.54149, 0.1785, 0.84088, 0.178954, 0.953821, 0.155781, 1.01849, 0.1815, 1.24629, 0.181509, 1.25851, 0.30149, 1.25851, 0.30149, 1.29906, 0.3015, 1.29906, 0.3015, 1.29937, 0.336515]
@@ -248,11 +250,12 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
         plt.savefig(fig_folder[:-1] + f'_filtered/traj_{fig_nb:03d}.pdf')
     if fig_nb in suboptimal_list:
         show_waypoints(parametrization)
-        # plt.xlim(suboptimal_zoomboxes[fig_nb][:2])
-        # plt.ylim(suboptimal_zoomboxes[fig_nb][2:])
+        plt.ylim(suboptimal_zoomboxes[fig_nb][2:])
+        plt.xlim(suboptimal_zoomboxes[fig_nb][:2])
+        print(suboptimal_zoomboxes[fig_nb])
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.png', dpi=300)
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.pdf')
-        # plt.show()
+        plt.show()
 
     # plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=60)
 

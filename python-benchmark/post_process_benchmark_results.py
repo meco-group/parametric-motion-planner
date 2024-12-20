@@ -29,7 +29,7 @@ latexify()
 with open('python-benchmark/files/results_large_double_more_obstacles_10.json', 'r') as f:
     results = json.load(f)
 
-def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, use_abs_error=False):
+def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
     Tf_baseline = np.array(results[baseline_method]["Tf"])
     Tfs = [np.array(results[method]["Tf"]) for method in methods]
     og_idxs = [np.arange(len(Tf_baseline)) for Tf in Tfs]
@@ -46,21 +46,20 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     rel_errors = [100*(Tf - Tf_baseline) / Tf_baseline for Tf in Tfs]
     if use_abs_error:
         rel_errors = [Tf - Tf_baseline for Tf in Tfs]
-        
+
     # sort errors in ascending order
     for i in range(len(rel_errors)):
         idx = np.argsort(rel_errors[i])
         rel_errors[i] = rel_errors[i][idx]
         og_idxs[i] = og_idxs[i][idx]
-        my_dict = {og_idxs[i][j]: round(rel_errors[i][j],2) for j in range(len(rel_errors[i])-10, len(rel_errors[i]))}
+        my_dict = {idx_map[og_idxs[i][j]]: round(rel_errors[i][j],2) for j in range(len(rel_errors[i])-10, len(rel_errors[i]))}
         print(f"10 most suboptimal cases for method {methods[i]}:")
         # print(og_idxs[i][-10:])
         print(my_dict)
         
-        my_dict = {og_idxs[i][j]: round(rel_errors[i][j],2) for j in range(10)}
+        my_dict = {idx_map[og_idxs[i][j]]: round(rel_errors[i][j],2) for j in range(10)}
         print(f"10 most optimal cases for method {methods[i]}:")
         print(my_dict)
-
 
     # visualize
     plt.figure(figsize=(6,3))
@@ -85,39 +84,37 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     plt.text(a, 5, f"$5\%$", fontsize=15, ha='center', va='center', color='k')
     plt.text(a, 1, f"$1\%$", fontsize=15, ha='center', va='center', color='k')
 
-    plt.vlines(27.3, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
-    plt.vlines(89.5, ymin=0.001, ymax=1, colors='k', ls='-', lw=1, zorder=10)
-    plt.vlines(96.3, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
-    plt.xticks([0, 20, 27, 40, 60, 80, 90, 100])
-    plt.yscale('log'); 
-    plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
-
 
     plt.xlabel("\% of Benchmark Environments")
     if use_abs_error:
         plt.ylabel("Absolute suboptimality [s]")
     else:
         # plt.ylabel("Relative\nsuboptimality [\%]")
-        plt.ylabel("Relative error\non $T^*$ [\%]")
+        plt.ylabel("Relative error\non $t_{\mathrm{move}}$ [\%]")
     # plt.gcf().legend(loc='lower center', ncol = 3, frameon=False)
     plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = 3, frameon=False)
 
+    plt.yscale('log'); 
+    plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
 
     plt.tight_layout(rect=[0, 0.12, 1, 1])
 
     REMOVE_ANNOTATION = True
+
+    my_xticks = [0, 20, 40, 60, 80]
 
     # highlight the 0.95 percentile
     for i in range(len(rel_errors)):
         if methods[i] == "ARENA":
             p = 1
             idx = np.where(rel_errors[i] > p)[0]
-            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=7, zorder=11)
+            idx1 = 100*idx[0]/len(rel_errors[i])
+            plt.plot(idx1, p, 'o', color='royalblue', markersize=7, zorder=11)
             if not REMOVE_ANNOTATION:
-                arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+                arrow_start = (idx1, p)
                 arrow_end = (56, 34.6)
                 arrow_end = (40, 96)
-                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx[0]/len(rel_errors[i])*100:.0f}\% of\nenvironments",
+                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx1:.0f}\% of\nenvironments",
                             xy=arrow_start, xycoords='data',
                             xytext=arrow_end, textcoords='data',
                             # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
@@ -128,14 +125,16 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
                                             color='royalblue'),
                             fontsize=15, color='royalblue'
                             )
+            plt.vlines(idx1, ymin=0.001, ymax=1, colors='k', ls='-', lw=1, zorder=10)
             
             p = 5
             idx = np.where(rel_errors[i] > p)[0]
-            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='royalblue', markersize=7, zorder=11)
+            idx2 = 100*idx[0]/len(rel_errors[i])
+            plt.plot(idx2, p, 'o', color='royalblue', markersize=7, zorder=11)
             if not REMOVE_ANNOTATION:
-                arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+                arrow_start = (idx2, p)
                 arrow_end = (71, 252)
-                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx[0]/len(rel_errors[i])*100:.0f}\% of\nenvironments",
+                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx2:.0f}\% of\nenvironments",
                             xy=arrow_start, xycoords='data',
                             xytext=arrow_end, textcoords='data',
                             # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
@@ -146,15 +145,21 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
                                             color='royalblue'),
                             fontsize=15, color='royalblue'
                             )
+            plt.vlines(idx2, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
+                
+            my_xticks.append(round(idx1))
+            my_xticks.append(round(idx2))
+            my_xticks.sort()
             
         if methods[i] == "OmgTools":
             p = 5
             idx = np.where(rel_errors[i] > p)[0]
-            plt.plot(100*idx[0]/len(rel_errors[i]), p, 'o', color='black', markersize=7, zorder=11)
+            idx3 = 100*idx[0]/len(rel_errors[i])
+            plt.plot(idx3, p, 'o', color='black', markersize=7, zorder=11)
             if not REMOVE_ANNOTATION:
-                arrow_start = (100*idx[0]/len(rel_errors[i]), p)
+                arrow_start = (idx3, p)
                 arrow_end = (4, 85)
-                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx[0]/len(rel_errors[i])*100:.0f}\% of\nenvironments",
+                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx3:.0f}\% of\nenvironments",
                             xy=arrow_start, xycoords='data',
                             xytext=arrow_end, textcoords='data',
                             # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
@@ -165,6 +170,11 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
                                             color='black'),
                             fontsize=15, color='k'
                             )
+            plt.vlines(idx3, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
+            my_xticks.append(round(idx3))
+            my_xticks.sort()
+
+    plt.xticks(my_xticks, my_xticks)
 
 def show_histogram_densities(results, methods, colors):
     # # Travel time
@@ -287,11 +297,16 @@ def plot_densities(data, colors, labels, xlabel, ylabel):
                 max_height = height
 
         # plt.plot(worst_case, 0*2*max_height, 'x', color=colors[i], label=f"{labels[i]} worst case", zorder=99, clip_on=False)
-        plt.plot(worst_case, 0, 'x', color=colors[i], label=None, zorder=99, clip_on=False)
+        if labels[i] == "ARENA-FATROP":
+            plt.scatter(worst_case, 0, s=70, marker='D', facecolor='white', color=colors[i], label=None, zorder=99, clip_on=False, alpha=0.2)
+            plt.scatter(worst_case, 0, s=70, marker='D', hatch='////', facecolor='none', color=colors[i], label=None, zorder=99, clip_on=False)
+        else:
+            plt.plot(worst_case, 0, 'D', ms=8, color=colors[i], label=None, zorder=99, clip_on=False, alpha=0.5)
+        plt.plot(worst_case, 0, 'D', ms=8, mfc='none', color=colors[i], label=None, zorder=99, clip_on=False, alpha=1.0)
 
     extra_legend_handles = [
         plt.Line2D([0], [0], linestyle='', marker='o', color='gray', label="Mean"),
-        plt.Line2D([0], [0], linestyle='', marker='x', color='gray', label="Worst case")
+        plt.Line2D([0], [0], linestyle='', marker='D', color='gray', label="Worst case")
     ]
     extra_labels = ["Mean", "Worst case"]
 
@@ -453,7 +468,13 @@ def filter_results_for_fair_comparison(results):
         filtered_results[method]["Tf"] = np.array(results[method]["Tf"])[~failures]
         filtered_results[method]["corridor_infeasibilities_detected"] = np.array(results[method]["corridor_infeasibilities_detected"])[~failures]
 
-    return filtered_results
+    # create a int-inr dictoniary showing filtered_results_idx->original_results_idx
+    idx_map = {}
+    for i in range(len(failures)):
+        if not failures[i]:
+            idx_map[len(idx_map)] = i
+
+    return filtered_results, idx_map
 
 def translate_method_names(method_names):
     translation = []
@@ -482,7 +503,7 @@ for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTo
 
 import matplotlib.pyplot as plt
 
-filtered_results = filter_results_for_fair_comparison(results)
+filtered_results, idx_map = filter_results_for_fair_comparison(results)
 
 # tfs_arena = np.array(filtered_results["ARENA"]["Tf"])
 # tfs_arena_fatrop = np.array(filtered_results["ARENA-FATROP"]["Tf"])
@@ -491,18 +512,20 @@ filtered_results = filter_results_for_fair_comparison(results)
 # sns.kdeplot(diff, color='royalblue', label="ARENA - ARENA-FATROP", fill=True, alpha=0.5)
 # plt.show()
 
+# print(f"OCP failure case: {np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0)}")
+
 optimality_comparison_extended_new_new(filtered_results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
-                                   ["orange", "black", "royalblue"])
-# plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
-# plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
+                                   ["orange", "black", "royalblue"], idx_map)
+plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
+plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
 
 # plt.figure()
 # compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
 
 show_histogram_densities(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
-# plt.savefig("python-benchmark/figures/densities.png", dpi=300)
-# plt.savefig("python-benchmark/figures/densities.pdf")
+plt.savefig("python-benchmark/figures/densities.png", dpi=300)
+plt.savefig("python-benchmark/figures/densities.pdf")
 
 create_latex_table(results)
 
