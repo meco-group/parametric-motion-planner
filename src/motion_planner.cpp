@@ -3,6 +3,10 @@
 #include <nlohmann/json.hpp>
 // #include <pybind11/pybind11.h>
 
+#include <thread>
+#include <future>
+#include <chrono>
+
 #include "core/motion_planner.hpp"
 #include "core/corridor.hpp"
 #include "core/trajectory.hpp"
@@ -36,6 +40,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 
 void MotionPlanner::SetStart(Point2D<double> start){
     if (!environment_.isValidPosition(start)){
+        std::cout << start << std::endl;
         throw InvalidPositionInEnvironmentException("Invalid starting position");
     }
     start_ = start;
@@ -75,7 +80,7 @@ void MotionPlanner::UpdateCorridorSequence(const Point2D<double> &start,
 void MotionPlanner::Plan(){
     // Determine which function to invoke based on the selected method of the 
     // planner
-
+    std::cout << std::endl << "=== STARTING PLANNER ===" << std::endl;
     std::cout << "Planning from " << start_ << " to " << dest_ << " with start velocity " << start_vel_ << std::endl;
     
     // Start the clock
@@ -112,6 +117,19 @@ void MotionPlanner::Plan(){
         planning_computation_time_end - planning_computation_time_start;
     std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
     last_solution_.SetTotalComputationTime(planning_computation_time.count());
+
+    if (last_solution_.TotalComputationTime() < 0 || 
+        last_solution_.SolverTime() < 0 ||
+        last_solution_.CorridorInfeasibilitiesDetected()){
+        emergency_mode_ = true;
+        throw std::runtime_error("ARENA method failed to find a (feasible) solution");
+    } else {
+        emergency_mode_ = false;
+    }
+
+    sample_ptr_ = 0;
+
+    std::cout << "==== ENDING PLANNER ====" << std::endl << std::endl;
 }
 
 void MotionPlanner::Plan(const Point2D<double> &start, 
@@ -121,6 +139,71 @@ void MotionPlanner::Plan(const Point2D<double> &start,
     SetDest(dest);
     SetStartVel(start_vel);
     Plan();
+}
+
+void MotionPlanner::PlanSafely(int max_allowed_ms){
+    bool USE_THREADED_PLANNING = false;
+    if (USE_THREADED_PLANNING){
+
+        bool current_emergency_mode = emergency_mode_;
+
+        std::packaged_task<void()> task([this](){ Plan();});
+        std::future<void> result = task.get_future();
+
+        // start planning
+        std::thread planning_thread(std::move(task));
+
+        // wait for the result
+        if (result.wait_for(std::chrono::milliseconds(max_allowed_ms)) == 
+                std::future_status::timeout){
+            // timeout reached
+            planning_thread.detach(); // This should be done in a more controlled way
+            std::cerr << "WARNING: Planning took too long. Switching to emergency mode" << std::endl;
+            emergency_mode_ = true;
+            ComputeEmergencyBrakingTrajectory();
+        } else {
+            try{
+                result.get();
+            } catch (std::exception &e){
+                std::cerr << "Caught exception: " << e.what() << std::endl;
+                emergency_mode_ = true;
+                ComputeEmergencyBrakingTrajectory();
+            }
+        }
+
+        if (planning_thread.joinable()){
+            planning_thread.join();
+        }
+
+        return;
+    } else {
+        bool current_emergency_mode = emergency_mode_;
+        try{
+            // make sure this doen't take too long
+            Plan();
+        } catch (std::exception &e){
+            std::cerr << "Caught exception: " << e.what() << std::endl;
+
+            // deal with issues
+            if (current_emergency_mode){
+                // we were unable to recover from emergency mode
+                throw std::runtime_error("Unable to recover from emergency mode");
+            }
+
+            emergency_mode_ = true;
+            ComputeEmergencyBrakingTrajectory();
+        }
+    }
+}
+
+void MotionPlanner::GetSample(double &time, Point2D<double> &pos, 
+                              Point2D<double> &vel, Point2D<double> &acc){
+    if (emergency_mode_){
+        emergency_solution_.GetSample(sample_ptr_, time, pos, vel, acc);
+    } else {
+        last_solution_.GetSample(sample_ptr_, time, pos, vel, acc);
+    }
+    sample_ptr_++;
 }
 
 void MotionPlanner::SetSolver(std::string solver_name){
@@ -443,37 +526,319 @@ void MotionPlanner::PlanARENA(){
 
 
 void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
+    auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
     double T_x = std::abs(start_vel_.x()) / params_.GetAmax();
     double T_y = std::abs(start_vel_.y()) / params_.GetAmax();
 
+    // find the starting position and velocity of the free direction
     double T = std::max(T_x, T_y);
-    double v0; double p0;
+    auto GetBottlekneckPosition = +[](Point2D<double>& p){return p.x();};
+    auto GetFreePosition = +[](Point2D<double>& p){return p.y();};
+    auto SetBottleneckPosition = +[](Point2D<double>& p, double val){};
+    auto SetFreePosition = +[](Point2D<double>& p, double val){};
     if (T_x <= T_y){
-        p0 = start_.x();
-        v0 = start_vel_.x();
+        GetBottlekneckPosition = +[](Point2D<double>& p){return p.y();};
+        SetBottleneckPosition = [](Point2D<double>& p, double val){p.SetY(val);};
+        GetFreePosition = +[](Point2D<double>& p){return p.x();};
+        SetFreePosition = [](Point2D<double>& p, double val){p.SetX(val);};
     } else {
-        p0 = start_.y();
-        v0 = start_vel_.y();   
+        GetBottlekneckPosition = +[](Point2D<double>& p){return p.x();};
+        SetBottleneckPosition = [](Point2D<double>& p, double val){p.SetX(val);};
+        GetFreePosition = +[](Point2D<double>& p){return p.y();};
+        SetFreePosition = [](Point2D<double>& p, double val){p.SetY(val);};
     }
 
-    double tau = 0.5*(T-std::abs(v0)/params_.GetAmax()); // duration of switched arc
-    int s = v0 >= 0 ? 1 : -1;
-    double a = s*params_.GetAmax();
+    double tau = 0.5*(T-std::abs(GetFreePosition(start_vel_))/params_.GetAmax()); // duration of switched arc (acceleration instead of braking)
+    double p0 = GetFreePosition(start_);
+    double v0 = GetFreePosition(start_vel_);
 
-    double p1 = p0 + v0*(T - tau) - a*std::pow(T - tau, 2)/2 + 
-                (v0 - a*(T - tau))*tau + a*std::pow(tau, 2)/2;
-    double p2 = p0 + v0*tau + a*std::pow(tau, 2)/2 +
-                (v0 + a*tau)*(T - tau) - a*std::pow(T - tau, 2)/2;
-    
-    double p_min = std::min(p1, p2);
-    double p_max = std::max(p1, p2);
+    // sample the extreme trajectories
+    // std::cout << "\t(emergency): sampling the extreme trajectories" << std::endl;
+    double dt = 0.001;
+    std::vector<Point2D<double>> p1_samples(int(T/dt)+1);
+    std::vector<Point2D<double>> p2_samples(int(T/dt)+1);
 
-    // g can be computed using the formula g = (p - C)/B where
-    double B = -2*a*T*tau;
-    double C = p0 + v0*tau + a*std::pow(tau, 2)/2 + (v0 + a*tau)*(T - tau) - 
-               a*std::pow(T - tau, 2)/2;
+    double t = 0.0;
+    int a_bottleneck = GetBottlekneckPosition(start_vel_) > 0 ? params_.GetAmax() : -params_.GetAmax();
+    int a_free = GetFreePosition(start_vel_) > 0 ? params_.GetAmax() : -params_.GetAmax();
+    double x_min = 10^5;
+    double x_max = -10^5;
+    double y_min = 10^5;
+    double y_max = -10^5;
+    double p1, p2;
+    double init_p1_accel = GetFreePosition(start_vel_) > 0 ? -a_free : a_free;
+    for (int i = 0; i < p1_samples.size(); i++){
+        t = i*dt;
+        
+        SetBottleneckPosition(p1_samples[i], 
+            GetBottlekneckPosition(start_) + 
+            GetBottlekneckPosition(start_vel_)*t -
+            0.5*a_bottleneck*std::pow(t, 2));
+        SetBottleneckPosition(p2_samples[i], 
+            GetBottlekneckPosition(start_) + 
+            GetBottlekneckPosition(start_vel_)*t -
+            0.5*a_bottleneck*std::pow(t, 2));
+        
+        // accelerate first before braking
+        if (t < tau){
+            p1 = p0 + v0*t + a_free*std::pow(t, 2)/2;
+        } else {
+            p1 = p0 + v0*tau + a_free*std::pow(tau, 2)/2 +
+                 (v0 + a_free*tau)*(t - tau) - a_free*std::pow(t - tau, 2)/2;
+        }
 
-    // select a feasible final point
+        // brake first before accelerating
+        if (t < T - tau){
+            p2 = p0 + v0*t - a_free*std::pow(t, 2)/2;
+        } else {
+            p2 = p0 + v0*(T-tau) - a_free*std::pow(T-tau, 2)/2 +
+                (v0 - a_free*(T-tau))*(t - T + tau) + a_free*std::pow(t - T + tau, 2)/2;
+        }
+
+        SetFreePosition(p1_samples[i], std::min(p1, p2));
+        SetFreePosition(p2_samples[i], std::max(p1, p2));
+
+        // update min and max values
+        x_min = std::min(x_min, std::min(p1_samples[i].x(), p2_samples[i].x()));
+        x_max = std::max(x_max, std::max(p1_samples[i].x(), p2_samples[i].x()));
+        y_min = std::min(y_min, std::min(p1_samples[i].y(), p2_samples[i].y()));
+        y_max = std::max(y_max, std::max(p1_samples[i].y(), p2_samples[i].y()));
+    }
+    // std::cout << "\t\tdone" << std::endl;
+    x_min -= params_.GetWidthOffset(); x_max += params_.GetWidthOffset();
+    y_min -= params_.GetHeightOffset(); y_max += params_.GetHeightOffset();
+    Point2D<double> bottom_left_point = Point2D<double>(x_min, y_min);
+    Point2D<double> top_right_point = Point2D<double>(x_max, y_max);
+
+
+    // list all obstacles to consider
+    // std::cout << "\t(emergency): listing all obstacles" << std::endl;
+    Point2D<int> bottom_left_cell = bottom_left_point.ConvertWorldToCell(environment_.CellWidth(), environment_.CellHeight());
+    Point2D<int> top_right_cell = top_right_point.ConvertWorldToCell(environment_.CellWidth(), environment_.CellHeight());
+    std::vector<Point2D<double>> obstacle_centers = {};
+    std::vector<double> obstacle_widths = {};
+    std::vector<double> obstacle_heights = {};
+    for (int x_cell = bottom_left_cell.x(); x_cell <= top_right_cell.x(); x_cell++){
+        for (int y_cell = bottom_left_cell.y(); y_cell <= top_right_cell.y(); y_cell++){
+            if (!environment_.IsFree(x_cell, y_cell)){
+                Point2D<double> obstacle_center = Point2D<int>(x_cell, y_cell).ConvertCellToWorld(environment_.CellWidth(), environment_.CellHeight());
+                obstacle_centers.push_back(obstacle_center);
+                obstacle_widths.push_back(environment_.CellWidth());
+                obstacle_heights.push_back(environment_.CellHeight());
+            }
+        }
+    }
+    auto GetObstacleBottleneckSize = 
+        [T_x, T_y, obstacle_widths, obstacle_heights](int i)
+        { return (T_x <= T_y) ? obstacle_heights[i] : obstacle_widths[i];};
+    auto GetObstacleFreeSize = 
+        [T_x, T_y, obstacle_widths, obstacle_heights](int i)
+        { return (T_x <= T_y) ? obstacle_widths[i] : obstacle_heights[i];};
+    auto GetBottleneckOffset = [T_x, T_y, this]()
+        { return (T_x <= T_y) ? params_.GetHeightOffset() : params_.GetWidthOffset();};
+    auto GetFreeOffset = [T_x, T_y, this]()
+        { return (T_x <= T_y) ? params_.GetWidthOffset() : params_.GetHeightOffset();};
+    // std::cout << "\t\tdone" << std::endl;
+
+    std::vector<std::vector<double>> safe_alpha_intervals = {{0, 1}};
+
+    // std::cout << "\t(emergency): checking safe alpha values" << std::endl;
+    // loop over relevant bottleneck positions and check the free position
+    double free1, free2, obs1, obs2, obs_alpha_min, obs_alpha_max, alpha_min, alpha_max;
+    std::vector<int> empty_intervals = {};
+    std::vector<std::vector<double>> new_intervals = {};
+    for (int i = 0; i < p1_samples.size(); i++){
+        for (int j = 0; j < obstacle_centers.size(); j++){
+            if (std::abs(GetBottlekneckPosition(obstacle_centers[j]) - 
+                         GetBottlekneckPosition(p1_samples[i])) < 
+                    GetObstacleBottleneckSize(j)/2 + GetBottleneckOffset()){
+                // obstacle limits
+                obs1 = GetFreePosition(obstacle_centers[j]) - GetObstacleFreeSize(j)/2 - GetFreeOffset();
+                obs2 = GetFreePosition(obstacle_centers[j]) + GetObstacleFreeSize(j)/2 + GetFreeOffset();
+
+                // check valid free positions
+                free1 = std::min(GetFreePosition(p1_samples[i]), GetFreePosition(p2_samples[i]));
+                free2 = std::max(GetFreePosition(p1_samples[i]), GetFreePosition(p2_samples[i]));
+
+                // check alpha values that are in collision
+                obs_alpha_min = (obs1 - free1) / (free2 - free1);
+                obs_alpha_max = (obs2 - free1) / (free2 - free1);
+
+                // update the current safe alpha intervals
+                new_intervals.clear();
+                for (int k = 0; k < safe_alpha_intervals.size(); k++){
+                    // get interval edges in alpha-coordinates
+                    alpha_min = safe_alpha_intervals[k][0];
+                    alpha_max = safe_alpha_intervals[k][1];
+
+                    if (obs_alpha_min < 0 && obs_alpha_max > 1){
+                        // interval completely covered by obstacle
+                        empty_intervals.push_back(k);
+                    } else {
+                        // construct interval on left side of obstacle
+                        if (alpha_min < std::min(alpha_max, obs_alpha_min)){
+                            // interval on left side exists
+                            new_intervals.push_back({alpha_min, std::min(alpha_max, obs_alpha_min)});
+                        }
+
+                        // construct interval on right side of obstacle
+                        if (alpha_max > std::max(alpha_min, obs_alpha_max)){
+                            // interval on right side exists
+                            new_intervals.push_back({std::max(alpha_min, obs_alpha_max), alpha_max});
+                        }
+                    }
+                }
+
+                // inefficient update of intervals
+                safe_alpha_intervals.clear();
+                for (int k = 0; k < new_intervals.size(); k++){
+                    safe_alpha_intervals.push_back(new_intervals[k]);
+                }
+            }
+        }
+    }
+    // std::cout << "\t\tdone" << std::endl;
+
+    // pick the alpha in the middle of the largest interval
+    double alpha = 0.5;
+    double max_interval_size = -1;
+    for (int k = 0; k < safe_alpha_intervals.size(); k++){
+        if (safe_alpha_intervals[k][1] - safe_alpha_intervals[k][0] > max_interval_size){
+            alpha = 0.5*(safe_alpha_intervals[k][0] + safe_alpha_intervals[k][1]);
+            max_interval_size = safe_alpha_intervals[k][1] - safe_alpha_intervals[k][0];
+        }
+    }
+
+    // sample the trajectory
+    // std::cout << "\t(emergency): preparing to sample the chosen trajectory" << std::endl;
+    std::vector<double> t_x = {tau, T - 2*tau, tau};
+    std::vector<double> t_y = {tau, T - 2*tau, tau};
+    std::vector<double> accel_x(3, -a_bottleneck);
+    std::vector<double> accel_y(3, -a_bottleneck);
+
+    if (T_x <= T_y){
+        accel_x[0] = init_p1_accel - 2*alpha*init_p1_accel;
+        accel_x[1] = -a_free;
+        accel_x[2] = -accel_x[0];
+    } else {
+        accel_y[0] = init_p1_accel - 2*alpha*init_p1_accel;
+        accel_y[1] = -a_free;
+        accel_y[2] = -accel_y[0];
+    }
+    // std::cout << "\t(emergency): sampling the chosen trajectories" << std::endl;
+    // std::cout << "\t\talpha:     " << alpha << std::endl;
+    // std::cout << "\t\tstart:     " << start_ << std::endl;
+    // std::cout << "\t\tstart_vel: " << start_vel_ << std::endl;
+    // std::cout << "\t\taccel_x:   " << accel_x << std::endl;
+    // std::cout << "\t\taccel_y:   " << accel_y << std::endl;
+    // std::cout << "\t\tt_x:       " << t_x << std::endl;
+    // std::cout << "\t\tt_y:       " << t_y << std::endl;
+    emergency_solution_.Update(start_, start_vel_, accel_x, accel_y, t_x, t_y);
+    sample_ptr_ = 0;
+
+    // print out the computation time in milliseconds
+    auto planning_computation_time_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> planning_computation_time = 
+        planning_computation_time_end - planning_computation_time_start;
+    std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
+    emergency_solution_.SetTotalComputationTime(planning_computation_time.count());
+
+    // std::cout << "\t\tdone" << std::endl;
+
+    // return
+    /*
+    emergency_trajs_1_.push_back(p1_samples);
+    emergency_trajs_2_.push_back(p2_samples);
+    emergency_safe_intervals_.push_back(safe_alpha_intervals);
+    emergency_alphas_.push_back(alpha);
+    emergency_obstacle_centers_.push_back(obstacle_centers);
+    emergency_obstacle_widths_.push_back(obstacle_widths);
+    emergency_obstacle_heights_.push_back(obstacle_heights);
+
+    std::cout << "p1_list = [";
+    for (int k = 0; k < emergency_trajs_1_.size(); k++){
+        std::cout << "[";
+        for (int i = 0; i < emergency_trajs_1_[k].size(); i++){
+            std::cout << emergency_trajs_1_[k][i];
+            if (i < emergency_trajs_1_[k].size() - 1){std::cout << ", ";}
+        }
+        std::cout << "]";
+        if (k < emergency_trajs_1_.size() - 1){std::cout << ", ";}
+    }
+    std::cout << "]" << std::endl;
+
+    std::cout << "p2_list = [";
+    for (int k = 0; k < emergency_trajs_1_.size(); k++){
+        std::cout << "[";
+        for (int i = 0; i < emergency_trajs_2_[k].size(); i++){
+            std::cout << emergency_trajs_2_[k][i];
+            if (i < emergency_trajs_2_[k].size() - 1){std::cout << ", ";}
+        }
+        std::cout << "]";
+        if (k < emergency_trajs_1_.size() - 1){std::cout << ", ";}
+    }
+    std::cout << "]" << std::endl;
+
+    // print the safe alpha intervals
+    std::cout << "safe_alpha_intervals_list = [";
+    for (int k = 0; k < emergency_trajs_1_.size(); k++){
+        std::cout << "[";
+        for (int i = 0; i < emergency_safe_intervals_[k].size(); i++){
+            std::cout << "[" << emergency_safe_intervals_[k][i][0] << ", " << emergency_safe_intervals_[k][i][1] << "]";
+            if (i < emergency_safe_intervals_[k].size() - 1){
+                std::cout << ", ";
+            }
+        }
+        std::cout << "]";
+        if (k < emergency_trajs_1_.size() - 1){std::cout << ", ";}
+    }
+    std::cout << "]" << std::endl;
+
+    std::cout << "alpha_list = [";
+    for (int k = 0; k < emergency_trajs_1_.size(); k++){
+        std::cout << emergency_alphas_[k];
+        if (k < emergency_trajs_1_.size() - 1){std::cout << ", ";}
+    }
+    std::cout << "]" << std::endl;
+
+    std::cout << "obs_center_list = [";
+    for (int k = 0; k < emergency_trajs_1_.size(); k++){
+        std::cout << "[";
+        for (int i = 0; i < emergency_obstacle_centers_[k].size(); i++){
+            std::cout << emergency_obstacle_centers_[k][i];
+            if (i < emergency_obstacle_centers_[k].size() - 1){std::cout << ", ";}
+        }
+        std::cout << "]";
+        if (k < emergency_trajs_1_.size() - 1){std::cout << ", ";}
+    }
+    std::cout << "]" << std::endl;
+
+    std::cout << "obs_width_list = [";
+    for (int k = 0; k < emergency_trajs_1_.size(); k++){
+        std::cout << "[";
+        for (int i = 0; i < emergency_obstacle_widths_[k].size(); i++){
+            std::cout << emergency_obstacle_widths_[k][i];
+            if (i < emergency_obstacle_widths_[k].size() - 1){std::cout << ", ";}
+        }
+        std::cout << "]";
+        if (k < emergency_trajs_1_.size() - 1){std::cout << ", ";}
+    }
+    std::cout << "]" << std::endl;
+
+    std::cout << "obs_height_list = [";
+    for (int k = 0; k < emergency_trajs_1_.size(); k++){
+        std::cout << "[";
+        for (int i = 0; i < emergency_obstacle_heights_[k].size(); i++){
+            std::cout << emergency_obstacle_heights_[k][i];
+            if (i < emergency_obstacle_heights_[k].size() - 1){std::cout << ", ";}
+        }
+        std::cout << "]";
+        if (k < emergency_trajs_1_.size() - 1){std::cout << ", ";}
+    }
+    std::cout << "]" << std::endl;
+
+    std::cout << std::endl << std::endl;
+    */
 }
 
 std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){

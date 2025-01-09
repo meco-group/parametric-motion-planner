@@ -55,6 +55,10 @@ class MotionPlanner{
         void Plan(const Point2D<double> &start, const Point2D<double> &dest, 
                   const Point2D<double> &start_vel);
 
+        void PlanSafely(int max_allowed_ms);
+
+        void GetSample(double &time, Point2D<double> &pos, 
+                       Point2D<double> &vel, Point2D<double> &acc);
         
         // Basic getters
         const Environment& GetEnvironment() const { return environment_;};
@@ -66,12 +70,13 @@ class MotionPlanner{
         Point2D<double> GetStart_vel() const { return start_vel_;};
         double GetVehWidth() const { return params_.GetVehWidth();};
         double GetVehHeight() const { return params_.GetVehHeight();};
-        const Trajectory& GetLastSolution() const { return last_solution_;};
+        const Trajectory& GetLastSolution() const { return emergency_mode_ ? emergency_solution_ : last_solution_;};
         double GetTotalComputationTime() const { return last_solution_.TotalComputationTime();};
         double GetSolverTime() const { return last_solution_.SolverTime();};
         double GetTravelTime() const { return last_solution_.Tf();};
         bool CorridorInfeasibilitiesDetected() const { 
             return last_solution_.CorridorInfeasibilitiesDetected();};
+        bool EmergencyMode() const { return emergency_mode_;};
 
         // Basic setters
         void SetPrintLevel(int print_level) { print_level_ = print_level;};
@@ -103,6 +108,7 @@ class MotionPlanner{
         void DumpToJson(const std::string &filename, 
                         bool create_output_folder=true) const;
 
+        void ComputeEmergencyBrakingTrajectory();
 
     private:
         // Plan a simple trajectory, moving from corridor to corridor in 
@@ -116,7 +122,6 @@ class MotionPlanner{
         // Plan a trajectory using the ARENA method
         void PlanARENA();
 
-        void ComputeEmergencyBrakingTrajectory();
 
         std::set<int> CheckOutOfCorridor(double solver_time);
         bool EliminateSubOptimalParametrization();
@@ -144,6 +149,9 @@ class MotionPlanner{
         Point2D<double> start_vel_;
 
         Trajectory last_solution_ = Trajectory();
+        Trajectory emergency_solution_ = Trajectory();
+        bool emergency_mode_ = false;
+        int sample_ptr_ = 0;
         
         // P2P method attributes
         std::vector<Point2D<double>> p2p_waypoints_;
@@ -171,7 +179,16 @@ class MotionPlanner{
         Dict opts_solver_;
         int print_level_ = 0;
         int max_iter_ = 3000;
-        bool just_in_time_preparation_mode_ = false;
+        bool just_in_time_preparation_mode_ = true;
+
+
+        std::vector<std::vector<Point2D<double>>> emergency_trajs_1_;
+        std::vector<std::vector<Point2D<double>>> emergency_trajs_2_;
+        std::vector<std::vector<std::vector<double>>> emergency_safe_intervals_;
+        std::vector<double> emergency_alphas_;
+        std::vector<std::vector<Point2D<double>>> emergency_obstacle_centers_;
+        std::vector<std::vector<double>> emergency_obstacle_widths_;
+        std::vector<std::vector<double>> emergency_obstacle_heights_;
 };
 
 #endif

@@ -90,26 +90,8 @@ bool DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
                 motion_planner_.SetDest(dest);
                 motion_planner_.SetStartVel(replan_velocity);
                 motion_planner_.UpdateCorridorSequence();
-                std::cout << "=================================================" << std::endl;
-                std::cout << "Information for python implementation" << std::endl;
-                std::cout << "\t corridors = [";
-                for (int i = 0; i < motion_planner_.GetCorridorSequence().NbCorridors(); i++){
-                    std::cout << "[" << motion_planner_.GetCorridorSequence().GetCorridor(i).Xmin() << ", ";
-                    std::cout << motion_planner_.GetCorridorSequence().GetCorridor(i).Xmax() << ", ";
-                    std::cout << motion_planner_.GetCorridorSequence().GetCorridor(i).Ymin() << ", ";
-                    std::cout << motion_planner_.GetCorridorSequence().GetCorridor(i).Ymax() << "]";
-                    if (i < motion_planner_.GetCorridorSequence().NbCorridors() - 1){
-                        std::cout << ", ";
-                    }
-                } std::cout << "]" << std::endl;
-                std::cout << "\tcorridor_meta_data = ['nominal']*len(corridors)" << std::endl;
-                std::cout << "\tp0 = [" << replan_position.x() << ", " << replan_position.y() << "]" << std::endl;
-                std::cout << "\tpf = [" << dest.x() << ", " << dest.y() << "]" << std::endl;
-                std::cout << "\tv0 = [" << replan_velocity.x() << ", " << replan_velocity.y() << "]" << std::endl;
-                std::cout << "\tparams = {'a_max': " << params.GetAmax() << ", 'v_max': " << params.GetVmax() << ", 'veh_width': " << params.GetVehWidth() << ", 'veh_height': " << params.GetVehHeight() << ", 'M': " << params.GetMargin() << "}" << std::endl;
-                std::cout << "=================================================" << std::endl;
-
-
+                PrintPythonImplementationInfo(replan_position, replan_velocity, 
+                                              dest, params);
 
                 acc_solver_time = 0.0;
                 for (int i = 0; i < nb_runs; i++){
@@ -143,6 +125,86 @@ bool DynamicSimulator::Plan(const Point2D<double> &start, const Point2D<double> 
     }
 
     return false;
+}
+
+void DynamicSimulator::MoveDestination(Point2D<double> start, 
+                                       Point2D<double> start_vel,
+                                       int number_of_destination_switches){    
+    Reset();
+    travelled_trajectory_.Reset(start);
+
+    double curr_time = 0;
+    double local_time;
+    Point2D<double> curr_pos = start;
+    Point2D<double> curr_vel = start_vel;
+    Point2D<double> curr_acc;
+    Point2D<double> dest;
+    int nb_samples_to_simulate;
+    bool curr_emergency_mode = false;
+
+    // Start the main
+    for (int i = 0; i < number_of_destination_switches; i++){
+        // set a destination
+        if (!curr_emergency_mode){
+            environment_.GetRandomFreeVehiclePosition(dest, 
+                    motion_planner_.GetParameters().GetVehWidth(),
+                    motion_planner_.GetParameters().GetVehHeight(),
+                    motion_planner_.GetParameters().GetMargin());
+            motion_planner_.SetDest(dest);
+        }
+
+        // plan towards the destination
+        // try{
+        //     motion_planner_.SetStart(curr_pos);
+        //     motion_planner_.SetStartVel(curr_vel);
+        //     motion_planner_.Plan();
+        // } catch (std::exception &e){
+        //     // Planning failed - resort to emergency mode
+        //     if (motion_planner_.EmergencyMode() && !curr_emergency_mode){
+        //         std::cerr << "Emergency mode activated" << std::endl;
+        //         motion_planner_.ComputeEmergencyBrakingTrajectory();
+
+        //     } else if (motion_planner_.EmergencyMode() && curr_emergency_mode){
+        //         std::cerr << "Caught exception " << e.what() << std::endl;
+        //         throw std::runtime_error("Unable to recover from emergency mode");
+
+        //     } else {
+        //         std::cerr << "Planning failed (" << e.what() << ")" << std::endl;
+        //         throw e;
+        //     }
+        // }
+        motion_planner_.SetStart(curr_pos);
+        motion_planner_.SetStartVel(curr_vel);
+        motion_planner_.PlanSafely(10);
+        curr_emergency_mode = motion_planner_.EmergencyMode();
+
+        // Store replanning info
+        if (curr_time > 0){replanning_times_.push_back(curr_time);}
+        previous_trajectories_.push_back(motion_planner_.GetLastSolution());
+        previous_corridor_sequences_.push_back(motion_planner_.GetCorridorSequence());
+        previous_environments_.push_back(environment_.ToJson());
+
+        // Simulate the trajectory
+        nb_samples_to_simulate = motion_planner_.GetLastSolution().NbSamples();
+        std::cout << "Simulating " << nb_samples_to_simulate << " samples" << std::endl;
+        if (!motion_planner_.EmergencyMode() && i < number_of_destination_switches - 1){
+            nb_samples_to_simulate = int(0.7*nb_samples_to_simulate);
+        }
+
+        for (int k = 0; k < nb_samples_to_simulate; k++){
+            motion_planner_.GetSample(local_time, curr_pos, curr_vel, curr_acc);
+            if (curr_emergency_mode){
+                std::cout << "\t\tpos: " << curr_pos << std::endl;
+                // std::cout << "\t\tvel: " << curr_vel << std::endl;
+                // std::cout << "\t\taccel: " << curr_acc << std::endl;
+            }
+            travelled_trajectory_.Append(curr_time + local_time, curr_pos.x(), 
+                                         curr_pos.y(), curr_vel.x(), 
+                                         curr_vel.y(), curr_acc.x(), 
+                                         curr_acc.y());
+        }
+        curr_time = curr_time + local_time;
+    }
 }
 
 void DynamicSimulator::Reset(){
@@ -283,4 +345,27 @@ bool DynamicSimulator::CheckReplanTrigger(){
         }
     }
     return false;
+}
+
+void DynamicSimulator::PrintPythonImplementationInfo(
+        Point2D<double>& replan_position, Point2D<double>& replan_velocity,
+        const Point2D<double>& dest, const Parameters& params) const {
+    std::cout << "=================================================" << std::endl;
+    std::cout << "Information for python implementation" << std::endl;
+    std::cout << "\t corridors = [";
+    for (int i = 0; i < motion_planner_.GetCorridorSequence().NbCorridors(); i++){
+        std::cout << "[" << motion_planner_.GetCorridorSequence().GetCorridor(i).Xmin() << ", ";
+        std::cout << motion_planner_.GetCorridorSequence().GetCorridor(i).Xmax() << ", ";
+        std::cout << motion_planner_.GetCorridorSequence().GetCorridor(i).Ymin() << ", ";
+        std::cout << motion_planner_.GetCorridorSequence().GetCorridor(i).Ymax() << "]";
+        if (i < motion_planner_.GetCorridorSequence().NbCorridors() - 1){
+            std::cout << ", ";
+        }
+    } std::cout << "]" << std::endl;
+    std::cout << "\tcorridor_meta_data = ['nominal']*len(corridors)" << std::endl;
+    std::cout << "\tp0 = [" << replan_position.x() << ", " << replan_position.y() << "]" << std::endl;
+    std::cout << "\tpf = [" << dest.x() << ", " << dest.y() << "]" << std::endl;
+    std::cout << "\tv0 = [" << replan_velocity.x() << ", " << replan_velocity.y() << "]" << std::endl;
+    std::cout << "\tparams = {'a_max': " << params.GetAmax() << ", 'v_max': " << params.GetVmax() << ", 'veh_width': " << params.GetVehWidth() << ", 'veh_height': " << params.GetVehHeight() << ", 'M': " << params.GetMargin() << "}" << std::endl;
+    std::cout << "=================================================" << std::endl;   
 }

@@ -51,6 +51,13 @@ class Trajectory{
                              Parameters const &params,
                              double solver_time);
 
+        void Update(Point2D<double> const &start, 
+                    Point2D<double> const &start_vel,
+                    std::vector<double> const &accel_x,
+                    std::vector<double> const &accel_y,
+                    std::vector<double> const &t_x,
+                    std::vector<double> const &t_y);
+
         // Function to reset the trajectory.
         // To be used when no trajectory is found. The starting position is set
         // and the total time of the trajectory is set to 0
@@ -83,6 +90,16 @@ class Trajectory{
 
             return *this;
         }
+
+        // Function to sample the current trajectory
+        void GetSample(int idx, double &time, Point2D<double> &pos, 
+                       Point2D<double> &vel, Point2D<double> &acc) const;
+
+        // Check if two vehicles will collide
+        void CheckCollision(Trajectory const &other, 
+                            Parameters const &params_this, 
+                            Parameters const &params_other,
+                            Point2D<double>& collision_point);
 
         // Basic getters
         double Dt() const { return dt_;};

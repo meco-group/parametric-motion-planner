@@ -332,6 +332,89 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     return out_of_corridor_list;
 }
 
+void Trajectory::Update(Point2D<double> const &start,
+                        Point2D<double> const &start_vel,
+                        std::vector<double> const &accel_x,
+                        std::vector<double> const &accel_y,
+                        std::vector<double> const &t_x,
+                        std::vector<double> const &t_y){       
+    // compute the total time
+    double tf_ = t_x[0] + t_x[1] + t_x[2];
+
+    // compute the number of samples
+    curr_nb_samples_ = tf_ / dt_ + 2;
+
+    // initialize time-grid
+    for (int i = 0; i < curr_nb_samples_; i++){
+        t_[i] = i * dt_;
+    }
+
+    // initialize the trajectory
+    int sample_ptr = 0;
+    double tx_arc1, tx_arc2, tx_arc3, ty_arc1, ty_arc2, ty_arc3;
+    Point2D<double> p0 = start;
+    Point2D<double> v0 = start_vel;
+    double t = 0.0;
+    for (int i = 0; i < curr_nb_samples_; i++){  
+        t = t_[i];
+
+        // update timings for every arc
+        tx_arc1 = std::max(0.0, std::min(t_x[0], t));
+        tx_arc2 = std::max(0.0, std::min(t_x[1], t - t_x[0]));
+        tx_arc3 = std::max(0.0, std::min(t_x[2], t - t_x[0] - t_x[1]));
+        ty_arc1 = std::max(0.0, std::min(t_y[0], t));
+        ty_arc2 = std::max(0.0, std::min(t_y[1], t - t_y[0]));
+        ty_arc3 = std::max(0.0, std::min(t_y[2], t - t_y[0] - t_y[1]));
+
+        // Update x
+        px_[sample_ptr] = p0.x() + v0.x()*tx_arc1 + accel_x[0]*std::pow(tx_arc1, 2);
+        vx_[sample_ptr] = v0.x() + accel_x[0]*tx_arc1;
+
+        px_[sample_ptr] += vx_[sample_ptr]*tx_arc2 + 0.5*accel_x[1]*std::pow(tx_arc2, 2);
+        vx_[sample_ptr] += accel_x[1]*tx_arc2;
+
+        px_[sample_ptr] += vx_[sample_ptr]*tx_arc3 + 0.5*accel_x[2]*std::pow(tx_arc3, 2);
+        vx_[sample_ptr] += accel_x[2]*tx_arc3;
+
+        // Update y
+        py_[sample_ptr] = p0.y() + v0.y()*ty_arc1 + accel_y[0]*std::pow(ty_arc1, 2);
+        vy_[sample_ptr] = v0.y() + accel_y[0]*ty_arc1;
+
+        py_[sample_ptr] += vy_[sample_ptr]*ty_arc2 + 0.5*accel_y[1]*std::pow(ty_arc2, 2);
+        vy_[sample_ptr] += accel_y[1]*ty_arc2;
+
+        py_[sample_ptr] += vy_[sample_ptr]*ty_arc3 + 0.5*accel_y[2]*std::pow(ty_arc3, 2);
+        vy_[sample_ptr] += accel_y[2]*ty_arc3;
+            
+        // Update acceleration
+        if (t <= t_x[0]){ 
+            ax_[sample_ptr] = accel_x[0];
+        } else if (t <= t_x[0] + t_x[1]){ 
+            ax_[sample_ptr] = accel_x[1];
+        } else {
+            ax_[sample_ptr] = accel_x[2];
+        }
+        if (t <= t_x[0]){ 
+            ay_[sample_ptr] = accel_y[0];
+        } else if (t <= t_y[0] + t_y[1]){
+            ay_[sample_ptr] = accel_y[1];
+        } else {
+            ay_[sample_ptr] = accel_y[2];
+        }
+
+        sample_ptr++;
+        t += dt_;
+    }
+
+    // The last sample should be steady-state
+    px_[curr_nb_samples_ - 1] = px_[curr_nb_samples_ - 2];
+    py_[curr_nb_samples_ - 1] = py_[curr_nb_samples_ - 2];
+    vx_[curr_nb_samples_ - 1] = 0.0;
+    vy_[curr_nb_samples_ - 1] = 0.0;
+    ax_[curr_nb_samples_ - 1] = 0.0;
+    ay_[curr_nb_samples_ - 1] = 0.0;
+}
+
 void Trajectory::Reset(Point2D<double> const &start){
     total_computation_time_ = -1;
     solver_time_ = -1;
@@ -378,6 +461,62 @@ std::ostream& operator<<(std::ostream &out, Trajectory &trajectory){
     // }
 
     return out;
+}
+
+void Trajectory::GetSample(int idx, double &time, Point2D<double> &pos, 
+                           Point2D<double> &vel, Point2D<double> &acc) const {
+    idx = std::max(0, std::min(idx, curr_nb_samples_ - 1));
+    time = t_[idx];
+    pos.SetX(px_[idx]);
+    pos.SetY(py_[idx]);
+    vel.SetX(vx_[idx]);
+    vel.SetY(vy_[idx]);
+    acc.SetX(ax_[idx]);
+    acc.SetY(ay_[idx]);
+}
+
+void Trajectory::CheckCollision(Trajectory const &other, 
+                                Parameters const &params_this, 
+                                Parameters const &params_other,
+                                Point2D<double>& collision_point){
+    int sample_idx = 0;
+    double distance_x, distance_y;
+    double x_margin = params_this.GetWidthOffset() + params_other.GetWidthOffset();
+    double y_margin = params_this.GetHeightOffset() + params_other.GetHeightOffset();
+
+    Point2D<double> pos_this, vel_this, acc_this; double t_this;
+    Point2D<double> pos_other, vel_other, acc_other; double t_other;
+
+    std::cout << "Checking " << std::max(NbSamples(), other.NbSamples()) << " samples" << std::endl;
+
+    while (sample_idx < std::max(NbSamples(), other.NbSamples())){
+        GetSample(sample_idx, t_this, pos_this, vel_this, acc_this);
+        other.GetSample(sample_idx, t_other, pos_other, vel_other, acc_other);
+        distance_x = std::abs(pos_this.x() - pos_other.x()) - x_margin;
+        distance_y = std::abs(pos_this.y() - pos_other.y()) - y_margin;
+
+        std::cout << pos_this << " - " << pos_other << std::endl;
+        // std::cout << distance_x << " - " << distance_y << std::endl;
+        // std::cout << std::endl;
+
+        if (distance_x <= 0 && distance_y <= 0){
+            // Collision detected!
+            std::cout << "Collision detected at t = " << t_this << std::endl;
+            std::cout << pos_this << " - " << pos_other << std::endl;
+            collision_point = (pos_this + pos_other)*0.5;
+            return;
+        }
+
+        // Increment the sample index cleverly
+        sample_idx += std::max(1, std::min(
+            int(distance_x/(params_this.GetVmax() + params_other.GetVmax())/dt_),
+            int(distance_y/(params_this.GetVmax() + params_other.GetVmax())/dt_)
+            )
+        );
+    }
+
+    collision_point.SetX(-1.0);
+    collision_point.SetY(-1.0);
 }
 
 json Trajectory::ToJson() const {

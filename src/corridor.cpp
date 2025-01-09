@@ -183,8 +183,14 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
                                       UpdateToken const &token){
     sequence_available_ = false;
     // Input checks
-    if (!environment_.isValidPosition(start) || 
-        !environment_.isValidPosition(dest)){
+    // if (!environment_.isValidPosition(start) || 
+    //     !environment_.isValidPosition(dest)){
+    if (!environment_.isValidVehiclePosition(start, params.GetVehWidth(), 
+                                             params.GetVehHeight(), 
+                                             params.GetMargin()) || 
+        !environment_.isValidVehiclePosition(dest, params.GetVehWidth(), 
+                                             params.GetVehHeight(), 
+                                             params.GetMargin())){
         throw InvalidPositionInEnvironmentException("Invalid starting position or destination");
     }
 
@@ -217,6 +223,7 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     std::vector<Point2D<int>> path = environment_.PerformBreadthFirstSearch(start_cell, dest_cell);
     if (path.size() == 0){
         sequence_available_ = false;
+        std::cout << "here?" << std::endl;
         throw std::runtime_error("No path found from start to destination");
         return;
     }

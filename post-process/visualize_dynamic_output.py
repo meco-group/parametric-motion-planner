@@ -88,6 +88,8 @@ def visualize_dynamic_solution(data, T=-1, counter=0):
                     with_footprints=False)
     plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
                 data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
+    plt.plot(data["previous_corridor_sequences"][traj_idx]["dest"]["x"],
+                data["previous_corridor_sequences"][traj_idx]["dest"]["y"], 'o', color='k', markersize=5)
 
     # Show the trajectory of the mover
     show_trajectory(data["travelled_trajectory"], 'blue', True, 
@@ -448,7 +450,7 @@ def translate_method_names(method_names):
 
     return translation
 
-PLOT_COMPARISON = True
+PLOT_COMPARISON = False
 
 
 if PLOT_COMPARISON:
@@ -577,7 +579,8 @@ if PLOT_COMPARISON:
 
 
 else:
-    file = "output/dynamic_solution_ocp.json"
+    # file = "output/dynamic_solution_ocp.json"
+    file = "build/output/dynamic_solution_movable_destination.json"
     with open(file) as f:
         data = json.load(f)
 
@@ -596,16 +599,19 @@ else:
     plt.title('Solver time at replanning times')
     plt.savefig(f"post-process/figures/solver_time.png", dpi=300)
 
-    ### Make animation frames
-    # total_time = data["travelled_trajectory"]["Tf"]
-    # counter = 0
-    # curr_time = 0.0
-    # step_size = 1
-    # while curr_time < total_time + data["travelled_trajectory"]["dt"]:
-    #     print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%) with counter = {counter}")
-    #     visualize_dynamic_solution(data, curr_time, counter)
-    #     counter += 1
-    #     curr_time += step_size * data["travelled_trajectory"]["dt"]
+    print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
 
-    # visualize_dynamic_solution(data, total_time, counter)
-    # print(f"Last figure has count: {counter}")
+    print(data["travelled_trajectory"]["Tf"])
+    ### Make animation frames
+    total_time = data["travelled_trajectory"]["Tf"]
+    counter = 0
+    curr_time = 0.0
+    step_size = 1
+    while curr_time < total_time + data["travelled_trajectory"]["dt"]:
+        print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%) with counter = {counter}")
+        visualize_dynamic_solution(data, curr_time, counter)
+        counter += 1
+        curr_time += step_size * data["travelled_trajectory"]["dt"]
+
+    visualize_dynamic_solution(data, total_time, counter)
+    print(f"Last figure has count: {counter}")

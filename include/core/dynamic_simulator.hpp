@@ -24,6 +24,9 @@ class DynamicSimulator{
         bool Plan(const Point2D<double> &start, const Point2D<double> &dest, 
                   const Point2D<double> &start_vel);
 
+        void MoveDestination(Point2D<double> start, Point2D<double> start_vel,
+                             int number_of_destination_switches);
+
         void Reset();
 
         void AddMovingObstacle(std::shared_ptr<MovingObstacle> obstacle);
@@ -38,6 +41,11 @@ class DynamicSimulator{
         void UpdateMovingObstacles(double dt);
 
         bool CheckReplanTrigger();
+
+        void PrintPythonImplementationInfo(Point2D<double>& replan_position, 
+                                           Point2D<double>& replan_velocity,
+                                           const Point2D<double>& dest, 
+                                           const Parameters& params) const;
 
         Environment& environment_;
         MotionPlanner& motion_planner_;

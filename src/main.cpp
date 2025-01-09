@@ -320,32 +320,134 @@ void TestRandomVehiclePositions(){
     outFile.close();
 }
 
+void SwitchDestinationCarrotStyle(){
+    Environment environment = Environment();
+    Parameters params = Parameters();
+    MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+
+    DynamicSimulator dynamic_simulator = DynamicSimulator(environment, my_motion_planner);
+    Point2D<double> start;
+    environment.GetRandomFreeVehiclePosition(start, params.GetVehWidth(), 
+                                             params.GetVehHeight(), 
+                                             params.GetMargin());
+    Point2D<double> start_vel(0,0);
+
+    try{
+        dynamic_simulator.MoveDestination(start, start_vel, 5);
+        dynamic_simulator.DumpToJson("dynamic_solution_movable_destination.json");
+    } catch (std::exception &e){
+        std::cerr << e.what() << std::endl;
+    }
+}
+
+int factorial(int n){return n==0 ? 1 : n*factorial(n-1);};
+void TestTrajectoryCollisionCheck(){
+    Environment environment = Environment();
+    Parameters params = Parameters();
+    int nb_of_planners = 2;
+
+    std::vector<std::unique_ptr<MotionPlanner>> planners;
+    std::vector<Trajectory> trajectories(nb_of_planners);
+    std::vector<Point2D<int>> starts = {Point2D<int>(5, 0), Point2D<int>(4, 9)};
+    std::vector<Point2D<int>> dests = {Point2D<int>(5, 9), Point2D<int>(4, 0)};
+    for (int i = 0; i < nb_of_planners; i++){
+        planners.push_back(std::make_unique<MotionPlanner>(MotionPlanner(params, environment)));
+        std::cout << "created motion planner " << i << std::endl;
+        planners[i]->SetStart(starts[i].ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
+        planners[i]->SetDest(dests[i].ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
+        std::cout << "set start and dest" << std::endl;
+    }
+
+    std::vector<Point2D<double>> points_of_collision(factorial(nb_of_planners-1));
+    int point_ptr = 0;
+    bool ready = false;
+    int counter = 0;
+
+    json trajectory_collision_check;
+    // every element is a list of vehicles (motion planners) at that iteration
+    trajectory_collision_check["vehicle_planners"] = json::array();
+    // every element is a list of collision points at that iteration
+    trajectory_collision_check["point_of_collision"] = json::array(); 
+
+    while (!ready && counter < 2){
+        // plan for all vehicles
+        std::cout << "planning motions" << std::endl;
+        for (int i = 0; i < nb_of_planners; i++){
+            planners[i]->Plan();
+            trajectories[i] = planners[i]->GetLastSolution();
+            std::cout << trajectories[i] << std::endl;
+        }
+        std::cout << "\tdone" << std::endl;
+
+        // check all possible collisions
+        ready = true;
+        point_ptr = 0;
+        for (int i = 0; i < nb_of_planners; i++){
+            for (int j = i+1; j < nb_of_planners; j++){
+                trajectories[i].CheckCollision(trajectories[j], params, params, points_of_collision[point_ptr]);
+                std::cout << "collision point: " << points_of_collision[point_ptr] << std::endl;
+                if (environment.isValidPosition(points_of_collision[point_ptr])){
+                    ready = false;
+                    environment.AddObstacle(
+                        points_of_collision[point_ptr].ConvertWorldToCell(
+                            environment.CellWidth(), environment.CellHeight()));
+                    std::cout << environment << std::endl;
+                }
+                point_ptr++;
+            }
+        }
+        counter++;
+
+        // store info in json
+        trajectory_collision_check["vehicle_planners"].push_back(json::array());
+        trajectory_collision_check["point_of_collision"].push_back(json::array());
+        
+        for (int i = 0; i < nb_of_planners; i++){
+            trajectory_collision_check["vehicle_planners"][counter].push_back(planners[i]->ToJson());
+        }
+
+        for (int i = 0; i < points_of_collision.size(); i++){
+            trajectory_collision_check["point_of_collision"][counter].push_back(points_of_collision[i].ToJson());
+        }
+    }
+
+    std::ofstream outFile("output/trajectory_collision_check.json");
+    outFile << trajectory_collision_check.dump(4);
+    outFile.close();
+}
+
 int main(){
     // SolveRandomProblem();
     // SolveDynamicProblem();
     // TestRandomVehiclePositions();
-    SolveFatropFailureCase();
+    // SolveFatropFailureCase();
+    // SwitchDestinationCarrotStyle();
+    TestTrajectoryCollisionCheck();
 
-    /*
-    Opti opti = Opti();
-    MX x = opti.variable();
-    opti.minimize(x*x-2*x+1);
-    opti.subject_to(x >= 1);
+    // Environment environment = Environment(10, 10, 0.12, 0.12);
+    // std::vector<int> rr = {8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 5, 4, 8, 8, 8, 8, 5, 8};
+    // std::vector<int> cc = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 9};
+    // for (int i = 0; i < rr.size(); i++){ environment.AddObstacle(Point2D<int>(rr[i], cc[i]));}
 
-    bool use_ipopt = false;
-    Dict opts_casadi;
-    Dict opts_ipopt;
-    Dict opts_fatrop;
+    // Parameters params = Parameters();
+    // MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+
+    // my_motion_planner.SetStart(
+    //     Point2D<int>(5, 5).ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
+    // my_motion_planner.SetStartVel(Point2D<double>(2.0, 0.1));
+
+    // my_motion_planner.SetDest(
+    //     Point2D<int>(0, 7).ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
+
+    // try{
+    //     my_motion_planner.Plan();
     
-    opts_ipopt["linear_solver"] = "ma57";
-    
-    if (use_ipopt){
-        opti.solver("ipopt", opts_casadi, opts_ipopt);
-    } else {
-        opti.solver("fatrop", opts_casadi, opts_fatrop);
-    }
-    opti.solve();
-    */
+    // } catch (const std::exception &e){
+    //     std::cerr << e.what() << std::endl;
+
+    //     std::cout << "switching to emergency mode" << std::endl;
+    //     my_motion_planner.ComputeEmergencyBrakingTrajectory();
+    // }
 }
 
 

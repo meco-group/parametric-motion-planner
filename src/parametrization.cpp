@@ -2686,6 +2686,12 @@ void Parametrization::OptimizeSingleArc1D(std::vector<double> &t_sol_vector,
 	double pf_rel = std::abs(pf - p0);
 	double v_max = params_.GetVmax();
 	double a_max = params_.GetAmax();
+
+	if (pf_rel == 0){
+		t_sol_vector[0] = 0; t_sol_vector[1] = 0; t_sol_vector[2] = 0;
+		alpha_sol_vector[0] = 0; alpha_sol_vector[1] = 0;
+		return;
+	}
 	
 	if (pf - p0 < 0){
 		v0 = -v0;

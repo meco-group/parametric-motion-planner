@@ -81,14 +81,16 @@ bool Environment::isValidVehiclePosition(Point2D<double> pos,
 
 bool Environment::IsFree(Point2D<int> const  &cell) const {
     if (!isValidCell(cell)){
-        throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
+        // throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
+        return false;
     }
     return occupancy_grid_[cell.x()][cell.y()] == FREE;
 }
 
 bool Environment::IsFree(int x, int y) const {
     if (!isValidCell(x, y)){
-        throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
+        // throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
+        return false;
     }
     return occupancy_grid_[x][y] == FREE;
 }
