@@ -183,6 +183,9 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
             Plan();
         } catch (std::exception &e){
             std::cerr << "Caught exception: " << e.what() << std::endl;
+            PrintPythonImplementationInfo();
+            std::cout << "parametrization:" << std::endl;
+            std::cout << parametrization_ << std::endl;
 
             // deal with issues
             if (current_emergency_mode){
@@ -256,9 +259,17 @@ json MotionPlanner::ToJson() const {
     motion_planner_json["planner_method"] = PlannerMethodToString();
     if (method_ == ARENA){
         motion_planner_json["parametrization"] = parametrization_.ToJson();
-        motion_planner_json["trajectory"] = last_solution_.ToJson();
+        if (emergency_mode_){
+            motion_planner_json["trajectory"] = emergency_solution_.ToJson();
+        } else {
+            motion_planner_json["trajectory"] = last_solution_.ToJson();
+        }
     } else {
-        motion_planner_json["trajectory"] = last_solution_.ToJson();
+        if (emergency_mode_){
+            motion_planner_json["trajectory"] = emergency_solution_.ToJson();
+        } else {
+            motion_planner_json["trajectory"] = last_solution_.ToJson();
+        }
     }
 
     return motion_planner_json;
@@ -854,6 +865,29 @@ std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){
                                  solver_time);
 }
 
+void MotionPlanner::PlanConcatenatedSections(){
+    UpdateCorridorSequence();
+
+    if (corridor_sequence_.NbCorridors() <= 1){
+        throw std::runtime_error("Cannot plan concatenated sections with less than 1 corridor");
+    }
+
+    // TODO: how exactly to split up the corridor sequence?
+    // TODO: implement a stitching procedure for the resulting trajectories
+    
+    if (start_.Distance(Point2D<double>(1.38, 0.06)) <= 0.0001){
+        corridor_sequence_.SetLastCorridorIdx(1);
+        std::cout << "\tPLANNING FIRST PART" << std::endl;
+        PlanARENA();
+
+        corridor_sequence_.ResetCorridorIdxs();
+        corridor_sequence_.SetFirstCorridorIdx(1);
+        std::cout << "\tPLANNING SECOND PART" << std::endl;
+        PlanARENA();
+        corridor_sequence_.ResetCorridorIdxs();
+    }
+}
+
 bool MotionPlanner::EliminateSubOptimalParametrization(){
     // return false;
 
@@ -910,4 +944,25 @@ std::string MotionPlanner::PlannerMethodToString() const {
         default:
             return "Invalid";
     }
+}
+
+void MotionPlanner::PrintPythonImplementationInfo() const {
+    std::cout << "=================================================" << std::endl;
+    std::cout << "Information for python implementation" << std::endl;
+    std::cout << "\tcorridors = [";
+    for (int i = 0; i < GetCorridorSequence().NbCorridors(); i++){
+        std::cout << "[" << GetCorridorSequence().GetCorridor(i).Xmin() << ", ";
+        std::cout << GetCorridorSequence().GetCorridor(i).Xmax() << ", ";
+        std::cout << GetCorridorSequence().GetCorridor(i).Ymin() << ", ";
+        std::cout << GetCorridorSequence().GetCorridor(i).Ymax() << "]";
+        if (i < GetCorridorSequence().NbCorridors() - 1){
+            std::cout << ", ";
+        }
+    } std::cout << "]" << std::endl;
+    std::cout << "\tcorridor_meta_data = ['nominal']*len(corridors)" << std::endl;
+    std::cout << "\tp0 = [" << start_.x() << ", " << start_.y() << "]" << std::endl;
+    std::cout << "\tpf = [" << dest_.x() << ", " << dest_.y() << "]" << std::endl;
+    std::cout << "\tv0 = [" << start_vel_.x() << ", " << start_vel_.y() << "]" << std::endl;
+    std::cout << "\tparams = {'a_max': " << params_.GetAmax() << ", 'v_max': " << params_.GetVmax() << ", 'veh_width': " << params_.GetVehWidth() << ", 'veh_height': " << params_.GetVehHeight() << ", 'M': " << params_.GetMargin() << "}" << std::endl;
+    std::cout << "=================================================" << std::endl;   
 }

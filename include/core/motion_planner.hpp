@@ -13,6 +13,12 @@
 
 using namespace casadi;
 
+enum PlannerState{
+    NORMAL = 0,
+    EMERGENCY = 1,  // emergency braking
+    STRUGGLING = 2  // struggling to find a solution - trajectory broken down in segments
+};
+
 class MotionPlanner{
     public:
         MotionPlanner(Parameters const &params, 
@@ -55,7 +61,7 @@ class MotionPlanner{
         void Plan(const Point2D<double> &start, const Point2D<double> &dest, 
                   const Point2D<double> &start_vel);
 
-        void PlanSafely(int max_allowed_ms);
+        void PlanSafely(int max_allowed_ms=0);
 
         void GetSample(double &time, Point2D<double> &pos, 
                        Point2D<double> &vel, Point2D<double> &acc);
@@ -108,9 +114,12 @@ class MotionPlanner{
         void DumpToJson(const std::string &filename, 
                         bool create_output_folder=true) const;
 
-        void ComputeEmergencyBrakingTrajectory();
+        void PlanConcatenatedSections();
 
     private:
+        void ComputeEmergencyBrakingTrajectory();
+        
+
         // Plan a simple trajectory, moving from corridor to corridor in 
         // straight lines
         void PlanP2P();
@@ -122,7 +131,6 @@ class MotionPlanner{
         // Plan a trajectory using the ARENA method
         void PlanARENA();
 
-
         std::set<int> CheckOutOfCorridor(double solver_time);
         bool EliminateSubOptimalParametrization();
 
@@ -131,6 +139,8 @@ class MotionPlanner{
         };
 
         std::string PlannerMethodToString() const;
+
+        void PrintPythonImplementationInfo() const;
         
         const Environment& environment_;               
         CorridorSequence corridor_sequence_;    // contains a reference to the environment

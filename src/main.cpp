@@ -340,44 +340,54 @@ void SwitchDestinationCarrotStyle(){
     }
 }
 
-int factorial(int n){return n==0 ? 1 : n*factorial(n-1);};
+int GetMaxNbCollisions(int n){return n*n-n*(n+1)/2;};
+
 void TestTrajectoryCollisionCheck(){
     Environment environment = Environment();
     Parameters params = Parameters();
-    int nb_of_planners = 2;
+    int nb_of_planners = 4;
 
     std::vector<std::unique_ptr<MotionPlanner>> planners;
     std::vector<Trajectory> trajectories(nb_of_planners);
-    std::vector<Point2D<int>> starts = {Point2D<int>(5, 0), Point2D<int>(4, 9)};
-    std::vector<Point2D<int>> dests = {Point2D<int>(5, 9), Point2D<int>(4, 0)};
+    std::vector<Point2D<int>> starts = {Point2D<int>(5, 0), Point2D<int>(0, 9), Point2D<int>(7, 0), Point2D<int>(11, 0)};
+    std::vector<Point2D<int>> dests = {Point2D<int>(5, 9), Point2D<int>(2, 0), Point2D<int>(11, 3), Point2D<int>(7, 3)};
     for (int i = 0; i < nb_of_planners; i++){
-        planners.push_back(std::make_unique<MotionPlanner>(MotionPlanner(params, environment)));
-        std::cout << "created motion planner " << i << std::endl;
+        // planners.push_back(std::make_unique<MotionPlanner>(MotionPlanner(params, environment)));
+        planners.emplace_back(std::make_unique<MotionPlanner>(params, environment));
         planners[i]->SetStart(starts[i].ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
         planners[i]->SetDest(dests[i].ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
-        std::cout << "set start and dest" << std::endl;
     }
 
-    std::vector<Point2D<double>> points_of_collision(factorial(nb_of_planners-1));
+    std::vector<Point2D<double>> points_of_collision(GetMaxNbCollisions(nb_of_planners));
     int point_ptr = 0;
     bool ready = false;
     int counter = 0;
 
     json trajectory_collision_check;
     // every element is a list of vehicles (motion planners) at that iteration
-    trajectory_collision_check["vehicle_planners"] = json::array();
+    // trajectory_collision_check["vehicle_planners"] = json::array();
     // every element is a list of collision points at that iteration
-    trajectory_collision_check["point_of_collision"] = json::array(); 
+    // trajectory_collision_check["point_of_collision"] = json::array(); 
+    trajectory_collision_check["iterations"] = json::array();
 
-    while (!ready && counter < 2){
+    while (!ready && counter < 4){
+        json iteration;
         // plan for all vehicles
-        std::cout << "planning motions" << std::endl;
         for (int i = 0; i < nb_of_planners; i++){
-            planners[i]->Plan();
+            if (counter == 3 && i == 3){
+                planners[i]->PlanConcatenatedSections();
+            } else {
+                planners[i]->PlanSafely();
+            }
+            // std::cout << planners[i]->ToJson() << std::endl;
             trajectories[i] = planners[i]->GetLastSolution();
-            std::cout << trajectories[i] << std::endl;
         }
-        std::cout << "\tdone" << std::endl;
+
+        // store info in json       
+        iteration["vehicle_planners"] = json::array();
+        for (int i = 0; i < nb_of_planners; i++){
+            iteration["vehicle_planners"].push_back(planners[i]->ToJson());
+        }
 
         // check all possible collisions
         ready = true;
@@ -398,17 +408,12 @@ void TestTrajectoryCollisionCheck(){
         }
         counter++;
 
-        // store info in json
-        trajectory_collision_check["vehicle_planners"].push_back(json::array());
-        trajectory_collision_check["point_of_collision"].push_back(json::array());
-        
-        for (int i = 0; i < nb_of_planners; i++){
-            trajectory_collision_check["vehicle_planners"][counter].push_back(planners[i]->ToJson());
+        // store info in json       
+        for (int i = 0; i < points_of_collision.size(); i++){
+            iteration["point_of_collision"].push_back(points_of_collision[i].ToJson());
         }
 
-        for (int i = 0; i < points_of_collision.size(); i++){
-            trajectory_collision_check["point_of_collision"][counter].push_back(points_of_collision[i].ToJson());
-        }
+        trajectory_collision_check["iterations"].push_back(iteration);
     }
 
     std::ofstream outFile("output/trajectory_collision_check.json");
