@@ -181,6 +181,9 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
                                       Point2D<double> const &start_vel,
                                       Parameters const &params,
                                       UpdateToken const &token){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot update corridor sequence when not considering full sequence");
+    }
     sequence_available_ = false;
     // Input checks
     // if (!environment_.isValidPosition(start) || 
@@ -207,6 +210,10 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     start_.CopyValues(start);
     dest_.CopyValues(dest);
     start_vel_.CopyValues(start_vel);
+    true_start_.CopyValues(start);
+    true_dest_.CopyValues(dest);
+    true_start_vel_.CopyValues(start_vel);
+
 
     // Reset
     ClearAll();
@@ -337,18 +344,74 @@ bool CorridorSequence::ContainsPoint(const Point2D<double> &point) const {
     return false;
 };
 
-Corridor CorridorSequence::GetCorridor(int idx) const { 
-    if (idx < 0 || idx >= nb_of_corridors_){
+void CorridorSequence::SetFirstCorridorIdx(int idx){
+    if (idx < 0 || idx > last_corridor_idx_){
+        throw std::out_of_range("Invalid index of first corridor");
+    }
+
+    if (idx == 0){
+        start_ = true_start_;
+        start_vel_ = true_start_vel_;
+        first_corridor_idx_ = 0;
+        UpdateVersion();
+        return;
+    }
+
+    Corridor overlap;
+    Corridor next_corridor = GetCorridor(idx + 1);
+    GetCorridor(idx).GetOverlap(next_corridor, overlap);
+    overlap.GetCenter(start_);
+    start_vel_.SetX(0.0);
+    start_vel_.SetY(0.0);
+
+    first_corridor_idx_ = idx;
+    UpdateVersion();
+};
+
+void CorridorSequence::SetLastCorridorIdx(int idx){
+    if (idx < first_corridor_idx_ || idx >= nb_of_corridors_){
+        throw std::out_of_range("Invalid index of last corridor");
+    }
+
+    if (idx == nb_of_corridors_ - 1){
+        dest_ = true_dest_;
+        last_corridor_idx_ = nb_of_corridors_ - 1;
+        UpdateVersion();
+        return;
+    }
+
+    Corridor overlap;
+    Corridor next_corridor = GetCorridor(idx + 1 - first_corridor_idx_);
+    GetCorridor(idx - first_corridor_idx_).GetOverlap(next_corridor, overlap);
+    overlap.GetCenter(dest_);
+
+    last_corridor_idx_ = idx;
+    UpdateVersion();
+}
+
+void CorridorSequence::ResetCorridorIdxs(){
+    first_corridor_idx_ = 0;
+    last_corridor_idx_ = nb_of_corridors_ - 1;
+    
+    start_ = true_start_;
+    start_vel_ = true_start_vel_;
+    dest_ = true_dest_;
+    
+    UpdateVersion();
+};
+
+Corridor CorridorSequence::GetCorridor(int idx) const {
+    if (idx < 0 || idx >= NbCorridors()){
         throw std::out_of_range("Invalid index of corridor to get");
     }
-    return sequence_[idx].Copy();
+    return sequence_[idx + first_corridor_idx_].Copy();
 };
 
 void CorridorSequence::GetCorridor(int idx, Corridor &corridor) const {
-    if (idx < 0 || idx >= nb_of_corridors_){
+    if (idx < 0 || idx >= NbCorridors()){
         throw std::out_of_range("Invalid index of corridor to get");
     }
-    corridor.CopyValues(sequence_[idx]);
+    corridor.CopyValues(sequence_[idx + first_corridor_idx_]);
 };
 
 void CorridorSequence::GetStart(Point2D<double> &point) const {
@@ -398,6 +461,10 @@ json CorridorSequence::ToJson() const {
     corridor_sequence_json["sequence"] = sequence_json;
 
     return corridor_sequence_json;
+}
+
+bool CorridorSequence::CurrentlyConsideringFullSequence() const {
+    return first_corridor_idx_ == 0 && last_corridor_idx_ == nb_of_corridors_ - 1;
 }
 
 void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path) const {
@@ -497,6 +564,9 @@ void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path) const 
 }
 
 void CorridorSequence::InflateCorridors(){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot inflate a subset of the sequence");
+    }
     bool made_change = true;
     int grow_counter = 0;
     int max_nb_grow_iterations = 3;
@@ -546,7 +616,9 @@ void CorridorSequence::InflateCorridors(){
 
 void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min, 
                                    double y_max){
-
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot add a corridor in a subset of the sequence");
+    }
     // Check if there is still space to add a corridor
     if (nb_of_corridors_ >= max_len_){
         throw FullCorridorSequenceException();
@@ -555,6 +627,7 @@ void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min,
     // If so, add the new Corridor
     sequence_[nb_of_corridors_] = Corridor(x_min, x_max, y_min, y_max);
     nb_of_corridors_++;
+    last_corridor_idx_ = nb_of_corridors_ - 1;
 };
 
 void CorridorSequence::AddCorridorFromCells(Point2D<int> &start_cell, 
@@ -572,6 +645,9 @@ void CorridorSequence::AddCorridorFromCells(Point2D<int> &start_cell,
 };
 
 void CorridorSequence::RemoveCorridor(int idx){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot remove a corridor in a subset of the sequence");
+    }
     // Check if the index is valid
     if (idx < 0 || idx >= nb_of_corridors_){
         throw std::out_of_range("Invalid index of corridor to remove");
@@ -584,13 +660,17 @@ void CorridorSequence::RemoveCorridor(int idx){
     // sequence_.erase(sequence_.begin() + idx);
 
     nb_of_corridors_--;
+    last_corridor_idx_ = nb_of_corridors_ - 1;
 };
 
 bool CorridorSequence::GrowCorridorSideways(int idx){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot grow a corridor in a subset of the sequence");
+    }
     // A corridor cannot become fat (wider than it's length) unless it is the 
     // first corridor
     if (idx > 0 && 
-        (sequence_[idx].Direction().x() == 0 && 
+        (sequence_[idx-first_corridor_idx_].Direction().x() == 0 && 
             sequence_[idx].Width() >= sequence_[idx].Height() || 
         sequence_[idx].Direction().y() == 0 &&
             sequence_[idx].Height() >= sequence_[idx].Width())){
@@ -660,6 +740,9 @@ bool CorridorSequence::GrowCorridorSideways(int idx){
 };
 
 int CorridorSequence::GetCellsOnLeftSide(int corridor_idx){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot perform operation on a subset of the sequence");
+    }
 
     // Get the direction of the corridor
     Corridor* corridor = &sequence_[corridor_idx];
@@ -713,6 +796,9 @@ int CorridorSequence::GetCellsOnLeftSide(int corridor_idx){
 };
 
 int CorridorSequence::GetCellsOnRightSide(int corridor_idx){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot perform operation on a subset of the sequence");
+    }
 
     // Get the direction of the corridor
     Corridor* corridor = &sequence_[corridor_idx];
@@ -765,6 +851,10 @@ int CorridorSequence::GetCellsOnRightSide(int corridor_idx){
 };
 
 bool CorridorSequence::CheckCellsOnLeftSide(int corridor_idx){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot perform operation on a subset of the sequence");
+    }
+
     int corridor_cell_length = GetCellsOnLeftSide(corridor_idx);
 
     for (int i = 0; i < corridor_cell_length; i++){
@@ -777,6 +867,10 @@ bool CorridorSequence::CheckCellsOnLeftSide(int corridor_idx){
 };
 
 bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot perform operation on a subset of the sequence");
+    }
+
     int corridor_cell_length = GetCellsOnRightSide(corridor_idx);
 
     for (int i = 0; i < corridor_cell_length; i++){
@@ -789,6 +883,10 @@ bool CorridorSequence::CheckCellsOnrightSide(int corridor_idx){
 };
 
 bool CorridorSequence::RemoveIrrelevantCorridors(){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot remove irrelevant corridors of a subset of the sequence");
+    }
+
     bool made_change = false;
 
     Corridor* previous_corridor;
@@ -843,6 +941,10 @@ bool CorridorSequence::RemoveIrrelevantCorridors(){
 };
 
 bool CorridorSequence::MergeCorridors(){
+    if (!CurrentlyConsideringFullSequence()){
+        throw std::runtime_error("Cannot merge corridors of a subset of the sequence");
+    }
+
     double tolerance = 1e-10;
 
     bool made_change = false;

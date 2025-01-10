@@ -190,12 +190,15 @@ class CorridorSequence{
         // sequence
         bool ContainsPoint(Point2D<double> const &point) const;
 
+        void SetFirstCorridorIdx(int idx);
+        void SetLastCorridorIdx(int idx);
+        void ResetCorridorIdxs();
+
         // Getters
         int MaxNbCorridors() const { return max_len_;};
         Corridor GetCorridor(int idx) const;
         void GetCorridor(int idx, Corridor &corridor) const;
-        int NbCorridors() const { return nb_of_corridors_;};
-
+        int NbCorridors() const { return last_corridor_idx_ - first_corridor_idx_ + 1;};
         Point2D<double> GetStart() const { return start_.Copy();};
         Point2D<double> GetStartVel() const { return start_vel_.Copy();};
         Point2D<double> GetDest() const { return dest_.Copy();};
@@ -204,13 +207,22 @@ class CorridorSequence{
         void GetDest(Point2D<double> &point) const;
         bool SequenceAvailable() const { return sequence_available_;};
         int GetVersion() const { return version_;};
+        int GetFirstCorridorIdx() const { return first_corridor_idx_;};
+        int GetLastCorridorIdx() const { return last_corridor_idx_;};
 
         std::vector<Point2D<double>> GetCorridorOverlapCenters() const;
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, CorridorSequence const &sequence) {
             for (int i = 0; i < sequence.nb_of_corridors_; i++){
-                out << i << ": " << sequence.sequence_[i] << std::endl;
+                out << i << ": " << sequence.sequence_[i];
+                if (i == sequence.first_corridor_idx_){
+                    out << " (first)";
+                }
+                if (i == sequence.last_corridor_idx_){
+                    out << " (last)";
+                }
+                out << std::endl;
             }
             return out;
         }
@@ -218,9 +230,11 @@ class CorridorSequence{
         json ToJson() const;
 
     private:
+        bool CurrentlyConsideringFullSequence() const;
+
         void UpdateVersion(){version_++;};
 
-        void ClearAll(){ nb_of_corridors_ = 0; UpdateVersion();};
+        void ClearAll(){ nb_of_corridors_ = 0; ResetCorridorIdxs(); UpdateVersion();};
 
         void AddInitialFootprint(std::vector<Point2D<int>> &path) const;
         void AddFinalFootprint(std::vector<Point2D<int>> &path) const;
@@ -255,15 +269,23 @@ class CorridorSequence{
 
         const Parameters& params_;          // Reference to the parameters object
 
+        // values for the current subsequence
         Point2D<double> start_;
         Point2D<double> dest_;
         Point2D<double> start_vel_;
+
+        // values for the complete sequence
+        Point2D<double> true_start_;
+        Point2D<double> true_dest_;
+        Point2D<double> true_start_vel_;
 
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors
         bool sequence_available_;
 
         int nb_of_corridors_ = 0;         // index of the last corridor in the sequence
+        int first_corridor_idx_ = 0; // index of the first corridor in the sequence to be used if motion planner is struggling
+        int last_corridor_idx_ = -1;  // index of the last corridor in the sequence to be used if motion planner is struggling
 
         int version_ = 0;               // version tracker such that the parametrization knows if it needs updating
 
