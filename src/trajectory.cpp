@@ -495,7 +495,7 @@ void Trajectory::CheckCollision(Trajectory const &other,
         distance_x = std::abs(pos_this.x() - pos_other.x()) - x_margin;
         distance_y = std::abs(pos_this.y() - pos_other.y()) - y_margin;
 
-        std::cout << pos_this << " - " << pos_other << std::endl;
+        // std::cout << pos_this << " - " << pos_other << std::endl;
         // std::cout << distance_x << " - " << distance_y << std::endl;
         // std::cout << std::endl;
 
