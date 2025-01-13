@@ -40,4 +40,16 @@ class FullCorridorSequenceException : public std::exception {
         std::string message_ = "Cannot add another corridor to the sequence";
 };
 
+class InvalidCorridorSequenceOperationException : public std::exception {
+    public:
+        InvalidCorridorSequenceOperationException(std::string message) : message_(message) {}
+
+        const char* what() const throw(){
+            return message_.c_str();
+        }
+
+    private:
+        std::string message_;
+};
+
 #endif

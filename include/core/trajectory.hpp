@@ -87,6 +87,8 @@ class Trajectory{
             tf_ = other.tf_;
             total_computation_time_ = other.total_computation_time_;
             solver_time_ = other.solver_time_;
+            corridor_infeasibilities_detected_ = other.corridor_infeasibilities_detected_;
+            emergency_braking_ = other.emergency_braking_;
 
             return *this;
         }
@@ -100,6 +102,8 @@ class Trajectory{
                             Parameters const &params_this, 
                             Parameters const &params_other,
                             Point2D<double>& collision_point);
+
+        void Concatenate(Trajectory const &other);
 
         // Basic getters
         double Dt() const { return dt_;};
@@ -150,6 +154,8 @@ class Trajectory{
         double total_computation_time_ = 0;     // expressed in ms
         double solver_time_ = 0;                // expressed in ms
         bool corridor_infeasibilities_detected_ = false;
+
+        bool emergency_braking_ = false;
 };
 
 #endif

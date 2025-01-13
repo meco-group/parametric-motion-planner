@@ -190,7 +190,10 @@ class CorridorSequence{
         // sequence
         bool ContainsPoint(Point2D<double> const &point) const;
 
+        bool CurrentlyConsideringFullSequence() const;
         void SetFirstCorridorIdx(int idx);
+        void IncrementFirstCorridorIdx(){SetFirstCorridorIdx(first_corridor_idx_ + 1);};
+        void DecrementFirstCorridorIdx(){SetFirstCorridorIdx(first_corridor_idx_ - 1);};
         void SetLastCorridorIdx(int idx);
         void ResetCorridorIdxs();
 
@@ -230,8 +233,6 @@ class CorridorSequence{
         json ToJson() const;
 
     private:
-        bool CurrentlyConsideringFullSequence() const;
-
         void UpdateVersion(){version_++;};
 
         void ClearAll(){ nb_of_corridors_ = 0; ResetCorridorIdxs(); UpdateVersion();};

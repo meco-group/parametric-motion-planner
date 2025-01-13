@@ -143,7 +143,9 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
     bool curr_emergency_mode = false;
 
     // Start the main
-    for (int i = 0; i < number_of_destination_switches; i++){
+    int planner_counter = 0;
+    // for (int i = 0; i < number_of_destination_switches; i++){
+    while (planner_counter < number_of_destination_switches){
         // set a destination
         if (!curr_emergency_mode){
             environment_.GetRandomFreeVehiclePosition(dest, 
@@ -154,28 +156,13 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
         }
 
         // plan towards the destination
-        // try{
-        //     motion_planner_.SetStart(curr_pos);
-        //     motion_planner_.SetStartVel(curr_vel);
-        //     motion_planner_.Plan();
-        // } catch (std::exception &e){
-        //     // Planning failed - resort to emergency mode
-        //     if (motion_planner_.EmergencyMode() && !curr_emergency_mode){
-        //         std::cerr << "Emergency mode activated" << std::endl;
-        //         motion_planner_.ComputeEmergencyBrakingTrajectory();
-
-        //     } else if (motion_planner_.EmergencyMode() && curr_emergency_mode){
-        //         std::cerr << "Caught exception " << e.what() << std::endl;
-        //         throw std::runtime_error("Unable to recover from emergency mode");
-
-        //     } else {
-        //         std::cerr << "Planning failed (" << e.what() << ")" << std::endl;
-        //         throw e;
-        //     }
-        // }
         motion_planner_.SetStart(curr_pos);
         motion_planner_.SetStartVel(curr_vel);
-        motion_planner_.PlanSafely(10);
+        try{
+            motion_planner_.PlanSafely(10);
+        } catch (std::exception &e){
+            std::cerr << "Planner failed to plan: " << e.what() << std::endl;
+        }
         curr_emergency_mode = motion_planner_.EmergencyMode();
 
         // Store replanning info
@@ -187,7 +174,7 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
         // Simulate the trajectory
         nb_samples_to_simulate = motion_planner_.GetLastSolution().NbSamples();
         std::cout << "Simulating " << nb_samples_to_simulate << " samples" << std::endl;
-        if (!motion_planner_.EmergencyMode() && i < number_of_destination_switches - 1){
+        if (!motion_planner_.EmergencyMode() && planner_counter < number_of_destination_switches - 1){
             nb_samples_to_simulate = int(0.7*nb_samples_to_simulate);
         }
 
@@ -204,6 +191,10 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
                                          curr_acc.y());
         }
         curr_time = curr_time + local_time;
+
+        if (!curr_emergency_mode){
+            planner_counter++;
+        }
     }
 }
 

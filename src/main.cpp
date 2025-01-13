@@ -324,6 +324,7 @@ void SwitchDestinationCarrotStyle(){
     Environment environment = Environment();
     Parameters params = Parameters();
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    my_motion_planner.SetJustInTimePreparationMode(false);
 
     DynamicSimulator dynamic_simulator = DynamicSimulator(environment, my_motion_planner);
     Point2D<double> start;
@@ -333,7 +334,7 @@ void SwitchDestinationCarrotStyle(){
     Point2D<double> start_vel(0,0);
 
     try{
-        dynamic_simulator.MoveDestination(start, start_vel, 5);
+        dynamic_simulator.MoveDestination(start, start_vel, 30);
         dynamic_simulator.DumpToJson("dynamic_solution_movable_destination.json");
     } catch (std::exception &e){
         std::cerr << e.what() << std::endl;
@@ -426,8 +427,8 @@ int main(){
     // SolveDynamicProblem();
     // TestRandomVehiclePositions();
     // SolveFatropFailureCase();
-    // SwitchDestinationCarrotStyle();
-    TestTrajectoryCollisionCheck();
+    SwitchDestinationCarrotStyle();
+    // TestTrajectoryCollisionCheck();
 
     // Environment environment = Environment(10, 10, 0.12, 0.12);
     // std::vector<int> rr = {8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 5, 4, 8, 8, 8, 8, 5, 8};

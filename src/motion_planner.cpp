@@ -87,14 +87,16 @@ void MotionPlanner::Plan(){
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
 
     // Update the corridor sequence
-    UpdateCorridorSequence();
-    std::cout << "Done updating the corridor sequence" << std::endl;
-    if (!corridor_sequence_.SequenceAvailable()){
-        std::cout << "No corridor sequence found to plan through." << std::endl;
-        last_solution_.Reset(start_);
-        return;
+    if (corridor_sequence_.CurrentlyConsideringFullSequence()){
+        UpdateCorridorSequence();
+        std::cout << "Done updating the corridor sequence" << std::endl;
+        if (!corridor_sequence_.SequenceAvailable()){
+            std::cout << "No corridor sequence found to plan through." << std::endl;
+            last_solution_.Reset(start_);
+            return;
+        }
+        PrintCorridorSequence();
     }
-    PrintCorridorSequence();
     switch(method_){
         case P2P:
             PlanP2P();
@@ -187,14 +189,19 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
             std::cout << "parametrization:" << std::endl;
             std::cout << parametrization_ << std::endl;
 
-            // deal with issues
-            if (current_emergency_mode){
-                // we were unable to recover from emergency mode
-                throw std::runtime_error("Unable to recover from emergency mode");
-            }
+            if (start_vel_.Norm() <= 1.0e-10){
+                // unable to plan with low starting velocity
+                PlanConcatenatedSections();
+            } else {
+                // deal with issues
+                if (current_emergency_mode){
+                    // we were unable to recover from emergency mode
+                    throw std::runtime_error("Unable to recover from emergency mode");
+                }
 
-            emergency_mode_ = true;
-            ComputeEmergencyBrakingTrajectory();
+                emergency_mode_ = true;
+                ComputeEmergencyBrakingTrajectory();
+            }
         }
     }
 }
@@ -537,6 +544,7 @@ void MotionPlanner::PlanARENA(){
 
 
 void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
+    std::cout << "Planning an emergency braking trajectory from " << start_ << " with start velocity " << start_vel_ << std::endl;
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
     double T_x = std::abs(start_vel_.x()) / params_.GetAmax();
     double T_y = std::abs(start_vel_.y()) / params_.GetAmax();
@@ -865,27 +873,41 @@ std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){
                                  solver_time);
 }
 
-void MotionPlanner::PlanConcatenatedSections(){
-    UpdateCorridorSequence();
-
-    if (corridor_sequence_.NbCorridors() <= 1){
-        throw std::runtime_error("Cannot plan concatenated sections with less than 1 corridor");
+void MotionPlanner::PlanConcatenatedSections(bool recursive){
+    if (!recursive){
+        UpdateCorridorSequence();
+        corridor_sequence_.ResetCorridorIdxs();
     }
 
-    // TODO: how exactly to split up the corridor sequence?
-    // TODO: implement a stitching procedure for the resulting trajectories
+    if (corridor_sequence_.NbCorridors() == 1){
+        std::cout << "Planning concatenated sections: planning in a single corridor." << std::endl;
+        PlanP2P();
+        return;
+    }
     
-    if (start_.Distance(Point2D<double>(1.38, 0.06)) <= 0.0001){
-        corridor_sequence_.SetLastCorridorIdx(1);
-        std::cout << "\tPLANNING FIRST PART" << std::endl;
-        PlanARENA();
-
-        corridor_sequence_.ResetCorridorIdxs();
-        corridor_sequence_.SetFirstCorridorIdx(1);
-        std::cout << "\tPLANNING SECOND PART" << std::endl;
-        PlanARENA();
-        corridor_sequence_.ResetCorridorIdxs();
+    // Plan a trajectory, skipping the first corridor
+    corridor_sequence_.IncrementFirstCorridorIdx();
+    std::cout << "Planning concatenated sections: planning second part." << std::endl;
+    try{ Plan();}
+    catch (std::exception& e){
+        std::cout << "Planning concatenated sections: caught exception: " << e.what() << std::endl;
+        PlanConcatenatedSections(true);
     }
+    corridor_sequence_.DecrementFirstCorridorIdx();
+
+    // store the trajectory
+    Trajectory second_part_of_traj = last_solution_;
+
+    // Plan first part using P2P
+    int current_last_corridor_idx = corridor_sequence_.GetLastCorridorIdx();
+    corridor_sequence_.SetLastCorridorIdx(corridor_sequence_.GetFirstCorridorIdx());
+    std::cout << "Planning concatenated sections: planning first part." << std::endl;
+    PlanP2P();
+    corridor_sequence_.SetLastCorridorIdx(current_last_corridor_idx);
+
+    // Concatenate the two trajectories
+    std::cout << "Planning concatenated sections: concatenating trajectories." << std::endl;
+    last_solution_.Concatenate(second_part_of_traj);
 }
 
 bool MotionPlanner::EliminateSubOptimalParametrization(){

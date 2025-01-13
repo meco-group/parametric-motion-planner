@@ -90,13 +90,22 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
                     with_footprints=False, nb_samples_to_show=-1,
                     virtual_initial_footprint=False,
                     virtual_final_footprint=True,
-                    show_markers=True, linewidth=1, with_line=True):
+                    show_markers=True, linewidth=1, with_line=True,
+                    unfaded_nb_samples=-1,
+                    show_initial_footprint_if_showing_footprints=True,
+                    show_final_footprint_if_showing_footprints=True):
     if nb_samples_to_show == -1:
         nb_samples_to_show = len(trajectory["px"])
 
+    if unfaded_nb_samples == -1:
+        unfaded_nb_samples = nb_samples_to_show
+        start_index = 0
+    else:
+        start_index = max(0, nb_samples_to_show - unfaded_nb_samples)
+
     if with_trace:
         footprints = []
-        for j in range(nb_samples_to_show-1):
+        for j in range(start_index, nb_samples_to_show-1):
             px = trajectory["px"][j]
             py = trajectory["py"][j]
             px_next = trajectory["px"][j+1]
@@ -104,7 +113,7 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
 
             for k in range(0, 100, 10):
                 px = px + k/100*(px_next - px)
-                py = py + k/100*(py_next - py)            
+                py = py + k/100*(py_next - py)
                 footprint = sg.box(px - width/2, 
                                 py - height/2,
                                 px + width/2, 
@@ -120,27 +129,29 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
             print("No footprint to plot")
 
     if show_markers and with_line:
-        plt.plot(trajectory["px"][:nb_samples_to_show], 
-                trajectory["py"][:nb_samples_to_show], 'o-', color=color, 
+        plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
+                trajectory["py"][start_index:nb_samples_to_show], 'o-', color=color, 
                 markersize=1, linewidth=linewidth, zorder=3)
     elif show_markers:
-        plt.plot(trajectory["px"][:nb_samples_to_show], 
-                trajectory["py"][:nb_samples_to_show], 'o', color=color, 
+        plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
+                trajectory["py"][start_index:nb_samples_to_show], 'o', color=color, 
                 markersize=1, linewidth=0, zorder=3)
     elif with_line:
-        plt.plot(trajectory["px"][:nb_samples_to_show], 
-                trajectory["py"][:nb_samples_to_show], '-', color=color, 
+        plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
+                trajectory["py"][start_index:nb_samples_to_show], '-', color=color, 
                 linewidth=linewidth, zorder=3)
     
     if with_footprints:
         # show vehicle footprint
-        plot_vehicle_footprint(plt.gca(), trajectory["px"][0], 
-                               trajectory["py"][0], width, height, 
-                               virtual_position=virtual_initial_footprint)
-        final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
-        plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
-                               trajectory["py"][final_ind], width, height,
-                               virtual_position=virtual_final_footprint)
+        if show_initial_footprint_if_showing_footprints:
+            plot_vehicle_footprint(plt.gca(), trajectory["px"][start_index], 
+                                trajectory["py"][start_index], width, height, 
+                                virtual_position=virtual_initial_footprint)
+        if show_final_footprint_if_showing_footprints:
+            final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
+            plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
+                                trajectory["py"][final_ind], width, height,
+                                virtual_position=virtual_final_footprint)
         
 def show_moving_obstacle(obstacle, sample_idx, color):
     x = obstacle["travelled_trajectory"]["px"][sample_idx]

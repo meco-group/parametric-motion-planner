@@ -21,7 +21,7 @@ def latexify():
  
 latexify()
 
-def visualize_dynamic_solution(data, T=-1, counter=0):
+def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None):
     DPI = 300
 
     if T == -1 or T > data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]:
@@ -37,16 +37,20 @@ def visualize_dynamic_solution(data, T=-1, counter=0):
     # find the index in the travelled trajectory
     travelled_traj_sample_idx = int(min(T/data["travelled_trajectory"]["dt"],
                                     data["travelled_trajectory"]["nb_samples"]))
-    print(f"travelled_traj_sample_idx: {travelled_traj_sample_idx}")
-    print(f"total number of samples: {data['travelled_trajectory']['nb_samples']}")
+    # print(f"travelled_traj_sample_idx: {travelled_traj_sample_idx}")
+    # print(f"total number of samples: {data['travelled_trajectory']['nb_samples']}")
 
-    print(f"traj_idx = {traj_idx}")
-    print(f"travelled_traj_sample_idx = {travelled_traj_sample_idx}")
+    # print(f"traj_idx = {traj_idx}")
+    # print(f"travelled_traj_sample_idx = {travelled_traj_sample_idx}")
 
     ###############################
     ### Make environment figure ###
     ###############################
-    plt.figure()
+    if making_mp4:
+        plt.figure(fig.number)
+        plt.clf()
+    else:
+        plt.figure()
 
     # Show the environment
     env = data["environment"]
@@ -72,7 +76,8 @@ def visualize_dynamic_solution(data, T=-1, counter=0):
             show_moving_obstacle(obs, travelled_traj_sample_idx, 'firebrick')
         
     # show all previously computed trajectories
-    for i in range(min(len(data["previous_trajectories"]), traj_idx)):
+    start_traj_idx = 0 if not making_mp4 else max(0, min(len(data["previous_trajectories"]), traj_idx) - 1)
+    for i in range(start_traj_idx, min(len(data["previous_trajectories"]), traj_idx)):
         show_trajectory(data["previous_trajectories"][i], 'gray', False, 
                         data["motion_planner"]["parameters"]["veh_width"], 
                         data["motion_planner"]["parameters"]["veh_height"],
@@ -89,23 +94,73 @@ def visualize_dynamic_solution(data, T=-1, counter=0):
     plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
                 data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
     plt.plot(data["previous_corridor_sequences"][traj_idx]["dest"]["x"],
-                data["previous_corridor_sequences"][traj_idx]["dest"]["y"], 'o', color='k', markersize=5)
+                data["previous_corridor_sequences"][traj_idx]["dest"]["y"], 'o', color='red', markersize=8)
 
     # Show the trajectory of the mover
-    show_trajectory(data["travelled_trajectory"], 'blue', True, 
-                    data["motion_planner"]["parameters"]["veh_width"], 
-                    data["motion_planner"]["parameters"]["veh_height"],
-                    with_footprints=True, 
-                    nb_samples_to_show=travelled_traj_sample_idx,
-                    virtual_initial_footprint=True, 
-                    virtual_final_footprint=False)
+    if making_mp4:
+        show_trajectory(data["travelled_trajectory"], 'blue', False, 
+                        data["motion_planner"]["parameters"]["veh_width"], 
+                        data["motion_planner"]["parameters"]["veh_height"],
+                        with_footprints=True, 
+                        nb_samples_to_show=travelled_traj_sample_idx,
+                        virtual_initial_footprint=True, 
+                        virtual_final_footprint=False,
+                        unfaded_nb_samples=100,
+                        show_initial_footprint_if_showing_footprints=False)
+        if data["previous_trajectories"][start_traj_idx]["emergency_braking"]:
+            show_trajectory(data["previous_trajectories"][start_traj_idx], 'red', False, 
+                        data["motion_planner"]["parameters"]["veh_width"], 
+                        data["motion_planner"]["parameters"]["veh_height"],
+                        with_footprints=False, 
+                        virtual_initial_footprint=True,
+                        virtual_final_footprint=True,
+                        show_markers=False, linewidth=2)
+        if data["previous_trajectories"][start_traj_idx+1]["emergency_braking"]:
+            show_trajectory(data["previous_trajectories"][start_traj_idx+1], 'red', False, 
+                        data["motion_planner"]["parameters"]["veh_width"], 
+                        data["motion_planner"]["parameters"]["veh_height"],
+                        with_footprints=False, 
+                        virtual_initial_footprint=True,
+                        virtual_final_footprint=True,
+                        show_markers=False, linewidth=2)
+    else:
+        show_trajectory(data["travelled_trajectory"], 'blue', True, 
+                        data["motion_planner"]["parameters"]["veh_width"], 
+                        data["motion_planner"]["parameters"]["veh_height"],
+                        with_footprints=True, 
+                        nb_samples_to_show=travelled_traj_sample_idx,
+                        virtual_initial_footprint=True, 
+                        virtual_final_footprint=False)
+        
+    # if making_mp4:
+    #     # show arrow with the current velocity
+    #     s = 0.05
+    #     vx = s*data["travelled_trajectory"]["vx"][travelled_traj_sample_idx]
+    #     vy = s*data["travelled_trajectory"]["vy"][travelled_traj_sample_idx]
+    #     plt.arrow(data["travelled_trajectory"]["px"][travelled_traj_sample_idx], 
+    #               data["travelled_trajectory"]["py"][travelled_traj_sample_idx], 
+    #               vx, vy, head_width=0.05, head_length=0.05, fc='k', ec='k', zorder=99)
+        
+    #     # show arrow with the current acceleration
+    #     # s = 0.05
+    #     # ax = s*data["travelled_trajectory"]["ax"][travelled_traj_sample_idx]
+    #     # ay = s*data["travelled_trajectory"]["ay"][travelled_traj_sample_idx]
+    #     # plt.arrow(data["travelled_trajectory"]["px"][travelled_traj_sample_idx], 
+    #     #           data["travelled_trajectory"]["py"][travelled_traj_sample_idx], 
+    #     #           ax, ay, head_width=0.05, head_length=0.05, fc='green', ec='green', zorder=99)
+
     
     set_env_plot_limits(env)
-    if counter is None:
-        plt.savefig(f"post-process/figures/dynamic_solution_traj.png", dpi=200)
-    else:
-        plt.savefig(f"post-process/figures/animation/traj_frames/dynamic_solution_traj_{counter}.png", dpi=DPI)
-    plt.close()
+
+    if not making_mp4:
+        if counter is None:
+            plt.savefig(f"post-process/figures/dynamic_solution_traj.png", dpi=200)
+        else:
+            plt.savefig(f"post-process/figures/animation/traj_frames/dynamic_solution_traj_{counter}.png", dpi=DPI)
+        plt.close()
+
+    if making_mp4:
+        return
 
     ############################
     ### Make velocity figure ###
@@ -603,15 +658,31 @@ else:
 
     print(data["travelled_trajectory"]["Tf"])
     ### Make animation frames
-    total_time = data["travelled_trajectory"]["Tf"]
-    counter = 0
-    curr_time = 0.0
-    step_size = 1
-    while curr_time < total_time + data["travelled_trajectory"]["dt"]:
-        print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%) with counter = {counter}")
-        visualize_dynamic_solution(data, curr_time, counter)
-        counter += 1
-        curr_time += step_size * data["travelled_trajectory"]["dt"]
+    # total_time = data["travelled_trajectory"]["Tf"]
+    # counter = 0
+    # curr_time = 0.0
+    # step_size = 1
+    # while curr_time < total_time + data["travelled_trajectory"]["dt"]:
+    #     print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%) with counter = {counter}")
+    #     visualize_dynamic_solution(data, curr_time, counter)
+    #     counter += 1
+    #     curr_time += step_size * data["travelled_trajectory"]["dt"]
 
-    visualize_dynamic_solution(data, total_time, counter)
-    print(f"Last figure has count: {counter}")
+    # visualize_dynamic_solution(data, total_time, counter)
+    # print(f"Last figure has count: {counter}")
+
+    fps = 25
+    mp4_dt = 1.0/fps
+    total_time = data["travelled_trajectory"]["Tf"]
+
+    import matplotlib.animation as animation
+    from matplotlib.animation import FFMpegWriter
+
+    writer = FFMpegWriter(fps=fps, codec="libx264", extra_args=['-pix_fmt', 'yuv420p'])
+    fig = plt.figure()
+    def update(frame):
+        print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
+        visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig)
+        return fig
+    anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt+5)/1)), repeat=False)
+    anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)

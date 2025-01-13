@@ -29,6 +29,7 @@ void Trajectory::Update(int nb_corridors,
     total_computation_time_ = -1;
     corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
+    emergency_braking_ = false;
 
     double total_time = 0.0;
     for (int i = 0; i < 3*nb_corridors+1; i++){
@@ -92,6 +93,7 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     total_computation_time_ = -1;
     corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
+    emergency_braking_ = false;
     tf_ = tt_ocp[tt_ocp.size() - 1];
 
     curr_nb_samples_ = tf_ / dt_ + 2;
@@ -186,7 +188,8 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     total_computation_time_ = -1;
     corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
-    
+    emergency_braking_ = false;
+
     double a_max = params.GetAmax();
     std::set<int> out_of_corridor_list = {};
     
@@ -338,6 +341,8 @@ void Trajectory::Update(Point2D<double> const &start,
                         std::vector<double> const &accel_y,
                         std::vector<double> const &t_x,
                         std::vector<double> const &t_y){       
+    emergency_braking_ = true;
+    
     // compute the total time
     double tf_ = t_x[0] + t_x[1] + t_x[2];
 
@@ -421,6 +426,7 @@ void Trajectory::Reset(Point2D<double> const &start){
     tf_ = 0.0;
     curr_nb_samples_ = 1;
     corridor_infeasibilities_detected_ = false;
+    emergency_braking_ = false;
 
     // initialize the trajectory
     t_[0] = 0.0;
@@ -519,6 +525,34 @@ void Trajectory::CheckCollision(Trajectory const &other,
     collision_point.SetY(-1.0);
 }
 
+void Trajectory::Concatenate(Trajectory const &other){
+    if (curr_nb_samples_ + other.NbSamples() > max_nb_samples_){
+        throw std::runtime_error("Trajectory is too long to concatenate");
+    }
+
+    if (dt_ != other.Dt()){
+        throw std::runtime_error("Cannot concatenate trajectories with different timestep");
+    }
+
+    for (int i = 0; i < other.NbSamples(); i++){
+        t_[curr_nb_samples_] = other.T()[i] + tf_;
+        px_[curr_nb_samples_] = other.Px()[i];
+        py_[curr_nb_samples_] = other.Py()[i];
+        vx_[curr_nb_samples_] = other.Vx()[i];
+        vy_[curr_nb_samples_] = other.Vy()[i];
+        ax_[curr_nb_samples_] = other.Ax()[i];
+        ay_[curr_nb_samples_] = other.Ay()[i];
+        curr_nb_samples_++;
+    }
+
+    tf_ += other.Tf();
+    solver_time_ += other.SolverTime();
+    total_computation_time_ += other.TotalComputationTime();
+    corridor_infeasibilities_detected_ = 
+        corridor_infeasibilities_detected_ || 
+        other.CorridorInfeasibilitiesDetected();
+}
+
 json Trajectory::ToJson() const {
     json j;
 
@@ -535,6 +569,7 @@ json Trajectory::ToJson() const {
     j["solver_time"] = solver_time_;
     j["Tf"] = Tf();
     j["corridor_infeasibilities_detected"] = corridor_infeasibilities_detected_;
+    j["emergency_braking"] = emergency_braking_;
 
     return j;
 }

@@ -114,7 +114,7 @@ class MotionPlanner{
         void DumpToJson(const std::string &filename, 
                         bool create_output_folder=true) const;
 
-        void PlanConcatenatedSections();
+        void PlanConcatenatedSections(bool resursive=false);
 
     private:
         void ComputeEmergencyBrakingTrajectory();
