@@ -38,7 +38,7 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
     travelled_traj_sample_idx = int(min(T/data["travelled_trajectory"]["dt"],
                                     data["travelled_trajectory"]["nb_samples"]))
     # print(f"travelled_traj_sample_idx: {travelled_traj_sample_idx}")
-    # print(f"total number of samples: {data['travelled_trajectory']['nb_samples']}")
+    # print(f"total number of samples: {data['travelled_trajectory']['nb_samples']} ({len(data['travelled_trajectory']['t'])})")
 
     # print(f"traj_idx = {traj_idx}")
     # print(f"travelled_traj_sample_idx = {travelled_traj_sample_idx}")
@@ -61,19 +61,19 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
     show_corridors(corridors)
 
     # Show traces of moving obstacles
-    for obs in data["moving_obstacles"]:
-        if counter is None:
-            show_trajectory(obs["travelled_trajectory"], 'firebrick',
-                            with_trace=True, 
-                            width=obs["width"], height=obs["height"], with_footprints=False, with_line=False,
-                            show_markers=False)
-            plt.gca().add_patch(Rectangle((obs["travelled_trajectory"]["px"][travelled_traj_sample_idx]-obs["width"]/2, 
-                                           obs["travelled_trajectory"]["py"][travelled_traj_sample_idx]-obs["height"]/2),
-                                          obs["width"], obs["height"], fill=True, 
-                                          facecolor='firebrick', edgecolor=None))
+    # for obs in data["moving_obstacles"]:
+    #     if counter is None:
+    #         show_trajectory(obs["travelled_trajectory"], 'firebrick',
+    #                         with_trace=True, 
+    #                         width=obs["width"], height=obs["height"], with_footprints=False, with_line=False,
+    #                         show_markers=False)
+    #         plt.gca().add_patch(Rectangle((obs["travelled_trajectory"]["px"][travelled_traj_sample_idx]-obs["width"]/2, 
+    #                                        obs["travelled_trajectory"]["py"][travelled_traj_sample_idx]-obs["height"]/2),
+    #                                       obs["width"], obs["height"], fill=True, 
+    #                                       facecolor='firebrick', edgecolor=None))
             
-        else:
-            show_moving_obstacle(obs, travelled_traj_sample_idx, 'firebrick')
+    #     else:
+    #         show_moving_obstacle(obs, travelled_traj_sample_idx, 'firebrick')
         
     # show all previously computed trajectories
     start_traj_idx = 0 if not making_mp4 else max(0, min(len(data["previous_trajectories"]), traj_idx) - 1)
@@ -648,9 +648,27 @@ else:
         plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["total_computation_time"]], 'o-', color='gray')
         plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["solver_time"]], 'o-k')
 
+        if data["previous_trajectories"][i]["solver_time"] > 10:
+            # add value in text
+            plt.text(data["replanning_times"][i], 15, 
+                     f" {data['previous_trajectories'][i]['solver_time']:.2f}", 
+                     fontsize=12, ha='left', va='bottom', color='gray')
+
+        if data["previous_trajectories"][i]["total_computation_time"] > 10:
+            # add value in text
+            plt.text(data["replanning_times"][i], 18, 
+                     f" {data['previous_trajectories'][i]['total_computation_time']:.2f}", 
+                     fontsize=12, ha='left', va='bottom', color='k')
+            
+        if data["previous_trajectories"][i]["vx"][0] == 0 and data["previous_trajectories"][i]["vy"][0] == 0:
+            plt.text(data["replanning_times"][i], 11, "not\ncritical", fontsize=8, ha='center', va='bottom', color='r', backgroundcolor='white')
+
+    plt.axhline(y=10, color='r', linestyle='-', lw=2)
+
     plt.xlabel('t')
     plt.ylabel('solver time [ms]')
-    plt.ylim([0, max(data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"])))*1.1])
+    # plt.ylim([0, max(data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"])))*1.1])
+    plt.ylim([0, 20])
     plt.title('Solver time at replanning times')
     plt.savefig(f"post-process/figures/solver_time.png", dpi=300)
 
@@ -681,8 +699,9 @@ else:
     writer = FFMpegWriter(fps=fps, codec="libx264", extra_args=['-pix_fmt', 'yuv420p'])
     fig = plt.figure()
     def update(frame):
-        print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
+        if frame % 20 == 0:
+            print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
         visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig)
         return fig
-    anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt+5)/1)), repeat=False)
+    anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt))+15), repeat=False)
     anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
