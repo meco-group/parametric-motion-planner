@@ -246,7 +246,7 @@ void MotionPlanner::SetSolver(std::string solver_name){
 }
 
 void MotionPlanner::SetJustInTimePreparationMode(bool set){
-    if (set && !just_in_time_preparation_mode_){
+    if (!set && just_in_time_preparation_mode_){
         just_in_time_preparation_mode_ = set;
         parametrization_.PrepareOptiInstances(parametrization_update_token_,
                                              solver_name_, opts_casadi_,
@@ -306,14 +306,13 @@ void MotionPlanner::DumpToJson(const std::string &filename,
 }
 
 void MotionPlanner::PlanP2P(){
-    std::cout << "Planning using P2P method" << std::endl;
-    
     if (start_vel_.x() != 0.0 || start_vel_.y() != 0.0){
         std::runtime_error("P2P method does not support planning with an initial velocity");
     }
 
     // Get the waypoints
     p2p_waypoints_ = corridor_sequence_.GetCorridorOverlapCenters();
+    std::cout << "Planning using P2P method from " << p2p_waypoints_[0] << " to " << p2p_waypoints_[p2p_waypoints_.size()-1] << std::endl;
     
     for (int i = 0; i < corridor_sequence_.NbCorridors(); i++){
         PlanP2PLine(i);
@@ -668,8 +667,11 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
     std::vector<std::vector<double>> new_intervals = {};
     for (int i = 0; i < p1_samples.size(); i++){
         for (int j = 0; j < obstacle_centers.size(); j++){
+
+            // check if collision occurs
+            double tolerance = 1.0e-6;
             if (std::abs(GetBottlekneckPosition(obstacle_centers[j]) - 
-                         GetBottlekneckPosition(p1_samples[i])) < 
+                         GetBottlekneckPosition(p1_samples[i])) + tolerance < 
                     GetObstacleBottleneckSize(j)/2 + GetBottleneckOffset()){
                 // obstacle limits
                 obs1 = GetFreePosition(obstacle_centers[j]) - GetObstacleFreeSize(j)/2 - GetFreeOffset();
@@ -717,6 +719,9 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
         }
     }
     // std::cout << "\t\tdone" << std::endl;
+    if (safe_alpha_intervals.size() == 0){
+        std::cerr << "WARNING: No safe alpha intervals found. Using full interval" << std::endl;
+    }
 
     // pick the alpha in the middle of the largest interval
     double alpha = 0.5;
@@ -887,7 +892,7 @@ void MotionPlanner::PlanConcatenatedSections(bool recursive){
     
     // Plan a trajectory, skipping the first corridor
     corridor_sequence_.IncrementFirstCorridorIdx();
-    std::cout << "Planning concatenated sections: planning second part." << std::endl;
+    std::cout << "Planning concatenated sections: planning second part from " << corridor_sequence_.GetStart() << " to " << corridor_sequence_.GetDest() << std::endl;
     try{ Plan();}
     catch (std::exception& e){
         std::cout << "Planning concatenated sections: caught exception: " << e.what() << std::endl;
@@ -901,7 +906,7 @@ void MotionPlanner::PlanConcatenatedSections(bool recursive){
     // Plan first part using P2P
     int current_last_corridor_idx = corridor_sequence_.GetLastCorridorIdx();
     corridor_sequence_.SetLastCorridorIdx(corridor_sequence_.GetFirstCorridorIdx());
-    std::cout << "Planning concatenated sections: planning first part." << std::endl;
+    std::cout << "Planning concatenated sections: planning first part from " << corridor_sequence_.GetStart() << " to " << corridor_sequence_.GetDest() << std::endl;
     PlanP2P();
     corridor_sequence_.SetLastCorridorIdx(current_last_corridor_idx);
 
