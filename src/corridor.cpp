@@ -190,11 +190,13 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     //     !environment_.isValidPosition(dest)){
     if (!environment_.isValidVehiclePosition(start, params.GetVehWidth(), 
                                              params.GetVehHeight(), 
-                                             params.GetMargin()) || 
-        !environment_.isValidVehiclePosition(dest, params.GetVehWidth(), 
+                                             params.GetMargin())){
+        throw InvalidPositionInEnvironmentException("Invalid STARTING POSITION or destination");
+    }
+    if (!environment_.isValidVehiclePosition(dest, params.GetVehWidth(), 
                                              params.GetVehHeight(), 
                                              params.GetMargin())){
-        throw InvalidPositionInEnvironmentException("Invalid starting position or destination");
+        throw InvalidPositionInEnvironmentException("Invalid starting position or DESTINATION");
     }
 
     // Check if we really need to do update
@@ -380,8 +382,8 @@ void CorridorSequence::SetLastCorridorIdx(int idx){
     }
 
     Corridor overlap;
-    Corridor next_corridor = GetCorridor(idx + 1 - first_corridor_idx_);
-    GetCorridor(idx - first_corridor_idx_).GetOverlap(next_corridor, overlap);
+    Corridor next_corridor = GetCorridor(idx + 1);
+    GetCorridor(idx).GetOverlap(next_corridor, overlap);
     overlap.GetCenter(dest_);
 
     last_corridor_idx_ = idx;
