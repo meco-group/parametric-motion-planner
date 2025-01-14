@@ -321,7 +321,9 @@ void TestRandomVehiclePositions(){
 }
 
 void SwitchDestinationCarrotStyle(){
-    Environment environment = Environment();
+    // Environment environment = Environment();
+    Environment environment = Environment(18, 26, 0.12, 0.12);
+    environment.AddRandomObstacles(0.2);
     Parameters params = Parameters();
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
     my_motion_planner.SetJustInTimePreparationMode(false);
@@ -334,7 +336,7 @@ void SwitchDestinationCarrotStyle(){
     Point2D<double> start_vel(0,0);
 
     try{
-        dynamic_simulator.MoveDestination(start, start_vel, 30);
+        dynamic_simulator.MoveDestination(start, start_vel, 20);
         dynamic_simulator.DumpToJson("dynamic_solution_movable_destination.json");
     } catch (std::exception &e){
         std::cerr << e.what() << std::endl;

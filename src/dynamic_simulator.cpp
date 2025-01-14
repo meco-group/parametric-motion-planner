@@ -160,6 +160,9 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
         motion_planner_.SetStartVel(curr_vel);
         try{
             motion_planner_.PlanSafely(10);
+        } catch (InvalidPositionInEnvironmentException &e){
+            std::cerr << "Error: " << e.what() << std::endl;
+            return;
         } catch (std::exception &e){
             std::cerr << "Planner failed to plan: " << e.what() << std::endl;
         }
@@ -181,7 +184,7 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
         for (int k = 0; k < nb_samples_to_simulate; k++){
             motion_planner_.GetSample(local_time, curr_pos, curr_vel, curr_acc);
             if (curr_emergency_mode){
-                std::cout << "\t\tpos: " << curr_pos << std::endl;
+                std::cout << "\t\tpos: " << curr_pos << "\t\tvel: " << curr_vel << std::endl;
                 // std::cout << "\t\tvel: " << curr_vel << std::endl;
                 // std::cout << "\t\taccel: " << curr_acc << std::endl;
             }
@@ -196,6 +199,9 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
             planner_counter++;
         }
     }
+
+    std::cout << "final position: " << curr_pos << std::endl;
+    std::cout << "final velocity: " << curr_vel << std::endl;
 }
 
 void DynamicSimulator::Reset(){
