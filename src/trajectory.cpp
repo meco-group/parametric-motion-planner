@@ -372,7 +372,7 @@ void Trajectory::Update(Point2D<double> const &start,
         ty_arc3 = std::max(0.0, std::min(t_y[2], t - t_y[0] - t_y[1]));
 
         // Update x
-        px_[sample_ptr] = p0.x() + v0.x()*tx_arc1 + accel_x[0]*std::pow(tx_arc1, 2);
+        px_[sample_ptr] = p0.x() + v0.x()*tx_arc1 + 0.5*accel_x[0]*std::pow(tx_arc1, 2);
         vx_[sample_ptr] = v0.x() + accel_x[0]*tx_arc1;
 
         px_[sample_ptr] += vx_[sample_ptr]*tx_arc2 + 0.5*accel_x[1]*std::pow(tx_arc2, 2);
@@ -382,7 +382,7 @@ void Trajectory::Update(Point2D<double> const &start,
         vx_[sample_ptr] += accel_x[2]*tx_arc3;
 
         // Update y
-        py_[sample_ptr] = p0.y() + v0.y()*ty_arc1 + accel_y[0]*std::pow(ty_arc1, 2);
+        py_[sample_ptr] = p0.y() + v0.y()*ty_arc1 + 0.5*accel_y[0]*std::pow(ty_arc1, 2);
         vy_[sample_ptr] = v0.y() + accel_y[0]*ty_arc1;
 
         py_[sample_ptr] += vy_[sample_ptr]*ty_arc2 + 0.5*accel_y[1]*std::pow(ty_arc2, 2);
