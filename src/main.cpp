@@ -424,6 +424,21 @@ void TestTrajectoryCollisionCheck(){
     outFile.close();
 }
 
+void TestEmergencyBraking(){
+    Environment environment = Environment(18, 26, 0.12, 0.12);
+    std::vector<int> rr = {0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 12, 13, 13, 14, 14, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 19, 19, 19, 20, 21, 21, 21, 22, 22, 22, 22, 22, 22, 22, 22, 23, 23, 23, 24, 24, 25, 25};
+    std::vector<int> cc = {5, 6, 16, 3, 13, 14, 15, 17, 3, 4, 6, 13, 16, 2, 3, 8, 10, 13, 3, 4, 6, 7, 2, 3, 5, 6, 7, 11, 12, 4, 9, 10, 13, 15, 0, 4, 14, 17, 8, 9, 13, 16, 3, 4, 7, 9, 12, 6, 7, 10, 16, 5, 4, 10, 7, 11, 7, 10, 3, 7, 16, 1, 3, 5, 8, 6, 13, 7, 11, 14, 13, 0, 2, 15, 2, 4, 5, 7, 9, 12, 13, 17, 8, 11, 14, 9, 17, 8, 13};
+    for (int i = 0; i < rr.size(); i++){ environment.AddObstacle(Point2D<int>(rr[i], cc[i]));}
+
+    Parameters params = Parameters();
+    MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+
+    my_motion_planner.SetStart(
+        Point2D<double>(2.09169, 0.77861));
+    my_motion_planner.SetStartVel(Point2D<double>(-0.343122, -0.0363521));
+    my_motion_planner.ComputeEmergencyBrakingTrajectory();
+}
+
 int main(){
     // SolveRandomProblem();
     // SolveDynamicProblem();
@@ -431,31 +446,7 @@ int main(){
     // SolveFatropFailureCase();
     SwitchDestinationCarrotStyle();
     // TestTrajectoryCollisionCheck();
-
-    // Environment environment = Environment(10, 10, 0.12, 0.12);
-    // std::vector<int> rr = {8, 6, 8, 6, 8, 6, 8, 6, 8, 6, 5, 4, 8, 8, 8, 8, 5, 8};
-    // std::vector<int> cc = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 9};
-    // for (int i = 0; i < rr.size(); i++){ environment.AddObstacle(Point2D<int>(rr[i], cc[i]));}
-
-    // Parameters params = Parameters();
-    // MotionPlanner my_motion_planner = MotionPlanner(params, environment);
-
-    // my_motion_planner.SetStart(
-    //     Point2D<int>(5, 5).ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
-    // my_motion_planner.SetStartVel(Point2D<double>(2.0, 0.1));
-
-    // my_motion_planner.SetDest(
-    //     Point2D<int>(0, 7).ConvertCellToWorld(environment.CellWidth(), environment.CellHeight()));
-
-    // try{
-    //     my_motion_planner.Plan();
-    
-    // } catch (const std::exception &e){
-    //     std::cerr << e.what() << std::endl;
-
-    //     std::cout << "switching to emergency mode" << std::endl;
-    //     my_motion_planner.ComputeEmergencyBrakingTrajectory();
-    // }
+    // TestEmergencyBraking();
 }
 
 

@@ -324,6 +324,33 @@ std::ostream& operator<<(std::ostream &out, Environment const &environment){
         }
         out << std::endl;
     }
+    std::vector<int> rr = {};
+    std::vector<int> cc = {};
+    for (int i = 0; i < environment.NbCellCols(); i++){
+        for (int j = 0; j < environment.NbCellRows(); j++){
+            if (!environment.IsFree(Point2D<int>(i, j))){
+                rr.push_back(i);
+                cc.push_back(j);
+            }
+        }
+    }
+    out << "std::vector<int> rr = {";
+    for (int i = 0; i < rr.size(); i++){
+        out << rr[i];
+        if (i < rr.size() - 1){
+            out << ", ";
+        }
+    }
+    out << "};" << std::endl;
+    out << "std::vector<int> cc = {";
+    for (int i = 0; i < cc.size(); i++){
+        out << cc[i];
+        if (i < cc.size() - 1){
+            out << ", ";
+        }
+    }
+    out << "};" << std::endl;
+
     return out;
 }
 
