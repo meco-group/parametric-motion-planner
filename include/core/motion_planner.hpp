@@ -114,11 +114,17 @@ class MotionPlanner{
         void DumpToJson(const std::string &filename, 
                         bool create_output_folder=true) const;
 
+        void ComputeEmergencyBrakingTrajectory(double T_scaling_factor=1.0);
         void PlanConcatenatedSections(bool resursive=false);
-
     private:
-        void ComputeEmergencyBrakingTrajectory();
-        
+
+        void LogEmergencyBrakingComputation(bool print,
+            std::vector<Point2D<double>>& p1_samples, 
+            std::vector<Point2D<double>>& p2_samples,
+            std::vector<std::vector<double>>& safe_alpha_intervals, 
+            double alpha, std::vector<Point2D<double>>& obstacle_centers,
+            std::vector<double>& obstacle_widths, 
+            std::vector<double>& obstacle_heights);        
 
         // Plan a simple trajectory, moving from corridor to corridor in 
         // straight lines

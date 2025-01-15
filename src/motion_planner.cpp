@@ -542,14 +542,15 @@ void MotionPlanner::PlanARENA(){
 }
 
 
-void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
+void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     std::cout << "Planning an emergency braking trajectory from " << start_ << " with start velocity " << start_vel_ << std::endl;
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
     double T_x = std::abs(start_vel_.x()) / params_.GetAmax();
     double T_y = std::abs(start_vel_.y()) / params_.GetAmax();
 
     // find the starting position and velocity of the free direction
-    double T = std::max(T_x, T_y);
+    double T_bottleneck = std::max(T_x, T_y);
+    double T = T_scaling_factor*T_bottleneck;
     auto GetBottlekneckPosition = +[](Point2D<double>& p){return p.x();};
     auto GetFreePosition = +[](Point2D<double>& p){return p.y();};
     auto SetBottleneckPosition = +[](Point2D<double>& p, double val){};
@@ -577,7 +578,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
     std::vector<Point2D<double>> p2_samples(int(T/dt)+1);
 
     double t = 0.0;
-    int a_bottleneck = GetBottlekneckPosition(start_vel_) > 0 ? params_.GetAmax() : -params_.GetAmax();
+    int a_bottleneck = GetBottlekneckPosition(start_vel_) > 0 ? params_.GetAmax()/T_scaling_factor : -params_.GetAmax()/T_scaling_factor;
     int a_free = GetFreePosition(start_vel_) > 0 ? params_.GetAmax() : -params_.GetAmax();
     double x_min = 10^5;
     double x_max = -10^5;
@@ -588,14 +589,16 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
     for (int i = 0; i < p1_samples.size(); i++){
         t = i*dt;
         
+        // double t_b = std::min(t, T_bottleneck);
+        double t_b = t;
         SetBottleneckPosition(p1_samples[i], 
             GetBottlekneckPosition(start_) + 
-            GetBottlekneckPosition(start_vel_)*t -
-            0.5*a_bottleneck*std::pow(t, 2));
+            GetBottlekneckPosition(start_vel_)*t_b -
+            0.5*a_bottleneck*std::pow(t_b, 2));
         SetBottleneckPosition(p2_samples[i], 
             GetBottlekneckPosition(start_) + 
-            GetBottlekneckPosition(start_vel_)*t -
-            0.5*a_bottleneck*std::pow(t, 2));
+            GetBottlekneckPosition(start_vel_)*t_b -
+            0.5*a_bottleneck*std::pow(t_b, 2));
         
         // accelerate first before braking
         if (t < tau){
@@ -603,6 +606,8 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
         } else {
             p1 = p0 + v0*tau + a_free*std::pow(tau, 2)/2 +
                  (v0 + a_free*tau)*(t - tau) - a_free*std::pow(t - tau, 2)/2;
+            // p1 = p0 + v0*tau + a_free*std::pow(tau, 2)/2 +
+            //      (v0 + a_free*tau)*(t - tau) + a_free*std::pow(t - tau, 2)/2;
         }
 
         // brake first before accelerating
@@ -692,22 +697,27 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
                     alpha_min = safe_alpha_intervals[k][0];
                     alpha_max = safe_alpha_intervals[k][1];
 
-                    if (obs_alpha_min < 0 && obs_alpha_max > 1){
-                        // interval completely covered by obstacle
-                        empty_intervals.push_back(k);
-                    } else {
-                        // construct interval on left side of obstacle
-                        if (alpha_min < std::min(alpha_max, obs_alpha_min)){
-                            // interval on left side exists
-                            new_intervals.push_back({alpha_min, std::min(alpha_max, obs_alpha_min)});
-                        }
-
-                        // construct interval on right side of obstacle
-                        if (alpha_max > std::max(alpha_min, obs_alpha_max)){
-                            // interval on right side exists
-                            new_intervals.push_back({std::max(alpha_min, obs_alpha_max), alpha_max});
-                        }
+                    // construct interval on left side of obstacle
+                    if (alpha_min < obs_alpha_min){
+                        // interval on left side exists
+                        new_intervals.push_back({alpha_min, std::min(alpha_max, obs_alpha_min)});
                     }
+
+                    // construct interval on right side of obstacle
+                    if (alpha_max > obs_alpha_max){
+                        // interval on right side exists
+                        new_intervals.push_back({std::max(alpha_min, obs_alpha_max), alpha_max});
+                    }
+                }
+
+                // Check if we can still continue
+                if (new_intervals.size() == 0 && T_scaling_factor < 2.0){
+                    std::cout << "WARNING: No safe alpha intervals found. Increasing T_scaling_factor" << std::endl;
+                    LogEmergencyBrakingComputation(false, p1_samples, 
+                        p2_samples, safe_alpha_intervals, 0.5, 
+                        obstacle_centers, obstacle_widths, obstacle_heights);
+                    T_scaling_factor *= 1.2;
+                    return ComputeEmergencyBrakingTrajectory(T_scaling_factor);
                 }
 
                 // inefficient update of intervals
@@ -721,6 +731,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
     // std::cout << "\t\tdone" << std::endl;
     if (safe_alpha_intervals.size() == 0){
         std::cerr << "WARNING: No safe alpha intervals found. Using full interval" << std::endl;
+        std::cout << environment_ << std::endl;
     }
 
     // pick the alpha in the middle of the largest interval
@@ -767,10 +778,23 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
     std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
     emergency_solution_.SetTotalComputationTime(planning_computation_time.count());
 
+    LogEmergencyBrakingComputation(true, p1_samples, p2_samples, 
+        safe_alpha_intervals, alpha, obstacle_centers, obstacle_widths, 
+        obstacle_heights);
+
     // std::cout << "\t\tdone" << std::endl;
 
     // return
-    /*
+}
+
+void MotionPlanner::LogEmergencyBrakingComputation(
+        bool print,
+        std::vector<Point2D<double>>& p1_samples, 
+        std::vector<Point2D<double>>& p2_samples,
+        std::vector<std::vector<double>>& safe_alpha_intervals, double alpha,
+        std::vector<Point2D<double>>& obstacle_centers,
+        std::vector<double>& obstacle_widths, 
+        std::vector<double>& obstacle_heights){
     emergency_trajs_1_.push_back(p1_samples);
     emergency_trajs_2_.push_back(p2_samples);
     emergency_safe_intervals_.push_back(safe_alpha_intervals);
@@ -778,6 +802,8 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
     emergency_obstacle_centers_.push_back(obstacle_centers);
     emergency_obstacle_widths_.push_back(obstacle_widths);
     emergency_obstacle_heights_.push_back(obstacle_heights);
+
+    if (!print){return;}
 
     std::cout << "p1_list = [";
     for (int k = 0; k < emergency_trajs_1_.size(); k++){
@@ -862,7 +888,6 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(){
     std::cout << "]" << std::endl;
 
     std::cout << std::endl << std::endl;
-    */
 }
 
 std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){
