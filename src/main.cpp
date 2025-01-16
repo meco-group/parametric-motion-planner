@@ -336,7 +336,7 @@ void SwitchDestinationCarrotStyle(){
     Point2D<double> start_vel(0,0);
 
     try{
-        dynamic_simulator.MoveDestination(start, start_vel, 20);
+        dynamic_simulator.MoveDestination(start, start_vel, 10);
         dynamic_simulator.DumpToJson("dynamic_solution_movable_destination.json");
     } catch (std::exception &e){
         std::cerr << e.what() << std::endl;

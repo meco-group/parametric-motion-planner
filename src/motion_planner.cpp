@@ -83,6 +83,9 @@ void MotionPlanner::Plan(){
     std::cout << std::endl << "=== STARTING PLANNER ===" << std::endl;
     std::cout << "Planning from " << start_ << " to " << dest_ << " with start velocity " << start_vel_ << std::endl;
     
+    // store the current solution into the previous solution
+    previous_solution_ = last_solution_;
+
     // Start the clock
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
 
@@ -124,12 +127,13 @@ void MotionPlanner::Plan(){
         last_solution_.SolverTime() < 0 ||
         last_solution_.CorridorInfeasibilitiesDetected()){
         emergency_mode_ = true;
+        last_solution_ = previous_solution_;
         throw std::runtime_error("ARENA method failed to find a (feasible) solution");
     } else {
         emergency_mode_ = false;
+        sample_ptr_ = 0;
     }
 
-    sample_ptr_ = 0;
 
     std::cout << "==== ENDING PLANNER ====" << std::endl << std::endl;
 }
@@ -185,9 +189,9 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
             Plan();
         } catch (std::exception &e){
             std::cerr << "Caught exception: " << e.what() << std::endl;
-            PrintPythonImplementationInfo();
-            std::cout << "parametrization:" << std::endl;
-            std::cout << parametrization_ << std::endl;
+            // PrintPythonImplementationInfo();
+            // std::cout << "parametrization:" << std::endl;
+            // std::cout << parametrization_ << std::endl;
 
             if (start_vel_.Norm() <= 1.0e-10){
                 // unable to plan with low starting velocity
@@ -209,11 +213,12 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
 void MotionPlanner::GetSample(double &time, Point2D<double> &pos, 
                               Point2D<double> &vel, Point2D<double> &acc){
     if (emergency_mode_){
-        emergency_solution_.GetSample(sample_ptr_, time, pos, vel, acc);
+        emergency_solution_.GetSample(emergency_sample_ptr_, time, pos, vel, acc);
+        emergency_sample_ptr_++;
     } else {
         last_solution_.GetSample(sample_ptr_, time, pos, vel, acc);
+        sample_ptr_++;
     }
-    sample_ptr_++;
 }
 
 void MotionPlanner::SetSolver(std::string solver_name){
@@ -670,6 +675,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     double free1, free2, obs1, obs2, obs_alpha_min, obs_alpha_max, alpha_min, alpha_max;
     std::vector<int> empty_intervals = {};
     std::vector<std::vector<double>> new_intervals = {};
+    bool found_safe_alpha = true;
     for (int i = 0; i < p1_samples.size(); i++){
         for (int j = 0; j < obstacle_centers.size(); j++){
 
@@ -712,12 +718,13 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
 
                 // Check if we can still continue
                 if (new_intervals.size() == 0 && T_scaling_factor < 2.0){
-                    std::cout << "WARNING: No safe alpha intervals found. Increasing T_scaling_factor" << std::endl;
-                    LogEmergencyBrakingComputation(false, p1_samples, 
-                        p2_samples, safe_alpha_intervals, 0.5, 
-                        obstacle_centers, obstacle_widths, obstacle_heights);
-                    T_scaling_factor *= 1.2;
-                    return ComputeEmergencyBrakingTrajectory(T_scaling_factor);
+                    // std::cout << "WARNING: No safe alpha intervals found. Increasing T_scaling_factor" << std::endl;
+                    // LogEmergencyBrakingComputation(false, p1_samples, 
+                    //     p2_samples, safe_alpha_intervals, 0.5, 
+                    //     obstacle_centers, obstacle_widths, obstacle_heights);
+                    // T_scaling_factor *= 1.2;
+                    // return ComputeEmergencyBrakingTrajectory(T_scaling_factor);
+                    found_safe_alpha = false;
                 }
 
                 // inefficient update of intervals
@@ -769,7 +776,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     // std::cout << "\t\tt_x:       " << t_x << std::endl;
     // std::cout << "\t\tt_y:       " << t_y << std::endl;
     emergency_solution_.Update(start_, start_vel_, accel_x, accel_y, t_x, t_y);
-    sample_ptr_ = 0;
+    emergency_sample_ptr_ = 0;
 
     // print out the computation time in milliseconds
     auto planning_computation_time_end = std::chrono::high_resolution_clock::now();
@@ -778,13 +785,14 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
     emergency_solution_.SetTotalComputationTime(planning_computation_time.count());
 
-    LogEmergencyBrakingComputation(true, p1_samples, p2_samples, 
-        safe_alpha_intervals, alpha, obstacle_centers, obstacle_widths, 
-        obstacle_heights);
+    // LogEmergencyBrakingComputation(true, p1_samples, p2_samples, 
+    //     safe_alpha_intervals, alpha, obstacle_centers, obstacle_widths, 
+    //     obstacle_heights);
 
-    // std::cout << "\t\tdone" << std::endl;
-
-    // return
+    if (!found_safe_alpha){
+        emergency_mode_ = false;
+        throw UnableToPlanEmergencyBrakingTrajectoryException();
+    }
 }
 
 void MotionPlanner::LogEmergencyBrakingComputation(

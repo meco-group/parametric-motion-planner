@@ -29,7 +29,7 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
     
     # find the index of the last trajectory to (at least partially) show
     traj_idx = 0
-    while len(data["replanning_times"]) > traj_idx and T > data["replanning_times"][traj_idx]:
+    while len(data["replanning_times"]) > traj_idx and T >= data["replanning_times"][traj_idx]:
         traj_idx += 1
 
     local_replanning_times = [0] + data["replanning_times"]
@@ -86,7 +86,7 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
                         virtual_final_footprint=True,
                         show_markers=False, linewidth=0.5 + 0.5*(i==traj_idx))
         plt.plot(data["previous_trajectories"][i]["px"][0],
-                 data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
+                data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
     show_trajectory(data["previous_trajectories"][traj_idx], 'gray', False, 
                     data["motion_planner"]["parameters"]["veh_width"], 
                     data["motion_planner"]["parameters"]["veh_height"],
@@ -107,22 +107,22 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
                         virtual_final_footprint=False,
                         unfaded_nb_samples=100,
                         show_initial_footprint_if_showing_footprints=False)
-        if data["previous_trajectories"][start_traj_idx]["emergency_braking"]:
-            show_trajectory(data["previous_trajectories"][start_traj_idx], 'red', False, 
+        if data["previous_trajectories"][traj_idx]["emergency_braking"]:
+            show_trajectory(data["previous_trajectories"][traj_idx], 'red', False, 
                         data["motion_planner"]["parameters"]["veh_width"], 
                         data["motion_planner"]["parameters"]["veh_height"],
                         with_footprints=False, 
                         virtual_initial_footprint=True,
                         virtual_final_footprint=True,
                         show_markers=False, linewidth=2)
-        if data["previous_trajectories"][start_traj_idx+1]["emergency_braking"]:
-            show_trajectory(data["previous_trajectories"][start_traj_idx+1], 'red', False, 
-                        data["motion_planner"]["parameters"]["veh_width"], 
-                        data["motion_planner"]["parameters"]["veh_height"],
-                        with_footprints=False, 
-                        virtual_initial_footprint=True,
-                        virtual_final_footprint=True,
-                        show_markers=False, linewidth=2)
+        # if data["previous_trajectories"][start_traj_idx+1]["emergency_braking"]:
+        #     show_trajectory(data["previous_trajectories"][start_traj_idx+1], 'red', False, 
+        #                 data["motion_planner"]["parameters"]["veh_width"], 
+        #                 data["motion_planner"]["parameters"]["veh_height"],
+        #                 with_footprints=False, 
+        #                 virtual_initial_footprint=True,
+        #                 virtual_final_footprint=True,
+        #                 show_markers=False, linewidth=2)
     else:
         show_trajectory(data["travelled_trajectory"], 'blue', True, 
                         data["motion_planner"]["parameters"]["veh_width"], 
@@ -673,8 +673,9 @@ else:
     plt.savefig(f"post-process/figures/solver_time.png", dpi=300)
 
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
-
     print(data["travelled_trajectory"]["Tf"])
+    print(data["replanning_times"])
+    
     ### Make animation frames
     # total_time = data["travelled_trajectory"]["Tf"]
     # counter = 0
@@ -699,7 +700,7 @@ else:
     writer = FFMpegWriter(fps=fps, codec="libx264", extra_args=['-pix_fmt', 'yuv420p'])
     fig = plt.figure()
     def update(frame):
-        if frame % 20 == 0:
+        if frame % 5 == 0:
             print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
         visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig)
         return fig
