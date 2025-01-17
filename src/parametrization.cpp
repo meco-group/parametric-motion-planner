@@ -204,6 +204,43 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 		active_opti_inputs_["margin"] = DM(params_.GetMargin());
 		active_opti_inputs_["start_vel"](0) = corridor_sequence_.GetStartVel().x();
 		active_opti_inputs_["start_vel"](1) = corridor_sequence_.GetStartVel().y();
+
+		// overshooting-prevention constraint
+		double local_alpha, dist_waypoints, starting_vel_bd;
+		if (std::abs(waypoints_[0].x() - waypoints_[1].x()) > 
+			std::abs(waypoints_[0].y() - waypoints_[1].y())){
+			// x is bottleneck
+			local_alpha = alpha_x_[0];
+			dist_waypoints = waypoints_[1].x() - waypoints_[0].x();
+			starting_vel_bd = corridor_sequence_.GetStartVel().x();
+		} else {
+			// y is bottleneck
+			local_alpha = alpha_y_[0];
+			dist_waypoints = waypoints_[1].y() - waypoints_[0].y();
+			starting_vel_bd = corridor_sequence_.GetStartVel().y();
+		}
+		bool cond_correct_direction = (starting_vel_bd > 0 ? 1.0 : -1.0) == 
+			 					  	  (dist_waypoints > 0 ? 1.0 : -1.0);
+		bool cond_braking = (local_alpha > 0 ? 1.0 : -1.0) == 
+							(starting_vel_bd > 0 ? -1.0 : 1.0);
+		bool cond_braking_distance = 0.5*std::pow(starting_vel_bd, 2)/
+									 params_.GetAmax() > std::abs(dist_waypoints);
+
+		active_opti_inputs_["t_init_limits"](0) = 1000;
+		active_opti_inputs_["t_init_limits"](1) = 1000;
+		if (cond_correct_direction && cond_braking && cond_braking_distance){
+			double t_limit = (std::abs(starting_vel_bd) - 
+						  	  std::sqrt(std::pow(starting_vel_bd, 2) - 
+							  			2*params_.GetAmax()*
+										std::abs(dist_waypoints)))/
+						 				(params_.GetAmax());
+			if (std::abs(waypoints_[0].x() - waypoints_[1].x()) > 
+				std::abs(waypoints_[0].y() - waypoints_[1].y())){
+				active_opti_inputs_["t_init_limits"](0) = t_limit;
+			} else {
+				active_opti_inputs_["t_init_limits"](1) = t_limit;
+			}
+		}
 	}
 
 
@@ -221,7 +258,8 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 		active_opti_inputs_["start_vel"],
 		active_opti_inputs_["corridors"],
 		active_opti_inputs_["parabolic_slacks"],
-		active_opti_inputs_["movable_distances"]
+		active_opti_inputs_["movable_distances"],
+		active_opti_inputs_["t_init_limits"]
 	};
 
 	// std::cout << "solving opti instance " << active_opti_instance_.name() << std::endl;
@@ -1326,6 +1364,9 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	MX parabolic_slacks_p = opti_.parameter(4, n); 		// [x_first, x_last, y_first, y_last]
 	// std::cout << "\t\tdefined parameters" << std::endl;
 
+	// bounds on duration of the initial acceleration
+	MX t_init_limits = opti_.parameter(2, 1);
+
 	////////////////////////////////////////////
 	/// Definition of optimization variables ///
 	////////////////////////////////////////////
@@ -1456,6 +1497,12 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 		opti_.subject_to(0 <= (t_x_(Slice(), w) <= 100));
 		opti_.subject_to(0 <= (t_y_(Slice(), w) <= 100));
 
+		// initial overshooting prevention constraint
+		if (w == 0){
+			opti_.subject_to(t_x_(0,0) <= t_init_limits(0));
+			opti_.subject_to(t_y_(0,0) <= t_init_limits(1));
+		}
+
 		// deal with moving waypoints
 		if (movable_waypoints_code[w] == '1'){
 			opti_.subject_to(movable_distances_p(0, offset_map[w]) <= offsets_MX[offset_map[w]](0));
@@ -1580,11 +1627,12 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	std::vector<MX> inputs_to_function = {
 		opti_.x(), vmax_p, amax_p, veh_width_p, veh_height_p, margin_p,
 		waypoints_p, alpha_p, init_bottleneck, final_bottleneck, start_vel_p,
-		corridor_p, parabolic_slacks_p, movable_distances_p};
+		corridor_p, parabolic_slacks_p, movable_distances_p, t_init_limits};
 	std::vector<std::string> input_names_to_function = {
 		"x_init", "v_max", "a_max", "veh_width", "veh_height", "margin", 
 		"waypoints", "alpha", "initial_bottleneck", "final_bottleneck", 
-		"start_vel", "corridors", "parabolic_slacks", "movable_distances"};
+		"start_vel", "corridors", "parabolic_slacks", "movable_distances",
+		"t_init_limits"};
 	std::vector<MX> outputs_to_function = {
 		t_x_, t_y_, v_x_, v_y_, alpha_x_mx_, alpha_y_mx_, opti_.g(),
 		opti_.x(), temp_mx, offsets};
@@ -1613,6 +1661,7 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	inputs["corridors"] = DM(4, n);
 	inputs["parabolic_slacks"] = DM(4, n);
 	inputs["movable_distances"] = DM(4, nb_movable_waypoints);
+	inputs["t_init_limits"] = DM(2, 1);
 	opti_inputs_[n][movable_waypoints_code] = inputs;
 };
 
