@@ -66,6 +66,7 @@ void MotionPlanner::SetRandomDest(){
 }
 
 void MotionPlanner::UpdateCorridorSequence(){
+    logger_.LogEvent(UpdatedCorridorsEvent(corridor_sequence_));
     corridor_sequence_.UpdateSequence(start_, dest_, start_vel_, params_,
                                       sequence_update_token_);
 }
@@ -82,7 +83,8 @@ void MotionPlanner::Plan(){
     // planner
     std::cout << std::endl << "=== STARTING PLANNER ===" << std::endl;
     std::cout << "Planning from " << start_ << " to " << dest_ << " with start velocity " << start_vel_ << std::endl;
-    
+    logger_.LogEvent(PlannerCalledEvent(start_, dest_, start_vel_));
+
     // store the current solution into the previous solution
     previous_solution_ = last_solution_;
 
@@ -128,13 +130,14 @@ void MotionPlanner::Plan(){
         last_solution_.CorridorInfeasibilitiesDetected()){
         emergency_mode_ = true;
         last_solution_ = previous_solution_;
-        throw std::runtime_error("ARENA method failed to find a (feasible) solution");
+        logger_.LogEvent(PlannerFailedEvent());
+        throw std::runtime_error("Planner failed to find a (feasible) solution");
     } else {
         emergency_mode_ = false;
         sample_ptr_ = 0;
     }
 
-
+    logger_.LogEvent(PlannerExitedEvent());
     std::cout << "==== ENDING PLANNER ====" << std::endl << std::endl;
 }
 
@@ -148,6 +151,7 @@ void MotionPlanner::Plan(const Point2D<double> &start,
 }
 
 void MotionPlanner::PlanSafely(int max_allowed_ms){
+    logger_.LogEvent(PlannerCalledSafelyEvent(start_, dest_, start_vel_));
     bool USE_THREADED_PLANNING = false;
     if (USE_THREADED_PLANNING){
 
@@ -189,6 +193,7 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
             Plan();
         } catch (std::exception &e){
             std::cerr << "Caught exception: " << e.what() << std::endl;
+            logger_.LogEvent(PlannerExceptionCaught(e.what()));
             // PrintPythonImplementationInfo();
             // std::cout << "parametrization:" << std::endl;
             // std::cout << parametrization_ << std::endl;
@@ -208,6 +213,8 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
             }
         }
     }
+
+    logger_.LogEvent(SafelyPlannerExitedEvent());
 }
 
 void MotionPlanner::GetSample(double &time, Point2D<double> &pos, 
@@ -311,6 +318,7 @@ void MotionPlanner::DumpToJson(const std::string &filename,
 }
 
 void MotionPlanner::PlanP2P(){
+    logger_.LogEvent(MethodSpecificPlanningStarted("P2P"));
     if (start_vel_.x() != 0.0 || start_vel_.y() != 0.0){
         std::runtime_error("P2P method does not support planning with an initial velocity");
     }
@@ -433,6 +441,7 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 }
 
 void MotionPlanner::PlanOCP(){
+    logger_.LogEvent(MethodSpecificPlanningStarted("OCP"));
     std::cout << "Planning using OCP method" << std::endl;
     ocp_solver_.Solve(ocp_solver_update_token_, solver_name_, opts_solver_,
                       opts_casadi_, just_in_time_preparation_mode_);
@@ -479,6 +488,7 @@ void MotionPlanner::PlanOCP(){
 }
 
 void MotionPlanner::PlanARENA(){
+    logger_.LogEvent(MethodSpecificPlanningStarted("ARENA"));
     std::cout << "Planning using ARENA method" << std::endl;    
     
     // Try to solve a single arc
@@ -518,6 +528,7 @@ void MotionPlanner::PlanARENA(){
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
                 std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
+                logger_.LogEvent(AddedAdditionalConstraintsEvent(add_constraints_list_));
                 added_new_constraints = 
                     parametrization_.AddOvershootingConstraints(
                         add_constraints_list_, solver_name_, opts_casadi_, 
@@ -548,6 +559,7 @@ void MotionPlanner::PlanARENA(){
 
 
 void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
+    logger_.LogEvent(EmergencyBrakingPlanningStarted(start_, start_vel_));
     std::cout << "Planning an emergency braking trajectory from " << start_ << " with start velocity " << start_vel_ << std::endl;
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
     double T_x = std::abs(start_vel_.x()) / params_.GetAmax();
@@ -791,6 +803,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
 
     if (!found_safe_alpha){
         emergency_mode_ = false;
+        logger_.LogEvent(EmergencyBrakingPlanningFailed("No safe alpha intervals found"));
         throw UnableToPlanEmergencyBrakingTrajectoryException();
     }
 }
@@ -912,6 +925,7 @@ std::set<int> MotionPlanner::CheckOutOfCorridor(double solver_time){
 }
 
 void MotionPlanner::PlanConcatenatedSections(bool recursive){
+    logger_.LogEvent(ConcatenatedSectionsPlanningStarted(start_, start_vel_, dest_));
     if (!recursive){
         UpdateCorridorSequence();
         corridor_sequence_.ResetCorridorIdxs();
@@ -990,6 +1004,7 @@ bool MotionPlanner::EliminateSubOptimalParametrization(){
         }
     }
 
+    logger_.LogEvent(EliminatedSubOptimalParametrizationEvent(made_modification));
     return made_modification;
 }
 

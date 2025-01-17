@@ -10,6 +10,7 @@
 #include "trajectory.hpp"
 #include "parametrization.hpp"
 #include "ocp_solver.hpp"
+#include "logger.hpp"
 
 using namespace casadi;
 
@@ -114,6 +115,8 @@ class MotionPlanner{
         void DumpToJson(const std::string &filename, 
                         bool create_output_folder=true) const;
 
+        void PrintLog() const { logger_.PrintLog();};
+
         void ComputeEmergencyBrakingTrajectory(double T_scaling_factor=1.0);
         void PlanConcatenatedSections(bool resursive=false);
     private:
@@ -190,6 +193,9 @@ class MotionPlanner{
         int max_nb_iterations_ = 4;
         bool eliminate_suboptimalities_ = true;
 
+        // logger
+        PlannerLogger logger_ = PlannerLogger();
+
         // other attributes
         // std::string solver_name_ = "ipopt";
         std::string solver_name_ = "fatrop";
@@ -198,7 +204,6 @@ class MotionPlanner{
         int print_level_ = 0;
         int max_iter_ = 3000;
         bool just_in_time_preparation_mode_ = true;
-
 
         std::vector<std::vector<Point2D<double>>> emergency_trajs_1_;
         std::vector<std::vector<Point2D<double>>> emergency_trajs_2_;

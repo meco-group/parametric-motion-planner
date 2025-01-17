@@ -208,8 +208,7 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
         }
     }
 
-    std::cout << "final position: " << curr_pos << std::endl;
-    std::cout << "final velocity: " << curr_vel << std::endl;
+    motion_planner_.PrintLog();
 }
 
 void DynamicSimulator::Reset(){
