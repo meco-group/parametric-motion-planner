@@ -143,6 +143,7 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
     bool curr_emergency_mode = false;
     bool unable_to_plan_to_dest = false;
     double traveled_time_on_previous_trajectory = 0.0;
+    int nb_of_samples_to_continue_on_previous_trajectory = 5;
 
     // Start the main
     int planner_counter = 0;
@@ -168,7 +169,6 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
             return;
         } catch (UnableToPlanEmergencyBrakingTrajectoryException &e){
             // just continue for a while on this trajectory
-            // planner_counter--;
             unable_to_plan_to_dest = true;
             std::cerr << "Planner failed to plan emergency trajectory: " << e.what() << std::endl;
         } catch (std::exception &e){
@@ -176,6 +176,7 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
             return;
         }
         curr_emergency_mode = motion_planner_.EmergencyMode();
+        // std::cout << "current emergency mode" << curr_emergency_mode << std::endl;
 
         // Store replanning info
         if (curr_time > 0){replanning_times_.push_back(curr_time);}
@@ -186,17 +187,14 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
         // Simulate the trajectory
         nb_samples_to_simulate = motion_planner_.GetLastSolution().NbSamples();
         std::cout << "Simulating " << nb_samples_to_simulate << " samples" << std::endl;
-        if (!motion_planner_.EmergencyMode() && planner_counter < number_of_destination_switches - 1){
-            nb_samples_to_simulate = int(0.7*nb_samples_to_simulate);
-        }
         if (unable_to_plan_to_dest){
-            curr_time -= traveled_time_on_previous_trajectory;
+            nb_samples_to_simulate = nb_of_samples_to_continue_on_previous_trajectory;
+        } else if (!motion_planner_.EmergencyMode() && planner_counter < number_of_destination_switches - 1){
+            nb_samples_to_simulate = int(0.7*nb_samples_to_simulate);
         }
         for (int k = 1; k < nb_samples_to_simulate; k++){
             motion_planner_.GetSample(local_time, curr_pos, curr_vel, curr_acc);
-            if (k == 0){
-                std::cout << "\t\tpos: " << curr_pos << "\t\tvel: " << curr_vel << std::endl;    
-            }
+            if (k == 1){ curr_time -= local_time;}
             traveled_time_on_previous_trajectory = local_time;
             travelled_trajectory_.Append(curr_time + local_time, curr_pos.x(), 
                                          curr_pos.y(), curr_vel.x(), 

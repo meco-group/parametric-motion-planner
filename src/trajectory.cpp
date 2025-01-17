@@ -443,18 +443,19 @@ void Trajectory::Append(double t, double px, double py, double vx, double vy,
     if (curr_nb_samples_ >= max_nb_samples_){
         throw std::runtime_error("Trajectory is too long to append");
     }
+    if (t > tf_){
+        t_[curr_nb_samples_] = t;
+        px_[curr_nb_samples_] = px;
+        py_[curr_nb_samples_] = py;
+        vx_[curr_nb_samples_] = vx;
+        vy_[curr_nb_samples_] = vy;
+        ax_[curr_nb_samples_] = ax;
+        ay_[curr_nb_samples_] = ay;
 
-    t_[curr_nb_samples_] = t;
-    px_[curr_nb_samples_] = px;
-    py_[curr_nb_samples_] = py;
-    vx_[curr_nb_samples_] = vx;
-    vy_[curr_nb_samples_] = vy;
-    ax_[curr_nb_samples_] = ax;
-    ay_[curr_nb_samples_] = ay;
+        tf_ = t;
 
-    tf_ = t;
-
-    curr_nb_samples_++;
+        curr_nb_samples_++;
+    }
 }
 
 std::ostream& operator<<(std::ostream &out, Trajectory &trajectory){

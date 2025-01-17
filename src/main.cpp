@@ -300,7 +300,7 @@ void TestRandomVehiclePositions(){
     Environment environment = Environment(10, 12, 0.12, 0.12);
     Parameters params = Parameters();
 
-    environment.AddRandomObstacles(0.25);
+    environment.AddRandomObstacles(0.10);
 
     json random_positions_json;
     random_positions_json["Environment"] = environment.ToJson();
@@ -336,7 +336,7 @@ void SwitchDestinationCarrotStyle(){
     Point2D<double> start_vel(0,0);
 
     try{
-        dynamic_simulator.MoveDestination(start, start_vel, 10);
+        dynamic_simulator.MoveDestination(start, start_vel, 20);
         dynamic_simulator.DumpToJson("dynamic_solution_movable_destination.json");
     } catch (std::exception &e){
         std::cerr << e.what() << std::endl;
