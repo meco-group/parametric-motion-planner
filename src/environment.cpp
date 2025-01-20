@@ -380,7 +380,7 @@ void Environment::GetRandomFreeVehiclePosition(Point2D<double> &pos,
     pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
 
     // Check if the position is valid
-    while (!isValidVehiclePosition(pos, vehicle_width, vehicle_length, margin)){
+    while (!isValidVehiclePosition(pos, vehicle_width, vehicle_length, margin+1.0e-6)){
         pos.SetX(nb_cell_cols_*cell_width_*dis_x_(gen_));
         pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
     }
