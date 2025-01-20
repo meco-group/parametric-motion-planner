@@ -340,6 +340,7 @@ void SwitchDestinationCarrotStyle(){
         dynamic_simulator.DumpToJson("dynamic_solution_movable_destination.json");
     } catch (std::exception &e){
         std::cerr << e.what() << std::endl;
+        dynamic_simulator.PrintMotionPlannerLog();
     }
 }
 

@@ -151,7 +151,7 @@ void MotionPlanner::Plan(const Point2D<double> &start,
 }
 
 void MotionPlanner::PlanSafely(int max_allowed_ms){
-    logger_.LogEvent(PlannerCalledSafelyEvent(start_, dest_, start_vel_));
+    logger_.LogEvent(PlannerCalledSafelyEvent(start_, start_vel_, dest_));
     bool USE_THREADED_PLANNING = false;
     if (USE_THREADED_PLANNING){
 

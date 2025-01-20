@@ -34,6 +34,7 @@ class DynamicSimulator{
 
         json ToJson() const;
         void DumpToJson(const std::string &filename) const;
+        void PrintMotionPlannerLog() const { motion_planner_.PrintLog();};
 
     private:
         void UpdateEnvironment();

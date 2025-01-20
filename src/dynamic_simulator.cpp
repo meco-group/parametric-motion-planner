@@ -156,6 +156,7 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
                     motion_planner_.GetParameters().GetVehHeight(),
                     motion_planner_.GetParameters().GetMargin());
             motion_planner_.SetDest(dest);
+            std::cout << "Set new destination: " << dest << std::endl;
         }
 
         // plan towards the destination
@@ -166,6 +167,8 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
             motion_planner_.PlanSafely(10);
         } catch (InvalidPositionInEnvironmentException &e){
             std::cerr << "Error: " << e.what() << std::endl;
+            motion_planner_.PrintLog();
+            motion_planner_.PrintLog(0, true);
             return;
         } catch (UnableToPlanEmergencyBrakingTrajectoryException &e){
             // just continue for a while on this trajectory
@@ -173,6 +176,8 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
             std::cerr << "Planner failed to plan emergency trajectory: " << e.what() << std::endl;
         } catch (std::exception &e){
             std::cerr << "Planner failed to plan: " << e.what() << std::endl;
+            motion_planner_.PrintLog();
+            motion_planner_.PrintLog(0, true);
             return;
         }
         curr_emergency_mode = motion_planner_.EmergencyMode();
@@ -209,6 +214,7 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
     }
 
     motion_planner_.PrintLog();
+    motion_planner_.PrintLog(0, true);
 }
 
 void DynamicSimulator::Reset(){

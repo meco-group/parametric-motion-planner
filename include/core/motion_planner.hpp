@@ -115,7 +115,10 @@ class MotionPlanner{
         void DumpToJson(const std::string &filename, 
                         bool create_output_folder=true) const;
 
-        void PrintLog() const { logger_.PrintLog();};
+        void PrintLog(int print_level_=2, bool compact=false) { 
+            logger_.SetPrintLevel(print_level_);
+            logger_.SetCompact(compact);
+            logger_.PrintLog();};
 
         void ComputeEmergencyBrakingTrajectory(double T_scaling_factor=1.0);
         void PlanConcatenatedSections(bool resursive=false);
