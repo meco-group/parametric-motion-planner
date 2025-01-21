@@ -684,7 +684,7 @@ else:
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
     print(data["travelled_trajectory"]["Tf"])
     print(data["replanning_times"])
-    exit()
+    # exit()
     
     ### Make animation frames
     # total_time = data["travelled_trajectory"]["Tf"]
@@ -703,7 +703,7 @@ else:
     fps = 25
     mp4_dt = 1.0/fps
     total_time = data["travelled_trajectory"]["Tf"]
-    clean = True
+    clean = False
 
     import matplotlib.animation as animation
     from matplotlib.animation import FFMpegWriter
