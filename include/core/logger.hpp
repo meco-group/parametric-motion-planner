@@ -291,6 +291,16 @@ class EliminatedSubOptimalParametrizationEvent : public PlannerEvent{
 //         const std::string code_;
 // }
 
+class CleanlyFinishedPlanningSequenceEvent : public PlannerEvent{
+    public:
+        CleanlyFinishedPlanningSequenceEvent()
+        : PlannerEvent(0){};
+
+        std::string Serialize(bool compact=false) const override {
+            return "Cleanly finished planning sequence";
+        }
+};
+
 
 ////////////
 // LOGGER //

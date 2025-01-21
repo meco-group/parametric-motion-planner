@@ -347,7 +347,7 @@ void Trajectory::Update(Point2D<double> const &start,
     double tf_ = t_x[0] + t_x[1] + t_x[2];
 
     // compute the number of samples
-    curr_nb_samples_ = tf_ / dt_ + 2;
+    curr_nb_samples_ = tf_ / dt_ + 3;
 
     // initialize time-grid
     for (int i = 0; i < curr_nb_samples_; i++){
@@ -443,6 +443,10 @@ void Trajectory::Append(double t, double px, double py, double vx, double vy,
     if (curr_nb_samples_ >= max_nb_samples_){
         throw std::runtime_error("Trajectory is too long to append");
     }
+    if (std::isnan(px) || std::isnan(py) || std::isinf(px) || std::isinf(py)){
+        throw std::runtime_error("nan or inf found!");
+    }
+
     if (t > tf_){
         t_[curr_nb_samples_] = t;
         px_[curr_nb_samples_] = px;
@@ -533,6 +537,19 @@ void Trajectory::Concatenate(Trajectory const &other){
 
     if (dt_ != other.Dt()){
         throw std::runtime_error("Cannot concatenate trajectories with different timestep");
+    }
+
+    for (int i = 0; i < NbSamples(); i++){
+        if (std::isnan(px_[i]) || std::isnan(py_[i]) || 
+            std::isinf(px_[i]) || std::isinf(py_[i])){
+            std::cerr << "nan found in this trajectory (" << i << "/" << NbSamples() << ")" << std::endl;
+        }
+    }
+    for (int i = 0; i < other.NbSamples(); i++){
+        if (std::isnan(other.Px()[i]) || std::isnan(other.Py()[i]) || 
+            std::isinf(other.Px()[i]) || std::isinf(other.Py()[i])){
+            std::cerr << "nan found in other trajectory (" << i << "/" << other.NbSamples() << ")" << std::endl;
+        }
     }
 
     for (int i = 0; i < other.NbSamples(); i++){

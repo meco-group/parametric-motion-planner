@@ -181,7 +181,8 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
             return;
         }
         curr_emergency_mode = motion_planner_.EmergencyMode();
-        // std::cout << "current emergency mode" << curr_emergency_mode << std::endl;
+        std::cout << "current emergency mode: " << curr_emergency_mode << std::endl;
+        std::cout << "currently able to plab to dest: " << !unable_to_plan_to_dest << std::endl;
 
         // Store replanning info
         if (curr_time > 0){replanning_times_.push_back(curr_time);}
@@ -200,6 +201,9 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
         for (int k = 1; k < nb_samples_to_simulate; k++){
             motion_planner_.GetSample(local_time, curr_pos, curr_vel, curr_acc);
             if (k == 1){ curr_time -= local_time;}
+            if (curr_emergency_mode){
+                std::cout << "pos: " << curr_pos << ",\tvel: " << curr_vel << ",\tacc: " << curr_acc << std::endl;
+            }
             traveled_time_on_previous_trajectory = local_time;
             travelled_trajectory_.Append(curr_time + local_time, curr_pos.x(), 
                                          curr_pos.y(), curr_vel.x(), 
@@ -212,6 +216,8 @@ void DynamicSimulator::MoveDestination(Point2D<double> start,
             planner_counter++;
         }
     }
+
+    motion_planner_.LogCleanlyFinishedPlanningSequence();
 
     motion_planner_.PrintLog();
     motion_planner_.PrintLog(0, true);
