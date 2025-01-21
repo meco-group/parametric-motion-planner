@@ -286,6 +286,13 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 		std::cout << temp_[i] << " ";
 	}
 	std::cout << std::endl;
+	if (nb_iterations == 0){
+		casadi::Dict d = active_opti_instance_.stats();
+		// print d keys one by one
+		for (auto const& element : d){
+			std::cout << element.first << " = " << element.second << std::endl;
+		}
+	}
 
 	// std::cout << "Tx_sol: "	<< latest_solution_["t_x"] << std::endl;
 	// std::cout << "Ty_sol: "	<< latest_solution_["t_y"] << std::endl;
