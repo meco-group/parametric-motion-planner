@@ -188,6 +188,7 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
         return;
     } else {
         bool current_emergency_mode = emergency_mode_;
+        auto start = std::chrono::high_resolution_clock::now();
         try{
             // make sure this doen't take too long
             Plan();
@@ -211,6 +212,13 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
                 emergency_mode_ = true;
                 ComputeEmergencyBrakingTrajectory();
             }
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> planning_time = end - start;
+        if (emergency_mode_){
+            emergency_solution_.SetTotalComputationTime(planning_time.count());
+        } else {
+            last_solution_.SetTotalComputationTime(planning_time.count());
         }
     }
 

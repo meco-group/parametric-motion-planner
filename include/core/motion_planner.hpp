@@ -119,6 +119,8 @@ class MotionPlanner{
             logger_.SetPrintLevel(print_level_);
             logger_.SetCompact(compact);
             logger_.PrintLog();};
+        void LogCleanlyFinishedPlanningSequence() { 
+            logger_.LogEvent(CleanlyFinishedPlanningSequenceEvent());};
 
         void ComputeEmergencyBrakingTrajectory(double T_scaling_factor=1.0);
         void PlanConcatenatedSections(bool resursive=false);
@@ -205,7 +207,7 @@ class MotionPlanner{
         Dict opts_casadi_;
         Dict opts_solver_;
         int print_level_ = 0;
-        int max_iter_ = 3000;
+        int max_iter_ = 100;
         bool just_in_time_preparation_mode_ = true;
 
         std::vector<std::vector<Point2D<double>>> emergency_trajs_1_;
