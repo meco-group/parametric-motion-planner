@@ -277,8 +277,11 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 	std::cout << "Return status: " << active_opti_instance_.stats()["return_status"] << std::endl;
 
 	latest_success_status_ = active_opti_instance_.stats()["success"];
-	temp_.push_back(latest_success_status_);
-	std::cout << "success statusses: " << std::endl;
+	int nb_iterations = active_opti_instance_.stats()["iter_count"];
+	// temp_.push_back(latest_success_status_);
+	temp_.push_back(nb_iterations);
+	// std::cout << "success statusses: " << std::endl;
+	std::cout << "number of iterations: " << std::endl;
 	for (int i = 0; i < temp_.size(); i++){
 		std::cout << temp_[i] << " ";
 	}
