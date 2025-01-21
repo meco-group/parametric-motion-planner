@@ -21,7 +21,7 @@ def latexify():
  
 latexify()
 
-def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None):
+def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None, clean=False):
     DPI = 300
 
     if T == -1 or T > data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]:
@@ -57,8 +57,9 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
     show_environment(env)
     
     # Show the corridor sequence
-    corridors = data["previous_corridor_sequences"][traj_idx]
-    show_corridors(corridors)
+    if not clean:
+        corridors = data["previous_corridor_sequences"][traj_idx]
+        show_corridors(corridors)
 
     # Show traces of moving obstacles
     # for obs in data["moving_obstacles"]:
@@ -76,25 +77,32 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
     #         show_moving_obstacle(obs, travelled_traj_sample_idx, 'firebrick')
         
     # show all previously computed trajectories
-    start_traj_idx = 0 if not making_mp4 else max(0, min(len(data["previous_trajectories"]), traj_idx) - 1)
-    for i in range(start_traj_idx, min(len(data["previous_trajectories"]), traj_idx)):
-        show_trajectory(data["previous_trajectories"][i], 'gray', False, 
+    if not clean:
+        start_traj_idx = 0 if not making_mp4 else max(0, min(len(data["previous_trajectories"]), traj_idx) - 1)
+        for i in range(start_traj_idx, min(len(data["previous_trajectories"]), traj_idx)):
+            show_trajectory(data["previous_trajectories"][i], 'gray', False, 
+                            data["motion_planner"]["parameters"]["veh_width"], 
+                            data["motion_planner"]["parameters"]["veh_height"],
+                            with_footprints=False, 
+                            virtual_initial_footprint=True,
+                            virtual_final_footprint=True,
+                            show_markers=False, linewidth=0.5 + 0.5*(i==traj_idx))
+            plt.plot(data["previous_trajectories"][i]["px"][0],
+                    data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
+        show_trajectory(data["previous_trajectories"][traj_idx], 'gray', False, 
                         data["motion_planner"]["parameters"]["veh_width"], 
                         data["motion_planner"]["parameters"]["veh_height"],
-                        with_footprints=False, 
-                        virtual_initial_footprint=True,
-                        virtual_final_footprint=True,
-                        show_markers=False, linewidth=0.5 + 0.5*(i==traj_idx))
-        plt.plot(data["previous_trajectories"][i]["px"][0],
-                data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
-    show_trajectory(data["previous_trajectories"][traj_idx], 'gray', False, 
-                    data["motion_planner"]["parameters"]["veh_width"], 
-                    data["motion_planner"]["parameters"]["veh_height"],
-                    with_footprints=False)
-    plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
-                data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
-    plt.plot(data["previous_corridor_sequences"][traj_idx]["dest"]["x"],
-                data["previous_corridor_sequences"][traj_idx]["dest"]["y"], 'o', color='red', markersize=8)
+                        with_footprints=False)
+        plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
+                    data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
+    
+    # show current destination
+    # plt.plot(data["previous_corridor_sequences"][traj_idx]["dest"]["x"],
+    #          data["previous_corridor_sequences"][traj_idx]["dest"]["y"], 'o', color='red', markersize=8)
+    plot_vehicle_footprint(plt.gca(), data["previous_corridor_sequences"][traj_idx]["dest"]["x"],
+                           data["previous_corridor_sequences"][traj_idx]["dest"]["y"], 
+                           data["motion_planner"]["parameters"]["veh_width"], 
+                           data["motion_planner"]["parameters"]["veh_height"], True)
 
     # Show the trajectory of the mover
     if making_mp4:
@@ -644,37 +652,39 @@ else:
 
     ### plot computation times
     plt.figure()
+    ideal_planning_ms = 30
     for i in range(len(data["replanning_times"])):
         plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["total_computation_time"]], 'o-', color='gray')
         plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["solver_time"]], 'o-k')
 
-        if data["previous_trajectories"][i]["solver_time"] > 10:
+        if data["previous_trajectories"][i]["solver_time"] > ideal_planning_ms:
             # add value in text
             plt.text(data["replanning_times"][i], 15, 
                      f" {data['previous_trajectories'][i]['solver_time']:.2f}", 
                      fontsize=12, ha='left', va='bottom', color='gray')
 
-        if data["previous_trajectories"][i]["total_computation_time"] > 10:
+        if data["previous_trajectories"][i]["total_computation_time"] > ideal_planning_ms:
             # add value in text
-            plt.text(data["replanning_times"][i], 18, 
+            plt.text(data["replanning_times"][i], 1.8*ideal_planning_ms, 
                      f" {data['previous_trajectories'][i]['total_computation_time']:.2f}", 
-                     fontsize=12, ha='left', va='bottom', color='k')
+                     fontsize=6, ha='left', va='bottom', color='k', rotation=90)
             
         if data["previous_trajectories"][i]["vx"][0] == 0 and data["previous_trajectories"][i]["vy"][0] == 0:
-            plt.text(data["replanning_times"][i], 11, "not\ncritical", fontsize=8, ha='center', va='bottom', color='r', backgroundcolor='white')
+            plt.text(data["replanning_times"][i], 11, "not\ncritical", fontsize=8, ha='center', va='bottom', color='r')
 
-    plt.axhline(y=10, color='r', linestyle='-', lw=2)
+    plt.axhline(y=ideal_planning_ms, color='r', linestyle='-', lw=2)
 
     plt.xlabel('t')
     plt.ylabel('solver time [ms]')
     # plt.ylim([0, max(data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"])))*1.1])
-    plt.ylim([0, 20])
+    plt.ylim([0, 2*ideal_planning_ms])
     plt.title('Solver time at replanning times')
     plt.savefig(f"post-process/figures/solver_time.png", dpi=300)
 
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
     print(data["travelled_trajectory"]["Tf"])
     print(data["replanning_times"])
+    exit()
     
     ### Make animation frames
     # total_time = data["travelled_trajectory"]["Tf"]
@@ -693,6 +703,7 @@ else:
     fps = 25
     mp4_dt = 1.0/fps
     total_time = data["travelled_trajectory"]["Tf"]
+    clean = True
 
     import matplotlib.animation as animation
     from matplotlib.animation import FFMpegWriter
@@ -702,7 +713,10 @@ else:
     def update(frame):
         if frame % 5 == 0:
             print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
-        visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig)
+        visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig, clean=clean)
         return fig
     anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt))+15), repeat=False)
-    anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
+    if clean:
+        anim.save("post-process/figures/animation/animation_traj_clean.mp4", writer=writer)
+    else:
+        anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
