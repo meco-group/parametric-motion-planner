@@ -371,18 +371,46 @@ CellOccupancy Environment::GetOccupancy(int x, int y) const {
     return occupancy_grid_[x][y];
 }
 
+double TransformXPosition(double x, double x_min, double x_max){
+    double b = 0.8;
+    double x_normalized = (x - x_min)/(x_max - x_min);
+    return x_min + (x_max - x_min)*(-b*std::pow(-x_normalized+1, 4) + 1);
+}
+
+double TransformYPosition(double y, double y_min, double y_max, bool upper){
+    double y_normalized = (y - y_min)/(y_max - y_min);
+    return upper ? y_min + (0.5 + 0.5*y_normalized)*(y_max - y_min) : 
+                   y_min + (0.5 - 0.5*y_normalized)*(y_max - y_min);
+}
+
 void Environment::GetRandomFreeVehiclePosition(Point2D<double> &pos, 
                                                double vehicle_width, 
                                                double vehicle_length,
                                                double margin) const {
+    bool upper = pos.y() < 0.5*(nb_cell_rows_*cell_height_);
+    
     // Initialize the position
-    pos.SetX(nb_cell_cols_*cell_width_*dis_x_(gen_));
-    pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
+    if (nb_cell_rows_ == 10 && nb_cell_cols_ == 12){
+        pos.SetX(TransformXPosition(nb_cell_cols_*cell_width_*dis_x_(gen_), 
+                 0, nb_cell_cols_*cell_width_));
+        pos.SetY(TransformYPosition(nb_cell_rows_*cell_height_*dis_y_(gen_),
+                 0, nb_cell_rows_*cell_height_, upper));
+    } else {
+        pos.SetX(nb_cell_cols_*cell_width_*dis_x_(gen_));
+        pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
+    }
 
     // Check if the position is valid
     while (!isValidVehiclePosition(pos, vehicle_width, vehicle_length, margin+1.0e-6)){
-        pos.SetX(nb_cell_cols_*cell_width_*dis_x_(gen_));
-        pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
+        if (nb_cell_rows_ == 10 && nb_cell_cols_ == 12){
+            pos.SetX(TransformXPosition(nb_cell_cols_*cell_width_*dis_x_(gen_), 
+                                        0, nb_cell_cols_*cell_width_));
+            pos.SetY(TransformYPosition(nb_cell_rows_*cell_height_*dis_y_(gen_), 
+                                        0, nb_cell_rows_*cell_height_, upper));
+        } else {
+            pos.SetX(nb_cell_cols_*cell_width_*dis_x_(gen_));
+            pos.SetY(nb_cell_rows_*cell_height_*dis_y_(gen_));
+        }
     }
 }
 
