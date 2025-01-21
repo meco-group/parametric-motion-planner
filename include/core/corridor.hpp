@@ -233,6 +233,8 @@ class CorridorSequence{
         json ToJson() const;
 
     private:
+        Corridor GetCorridorByRawIndex(int idx) const;
+
         void UpdateVersion(){version_++;};
 
         void ClearAll(){ nb_of_corridors_ = 0; ResetCorridorIdxs(); UpdateVersion();};

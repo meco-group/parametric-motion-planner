@@ -359,8 +359,8 @@ void CorridorSequence::SetFirstCorridorIdx(int idx){
     }
 
     Corridor overlap;
-    Corridor prev_corridor = GetCorridor(idx - 1);
-    GetCorridor(idx).GetOverlap(prev_corridor, overlap);
+    Corridor prev_corridor = GetCorridorByRawIndex(idx - 1);
+    GetCorridorByRawIndex(idx).GetOverlap(prev_corridor, overlap);
     overlap.GetCenter(start_);
     start_vel_.SetX(0.0);
     start_vel_.SetY(0.0);
@@ -382,8 +382,8 @@ void CorridorSequence::SetLastCorridorIdx(int idx){
     }
 
     Corridor overlap;
-    Corridor next_corridor = GetCorridor(idx + 1);
-    GetCorridor(idx).GetOverlap(next_corridor, overlap);
+    Corridor next_corridor = GetCorridorByRawIndex(idx + 1);
+    GetCorridorByRawIndex(idx).GetOverlap(next_corridor, overlap);
     overlap.GetCenter(dest_);
 
     last_corridor_idx_ = idx;
@@ -403,6 +403,7 @@ void CorridorSequence::ResetCorridorIdxs(){
 
 Corridor CorridorSequence::GetCorridor(int idx) const {
     if (idx < 0 || idx >= NbCorridors()){
+        // print the name of the function that called this function
         throw std::out_of_range("Invalid index of corridor to get");
     }
     return sequence_[idx + first_corridor_idx_].Copy();
@@ -466,6 +467,13 @@ json CorridorSequence::ToJson() const {
 
 bool CorridorSequence::CurrentlyConsideringFullSequence() const {
     return first_corridor_idx_ == 0 && last_corridor_idx_ == nb_of_corridors_ - 1;
+}
+
+Corridor CorridorSequence::GetCorridorByRawIndex(int idx) const {
+    if (idx < 0 || idx >= max_len_){
+        throw std::out_of_range("Invalid index of corridor to get");
+    }
+    return sequence_[idx].Copy();
 }
 
 void CorridorSequence::AddInitialFootprint(std::vector<Point2D<int>> &path) const {
