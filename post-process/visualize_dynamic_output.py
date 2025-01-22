@@ -23,6 +23,7 @@ latexify()
 
 def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None, clean=False):
     DPI = 300
+    original_T = T
 
     if T == -1 or T > data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]:
         T = data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]
@@ -106,6 +107,11 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
 
     # Show the trajectory of the mover
     if making_mp4:
+        nb_of_unfaded_samples = 100
+        if original_T > data["travelled_trajectory"]["Tf"]:
+            normal_unfaded_time = nb_of_unfaded_samples*data["travelled_trajectory"]["dt"]
+            unfaded_time = max(0, normal_unfaded_time - (original_T - data["travelled_trajectory"]["Tf"]))
+            nb_of_unfaded_samples = int(unfaded_time/data["travelled_trajectory"]["dt"])
         show_trajectory(data["travelled_trajectory"], 'blue', False, 
                         data["motion_planner"]["parameters"]["veh_width"], 
                         data["motion_planner"]["parameters"]["veh_height"],
@@ -113,7 +119,7 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
                         nb_samples_to_show=travelled_traj_sample_idx,
                         virtual_initial_footprint=True, 
                         virtual_final_footprint=False,
-                        unfaded_nb_samples=100,
+                        unfaded_nb_samples=nb_of_unfaded_samples,
                         show_initial_footprint_if_showing_footprints=False)
         if data["previous_trajectories"][traj_idx]["emergency_braking"]:
             show_trajectory(data["previous_trajectories"][traj_idx], 'red', False, 
@@ -643,7 +649,8 @@ if PLOT_COMPARISON:
 
 else:
     # file = "output/dynamic_solution_ocp.json"
-    file = "build/output/dynamic_solution_movable_destination.json"
+    # file = "build/output/dynamic_solution_movable_destination.json"
+    file = "build/output/dynamic_solution_movable_destination_sampler.json"
     with open(file) as f:
         data = json.load(f)
 
@@ -684,7 +691,6 @@ else:
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
     print(data["travelled_trajectory"]["Tf"])
     print(data["replanning_times"])
-    # exit()
     
     ### Make animation frames
     # total_time = data["travelled_trajectory"]["Tf"]
@@ -702,8 +708,8 @@ else:
 
     fps = 25
     mp4_dt = 1.0/fps
-    total_time = data["travelled_trajectory"]["Tf"]
-    clean = False
+    total_time = data["travelled_trajectory"]["Tf"] + 1.5
+    clean = True
 
     import matplotlib.animation as animation
     from matplotlib.animation import FFMpegWriter
@@ -715,7 +721,7 @@ else:
             print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
         visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig, clean=clean)
         return fig
-    anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt))+15), repeat=False)
+    anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt))), repeat=False)
     if clean:
         anim.save("post-process/figures/animation/animation_traj_clean.mp4", writer=writer)
     else:

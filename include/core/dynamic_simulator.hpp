@@ -1,5 +1,5 @@
-#ifndef __EVENT_MANAGER__
-#define __EVENT_MANAGER__
+#ifndef __DYNANMIC_SIMULATOR__
+#define __DYNANMIC_SIMULATOR__
 
 #include "environment.hpp"
 #include "motion_planner.hpp"
