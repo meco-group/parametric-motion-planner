@@ -97,7 +97,7 @@ class MotionPlanner{
         void SetParametrizationOptimizationApproach(std::string name){
             parametrization_.SetParametrizationOptimizationApproach(name);};
         void SetJustInTimePreparationMode(bool set);
-        void SetSilentMode(bool set){ silent_mode_ = set;};
+        void SetSilentMode(bool set){ silent_mode_ = set; SetSolver(solver_name_);};
 
         // Printing
         void PrintEnvironment(){

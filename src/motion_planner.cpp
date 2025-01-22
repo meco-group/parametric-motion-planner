@@ -102,7 +102,7 @@ void MotionPlanner::Plan(){
             last_solution_.Reset(start_);
             return;
         }
-        PrintCorridorSequence();
+        if (!silent_mode_){ PrintCorridorSequence();}
     }
     switch(method_){
         case P2P:
@@ -264,6 +264,7 @@ void MotionPlanner::SetSolver(std::string solver_name){
     }
 	opts_solver_["print_level"] = print_level_;
 	opts_solver_["max_iter"] = max_iter_;
+    if (silent_mode_){ opts_casadi_["print_time"] = false;}
 
     if (!just_in_time_preparation_mode_){
         parametrization_.PrepareOptiInstances(parametrization_update_token_,

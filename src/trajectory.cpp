@@ -291,7 +291,7 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
                 if (out_of_corridor_list.count(w) == 0){
                     out_of_corridor_list.insert(w);
                     Corridor c = corridor_sequence.GetCorridor(w);
-                    std::cout << "Point " << point_to_check << " is out of corridor " << c << std::endl;
+                    // std::cout << "Point " << point_to_check << " is out of corridor " << c << std::endl;
                 }
             }
 

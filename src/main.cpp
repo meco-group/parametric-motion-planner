@@ -355,6 +355,7 @@ void SwitchDestinationCarrotStyleUsingSampler(){
     // environment.AddRandomObstacles(0.1);
     Parameters params = Parameters();
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    my_motion_planner.SetSilentMode(true);
     my_motion_planner.SetJustInTimePreparationMode(false);
 
     DynamicSampler dynamic_sampler = DynamicSampler(environment, my_motion_planner);

@@ -274,7 +274,7 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 	latest_solution_["opti_x"] = output[7];
 	latest_solution_["offsets"] = output[9];
 
-	std::cout << "Return status: " << active_opti_instance_.stats()["return_status"] << std::endl;
+	// std::cout << "Return status: " << active_opti_instance_.stats()["return_status"] << std::endl;
 
 	latest_success_status_ = active_opti_instance_.stats()["success"];
 	int nb_iterations = active_opti_instance_.stats()["iter_count"];
