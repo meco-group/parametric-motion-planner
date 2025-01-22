@@ -81,8 +81,10 @@ void MotionPlanner::UpdateCorridorSequence(const Point2D<double> &start,
 void MotionPlanner::Plan(){
     // Determine which function to invoke based on the selected method of the 
     // planner
-    std::cout << std::endl << "=== STARTING PLANNER ===" << std::endl;
-    std::cout << "Planning from " << start_ << " to " << dest_ << " with start velocity " << start_vel_ << std::endl;
+    if (!silent_mode_){
+        std::cout << std::endl << "=== STARTING PLANNER ===" << std::endl;
+        std::cout << "Planning from " << start_ << " to " << dest_ << " with start velocity " << start_vel_ << std::endl;
+    }
     logger_.LogEvent(PlannerCalledEvent(start_, dest_, start_vel_));
 
     // store the current solution into the previous solution
@@ -94,9 +96,9 @@ void MotionPlanner::Plan(){
     // Update the corridor sequence
     if (corridor_sequence_.CurrentlyConsideringFullSequence()){
         UpdateCorridorSequence();
-        std::cout << "Done updating the corridor sequence" << std::endl;
+        if (!silent_mode_){ std::cout << "Done updating the corridor sequence" << std::endl;}
         if (!corridor_sequence_.SequenceAvailable()){
-            std::cout << "No corridor sequence found to plan through." << std::endl;
+            if (!silent_mode_){ std::cout << "No corridor sequence found to plan through." << std::endl;}
             last_solution_.Reset(start_);
             return;
         }
@@ -122,7 +124,7 @@ void MotionPlanner::Plan(){
     // print out the computation time in milliseconds
     std::chrono::duration<double, std::milli> planning_computation_time = 
         planning_computation_time_end - planning_computation_time_start;
-    std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
+    if (!silent_mode_){ std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;}
     last_solution_.SetTotalComputationTime(planning_computation_time.count());
 
     if (last_solution_.TotalComputationTime() < 0 || 
@@ -138,7 +140,7 @@ void MotionPlanner::Plan(){
     }
 
     logger_.LogEvent(PlannerExitedEvent());
-    std::cout << "==== ENDING PLANNER ====" << std::endl << std::endl;
+    if (!silent_mode_){std::cout << "==== ENDING PLANNER ====" << std::endl << std::endl;}
 }
 
 void MotionPlanner::Plan(const Point2D<double> &start, 
@@ -193,7 +195,7 @@ void MotionPlanner::PlanSafely(int max_allowed_ms){
             // make sure this doen't take too long
             Plan();
         } catch (std::exception &e){
-            std::cerr << "Caught exception: " << e.what() << std::endl;
+            if (!silent_mode_){ std::cerr << "Caught exception: " << e.what() << std::endl;}
             logger_.LogEvent(PlannerExceptionCaught(e.what()));
             // PrintPythonImplementationInfo();
             // std::cout << "parametrization:" << std::endl;
@@ -341,7 +343,7 @@ void MotionPlanner::PlanP2P(){
 
     // Get the waypoints
     p2p_waypoints_ = corridor_sequence_.GetCorridorOverlapCenters();
-    std::cout << "Planning using P2P method from " << p2p_waypoints_[0] << " to " << p2p_waypoints_[p2p_waypoints_.size()-1] << std::endl;
+    if (!silent_mode_){ std::cout << "Planning using P2P method from " << p2p_waypoints_[0] << " to " << p2p_waypoints_[p2p_waypoints_.size()-1] << std::endl;}
     
     for (int i = 0; i < corridor_sequence_.NbCorridors(); i++){
         PlanP2PLine(i);
@@ -458,7 +460,7 @@ void MotionPlanner::PlanP2PLine(int start_waypoint_idx){
 
 void MotionPlanner::PlanOCP(){
     logger_.LogEvent(MethodSpecificPlanningStarted("OCP"));
-    std::cout << "Planning using OCP method" << std::endl;
+    if (!silent_mode_){ std::cout << "Planning using OCP method" << std::endl;}
     ocp_solver_.Solve(ocp_solver_update_token_, solver_name_, opts_solver_,
                       opts_casadi_, just_in_time_preparation_mode_);
 
@@ -505,7 +507,7 @@ void MotionPlanner::PlanOCP(){
 
 void MotionPlanner::PlanARENA(){
     logger_.LogEvent(MethodSpecificPlanningStarted("ARENA"));
-    std::cout << "Planning using ARENA method" << std::endl;    
+    if (!silent_mode_){ std::cout << "Planning using ARENA method" << std::endl;}
     
     // Try to solve a single arc
     double solver_time = 0.0;
@@ -543,7 +545,7 @@ void MotionPlanner::PlanARENA(){
             bool added_new_constraints = add_constraints_list_.size() > 0;
             while (added_new_constraints && solver_time > 0){
                 // Add the extra constraints
-                std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;
+                if (!silent_mode_){std::cout << "adding constraints at: " << add_constraints_list_ << std::endl;}
                 logger_.LogEvent(AddedAdditionalConstraintsEvent(add_constraints_list_));
                 added_new_constraints = 
                     parametrization_.AddOvershootingConstraints(
@@ -576,7 +578,7 @@ void MotionPlanner::PlanARENA(){
 
 void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     logger_.LogEvent(EmergencyBrakingPlanningStarted(start_, start_vel_));
-    std::cout << "Planning an emergency braking trajectory from " << start_ << " with start velocity " << start_vel_ << std::endl;
+    if (!silent_mode_){ std::cout << "Planning an emergency braking trajectory from " << start_ << " with start velocity " << start_vel_ << std::endl;}
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
     double T_x = std::abs(start_vel_.x()) / params_.GetAmax();
     double T_y = std::abs(start_vel_.y()) / params_.GetAmax();
@@ -766,7 +768,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     // std::cout << "\t\tdone" << std::endl;
     if (safe_alpha_intervals.size() == 0){
         std::cerr << "WARNING: No safe alpha intervals found. Using full interval" << std::endl;
-        std::cout << environment_ << std::endl;
+        // std::cout << environment_ << std::endl;
     }
 
     // pick the alpha in the middle of the largest interval
@@ -810,7 +812,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     auto planning_computation_time_end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> planning_computation_time = 
         planning_computation_time_end - planning_computation_time_start;
-    std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;
+    if (!silent_mode_){std::cout << "Planning computation time: " << planning_computation_time.count() << " ms" << std::endl;}
     emergency_solution_.SetTotalComputationTime(planning_computation_time.count());
 
     // LogEmergencyBrakingComputation(true, p1_samples, p2_samples, 
@@ -948,17 +950,17 @@ void MotionPlanner::PlanConcatenatedSections(bool recursive){
     }
 
     if (corridor_sequence_.NbCorridors() == 1){
-        std::cout << "Planning concatenated sections: planning in a single corridor." << std::endl;
+        if (!silent_mode_){std::cout << "Planning concatenated sections: planning in a single corridor." << std::endl;}
         PlanP2P();
         return;
     }
     
     // Plan a trajectory, skipping the first corridor
     corridor_sequence_.IncrementFirstCorridorIdx();
-    std::cout << "Planning concatenated sections: planning second part from " << corridor_sequence_.GetStart() << " to " << corridor_sequence_.GetDest() << std::endl;
+    if (!silent_mode_){std::cout << "Planning concatenated sections: planning second part from " << corridor_sequence_.GetStart() << " to " << corridor_sequence_.GetDest() << std::endl;}
     try{ Plan();}
     catch (std::exception& e){
-        std::cout << "Planning concatenated sections: caught exception: " << e.what() << std::endl;
+        if (!silent_mode_){std::cout << "Planning concatenated sections: caught exception: " << e.what() << std::endl;}
         PlanConcatenatedSections(true);
     }
     corridor_sequence_.DecrementFirstCorridorIdx();
@@ -969,12 +971,12 @@ void MotionPlanner::PlanConcatenatedSections(bool recursive){
     // Plan first part using P2P
     int current_last_corridor_idx = corridor_sequence_.GetLastCorridorIdx();
     corridor_sequence_.SetLastCorridorIdx(corridor_sequence_.GetFirstCorridorIdx());
-    std::cout << "Planning concatenated sections: planning first part from " << corridor_sequence_.GetStart() << " to " << corridor_sequence_.GetDest() << std::endl;
+    if (!silent_mode_){std::cout << "Planning concatenated sections: planning first part from " << corridor_sequence_.GetStart() << " to " << corridor_sequence_.GetDest() << std::endl;}
     PlanP2P();
     corridor_sequence_.SetLastCorridorIdx(current_last_corridor_idx);
 
     // Concatenate the two trajectories
-    std::cout << "Planning concatenated sections: concatenating trajectories." << std::endl;
+    if (!silent_mode_){std::cout << "Planning concatenated sections: concatenating trajectories." << std::endl;}
     last_solution_.Concatenate(second_part_of_traj);
 }
 
@@ -1013,7 +1015,7 @@ bool MotionPlanner::EliminateSubOptimalParametrization(){
 
         // std::cout << "w: " << w << " - x_flip: " << x_flip << " - y_flip: " << y_flip << std::endl;
         if (x_flip || y_flip){           
-            std::cout << "Flipping acceleration at waypoint " << w << std::endl;
+            if (!silent_mode_){std::cout << "Flipping acceleration at waypoint " << w << std::endl;}
             made_modification = made_modification ||
                 parametrization_.FlipAccelerationAtWaypoint(
                     parametrization_update_token_, w+1, x_flip, y_flip);

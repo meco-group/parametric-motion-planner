@@ -97,6 +97,7 @@ class MotionPlanner{
         void SetParametrizationOptimizationApproach(std::string name){
             parametrization_.SetParametrizationOptimizationApproach(name);};
         void SetJustInTimePreparationMode(bool set);
+        void SetSilentMode(bool set){ silent_mode_ = set;};
 
         // Printing
         void PrintEnvironment(){
@@ -210,6 +211,7 @@ class MotionPlanner{
         int print_level_ = 0;
         int max_iter_ = 100;
         bool just_in_time_preparation_mode_ = true;
+        bool silent_mode_ = false;
 
         std::vector<std::vector<Point2D<double>>> emergency_trajs_1_;
         std::vector<std::vector<Point2D<double>>> emergency_trajs_2_;

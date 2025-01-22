@@ -101,7 +101,7 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 		if (just_in_time_preparation_mode || 
 			prepared_opti_instances_[n].find(code) == prepared_opti_instances_[n].end()){
 			PrepareSingleOptiInstance(n, solver_name, opts_casadi, opts_solver, code);
-			std::cout << "Prepared opti instance for " << n << " corridors with code " << code << std::endl;
+			// std::cout << "Prepared opti instance for " << n << " corridors with code " << code << std::endl;
 		}
 		active_opti_instance_ = prepared_opti_instances_[n][code];
 		active_opti_inputs_ = opti_inputs_[n][code];
@@ -281,11 +281,11 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 	// temp_.push_back(latest_success_status_);
 	temp_.push_back(nb_iterations);
 	// std::cout << "success statusses: " << std::endl;
-	std::cout << "number of iterations: " << std::endl;
-	for (int i = 0; i < temp_.size(); i++){
-		std::cout << temp_[i] << " ";
-	}
-	std::cout << std::endl;
+	// std::cout << "number of iterations: " << std::endl;
+	// for (int i = 0; i < temp_.size(); i++){
+	// 	std::cout << temp_[i] << " ";
+	// }
+	// std::cout << std::endl;
 	// if (nb_iterations == 0){
 	// 	casadi::Dict d = active_opti_instance_.stats();
 	// 	// print d keys one by one

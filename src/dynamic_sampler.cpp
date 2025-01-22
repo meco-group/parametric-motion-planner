@@ -51,8 +51,6 @@ bool DynamicSampler::GetSample(Point2D<double> &pos, Point2D<double> &vel,
         ms_to_retrieve_sample_.push_back(ms);
     }
 
-    std::cout << "current time: " << curr_time_ << std::endl;
-
     return finished_;
 };
 
