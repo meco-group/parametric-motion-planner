@@ -10,5 +10,6 @@
 #include "trajectory.hpp"
 #include "moving_obstacle.hpp"
 #include "dynamic_simulator.hpp"
+#include "dynamic_sampler.hpp"
 
 #endif

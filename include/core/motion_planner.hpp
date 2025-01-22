@@ -66,6 +66,7 @@ class MotionPlanner{
 
         void GetSample(double &time, Point2D<double> &pos, 
                        Point2D<double> &vel, Point2D<double> &acc);
+        int GetCurrentSampleIdx() const;
         
         // Basic getters
         const Environment& GetEnvironment() const { return environment_;};

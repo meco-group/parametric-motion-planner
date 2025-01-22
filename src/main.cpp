@@ -345,6 +345,32 @@ void SwitchDestinationCarrotStyle(){
     }
 }
 
+void SwitchDestinationCarrotStyleUsingSampler(){
+    Environment environment = Environment();
+    std::vector<int> rr_test = {2, 3, 4, 4, 8};
+    std::vector<int> cc_test = {5, 8, 3, 2, 1};
+    for (int i = 0; i < rr_test.size(); i++){
+        environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
+    }
+    // environment.AddRandomObstacles(0.1);
+    Parameters params = Parameters();
+    MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    my_motion_planner.SetJustInTimePreparationMode(false);
+
+    DynamicSampler dynamic_sampler = DynamicSampler(environment, my_motion_planner);
+    dynamic_sampler.AddInitialization();
+    dynamic_sampler.AddBasicReplanningTriggers();
+    dynamic_sampler.MoveDestinationDemo(20);
+
+    Point2D<double> curr_pos, curr_vel, curr_acc;
+    bool finished = false;
+    while (!finished){
+        finished = dynamic_sampler.GetSample(curr_pos, curr_vel, curr_acc);
+    }
+
+    dynamic_sampler.DumpToJson("dynamic_solution_movable_destination_sampler.json");
+}
+
 int GetMaxNbCollisions(int n){return n*n-n*(n+1)/2;};
 
 void TestTrajectoryCollisionCheck(){
@@ -446,7 +472,8 @@ int main(){
     // SolveDynamicProblem();
     // TestRandomVehiclePositions();
     // SolveFatropFailureCase();
-    SwitchDestinationCarrotStyle();
+    // SwitchDestinationCarrotStyle();
+    SwitchDestinationCarrotStyleUsingSampler();
     // TestTrajectoryCollisionCheck();
     // TestEmergencyBraking();
 }

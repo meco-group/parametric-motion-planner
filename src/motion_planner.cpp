@@ -236,6 +236,14 @@ void MotionPlanner::GetSample(double &time, Point2D<double> &pos,
     }
 }
 
+int MotionPlanner::GetCurrentSampleIdx() const {
+    if (emergency_mode_){
+        return std::min(emergency_sample_ptr_, emergency_solution_.NbSamples());
+    } else {
+        return std::min(sample_ptr_, last_solution_.NbSamples());
+    }
+}
+
 void MotionPlanner::SetSolver(std::string solver_name){
     assert (solver_name == "ipopt" || solver_name == "fatrop");
 
