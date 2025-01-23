@@ -116,13 +116,14 @@ class Point2D {
         // The cell in which the world point is located is returned
         template<typename U = T, typename = typename std::enable_if<std::is_same<U, double>::value>::type>
         Point2D<int> ConvertWorldToCell(double cell_width, double cell_height) const {
-            return Point2D<int>(int(x_ / cell_width), int(y_ / cell_height));
+            return Point2D<int>(int(x_ / cell_width) - (x_ < 0), 
+                                int(y_ / cell_height) - (y_ < 0));
         }
         template<typename U = T, typename = typename std::enable_if<std::is_same<U, double>::value>::type>
         Point2D<int> ConvertWorldToCell(double cell_width, double cell_height, 
                                         Point2D<int>& cell) const {
-            cell.SetX(int(x_ / cell_width));
-            cell.SetY(int(y_ / cell_height));
+            cell.SetX(int(x_ / cell_width) - (x_ < 0));
+            cell.SetY(int(y_ / cell_height) - (y_ < 0));
             return cell;
         }
 
