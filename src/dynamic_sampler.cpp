@@ -1,14 +1,9 @@
 #include "core/dynamic_sampler.hpp"
-#include <iostream>
-#include <unistd.h>
 
 bool DynamicSampler::GetSample(Point2D<double> &pos, Point2D<double> &vel, 
                                Point2D<double> &acc){
     // std::cout << "Getting sample" << std::endl;
     
-    // pause execution for one second
-    // sleep(1);
-
     if (record_sample_time_){ start = std::chrono::high_resolution_clock::now();}
     // RecordTrigger("Sample requested");
     // First, check triggers and perform actions
