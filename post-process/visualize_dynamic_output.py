@@ -54,7 +54,8 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
         plt.figure()
 
     # Show the environment
-    env = data["environment"]
+    # env = data["environment"]
+    env = data["previous_environments"][traj_idx]
     show_environment(env)
     
     # Show the corridor sequence
@@ -165,6 +166,11 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
 
     
     set_env_plot_limits(env)
+
+    if clean:
+        plt.xticks([])
+        plt.yticks([])
+        plt.tight_layout()
 
     if not making_mp4:
         if counter is None:
@@ -691,6 +697,7 @@ else:
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
     print(data["travelled_trajectory"]["Tf"])
     print(data["replanning_times"])
+    # exit()
     
     ### Make animation frames
     # total_time = data["travelled_trajectory"]["Tf"]
@@ -708,7 +715,7 @@ else:
 
     fps = 25
     mp4_dt = 1.0/fps
-    total_time = data["travelled_trajectory"]["Tf"] + 1.5
+    total_time = data["travelled_trajectory"]["Tf"] + 1.5 
     clean = True
 
     import matplotlib.animation as animation
