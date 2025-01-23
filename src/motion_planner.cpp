@@ -711,7 +711,7 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
         for (int j = 0; j < obstacle_centers.size(); j++){
 
             // check if collision occurs
-            double tolerance = 1.0e-6;
+            double tolerance = 1.0e-5;
             if (std::abs(GetBottlekneckPosition(obstacle_centers[j]) - 
                          GetBottlekneckPosition(p1_samples[i])) + tolerance < 
                     GetObstacleBottleneckSize(j)/2 + GetBottleneckOffset()){
