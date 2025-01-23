@@ -1,7 +1,14 @@
 #include "core/dynamic_sampler.hpp"
+#include <iostream>
+#include <unistd.h>
 
 bool DynamicSampler::GetSample(Point2D<double> &pos, Point2D<double> &vel, 
                                Point2D<double> &acc){
+    // std::cout << "Getting sample" << std::endl;
+    
+    // pause execution for one second
+    // sleep(1);
+
     if (record_sample_time_){ start = std::chrono::high_resolution_clock::now();}
     // RecordTrigger("Sample requested");
     // First, check triggers and perform actions
@@ -12,6 +19,7 @@ bool DynamicSampler::GetSample(Point2D<double> &pos, Point2D<double> &vel,
     motion_planner_.GetSample(local_time, pos, vel, acc);
     curr_pos_ = pos; curr_vel_ = vel;
     travelled_positions_.push_back(curr_pos_);
+    // std::cout << "sample provided: " << pos << std::endl;
     // RecordTrigger("Sample provided");
 
     // Update logs
@@ -64,7 +72,15 @@ void DynamicSampler::AddInitialization(){
         [this](){ return GetTotalNbSamplesProvided() == 0;}, 
         [this](){
             SetInitialStart();
-            SetRandomDestination();
+            // SetRandomDestination();
+            motion_planner_.SetDest(Point2D<int>(6, 8).ConvertCellToWorld(
+                environment_.CellWidth(), environment_.CellHeight()));
+
+            // add obstacle
+            for (int i = 0; i < movable_obstacle_position_.size(); i++){
+                environment_.AddObstacle(movable_obstacle_position_[i]);
+            }
+
             Plan();
             RecordTrigger("Initial plan");
     });
@@ -109,23 +125,55 @@ void DynamicSampler::RecordTrigger(std::string&& trigger_statement){
     events_.push_back(trigger_statement);
 };
 
-void DynamicSampler::MoveDestinationDemo(int max_nb_replans){
+void DynamicSampler::MoveDestinationDemo(int max_nb_replans,
+                                         bool alternate_dest){
+    if (alternate_dest){ max_nb_replans = 2*floor(max_nb_replans/2);}
+    
     // make sure to start properly
     AddInitialization();
 
     // make sure to replan properly
     AddBasicReplanningTriggers();
 
-    // change the destination if only 30% of the current trajectory remains 
+    // change the destination if only 30% of the current trajectory remains
+    std::vector<double> rand_fractions(max_nb_replans);
+    for (int i = 0; i < max_nb_replans; i++){
+        rand_fractions[i] = 0.05 + 0.3*(double)std::rand()/((double)RAND_MAX);
+    }
     AddTrigger(
-        [this, max_nb_replans](){
+        [this, max_nb_replans, alternate_dest, rand_fractions](){
+            double fraction = alternate_dest ? rand_fractions[nb_replans_] : 0.3;
             return nb_replans_ < max_nb_replans - 1 &&
                    last_planning_succeeded_ && 
                    !motion_planner_.EmergencyMode() &&
-                   GetCurrentRemainingNbSamples() < 0.3*GetCurrentNbSamples();
+                   GetCurrentRemainingNbSamples() < fraction*GetCurrentNbSamples();
         },
-        [this](){
-            SetRandomDestination();
+        [this, alternate_dest](){
+            // pick the destination
+            if (alternate_dest){
+                Point2D<double> dest = nb_replans_ % 2 == 0 ?
+                    Point2D<int>(6, 8).ConvertCellToWorld(
+                        environment_.CellWidth(), environment_.CellHeight()) :
+                    Point2D<int>(10, 1).ConvertCellToWorld(
+                        environment_.CellWidth(), environment_.CellHeight());
+                motion_planner_.SetDest(dest);
+            } else {
+                SetRandomDestination();
+            }
+
+            // place a random obstacle
+            if (!motion_planner_.EmergencyMode()){
+                for (int i = 0; i < movable_obstacle_position_.size(); i++){
+                    // remove the movable obstacle from the environment
+                    environment_.RemoveObstacle(movable_obstacle_position_[i]);
+
+                    // pick a new positions in the square (0, 4)-(3,4)-(3,8)-(0,8)
+                    movable_obstacle_position_[i] = Point2D<int>(rand() % 4, 
+                                                              4 + rand() % 4);
+                    environment_.AddObstacle(movable_obstacle_position_[i]);
+                }
+            }
+
             Plan();
             RecordTrigger("Changing destination and replanning");
         }

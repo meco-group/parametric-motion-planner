@@ -347,26 +347,30 @@ void SwitchDestinationCarrotStyle(){
 
 void SwitchDestinationCarrotStyleUsingSampler(){
     Environment environment = Environment();
-    std::vector<int> rr_test = {2, 3, 4, 4, 8};
-    std::vector<int> cc_test = {5, 8, 3, 2, 1};
+    std::vector<int> rr_test = {};
+    std::vector<int> cc_test = {};
     for (int i = 0; i < rr_test.size(); i++){
         environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
     }
     // environment.AddRandomObstacles(0.1);
     Parameters params = Parameters();
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
-    my_motion_planner.SetSilentMode(true);
+    // my_motion_planner.SetSilentMode(true);
     my_motion_planner.SetJustInTimePreparationMode(false);
 
     DynamicSampler dynamic_sampler = DynamicSampler(environment, my_motion_planner);
     dynamic_sampler.AddInitialization();
     dynamic_sampler.AddBasicReplanningTriggers();
-    dynamic_sampler.MoveDestinationDemo(20);
+    dynamic_sampler.MoveDestinationDemo(20, true);
 
+    try{
     Point2D<double> curr_pos, curr_vel, curr_acc;
     bool finished = false;
     while (!finished){
         finished = dynamic_sampler.GetSample(curr_pos, curr_vel, curr_acc);
+    }
+    } catch (std::exception &e){
+        std::cerr << e.what() << std::endl;
     }
 
     dynamic_sampler.DumpToJson("dynamic_solution_movable_destination_sampler.json");

@@ -29,7 +29,7 @@ class DynamicSampler{
         void AddBasicReplanningTriggers();
         void RecordTrigger(std::string&& trigger_statement);
 
-        void MoveDestinationDemo(int max_nb_replans);
+        void MoveDestinationDemo(int max_nb_replans, bool alternate_dest=false);
 
         // functions to be used in trigger and action specifications
         int GetCurrentNbSamples() const ;
@@ -76,6 +76,10 @@ class DynamicSampler{
         int nb_samples_provided_since_last_replan_ = 0;
         bool last_planning_succeeded_ = true;
         double last_succesfull_planning_time_ = 0.0;
+
+
+        std::vector<Point2D<int>> movable_obstacle_position_ = 
+            {Point2D<int>(1, 5), Point2D<int>(3, 7), Point2D<int>(0, 7)};
 
         // temporary variables
         std::vector<Point2D<double>> travelled_positions_ = {};
