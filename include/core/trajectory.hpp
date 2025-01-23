@@ -15,7 +15,7 @@ class CorridorSequence;
 using namespace casadi;
 
 const double DT_DEFAULT = 0.01;
-const double MAX_TRAJECTORY_TIME_DEFAULT = 60;
+const double MAX_TRAJECTORY_TIME_DEFAULT = 600;
 
 
 class Trajectory{
