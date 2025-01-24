@@ -65,10 +65,16 @@ void Trajectory::Update(int nb_corridors,
         alpha = (t_[i] - accumulated_time) / time_durations[p2p_sol_idx];
         beta = 1 - alpha;
 
-        px_[i] = beta * positions[p2p_sol_idx].x() + 
-                 alpha * positions[p2p_sol_idx + 1].x();
-        py_[i] = beta * positions[p2p_sol_idx].y() +
-                 alpha * positions[p2p_sol_idx + 1].y();
+        // px_[i] = beta * positions[p2p_sol_idx].x() + 
+        //          alpha * positions[p2p_sol_idx + 1].x();
+        // py_[i] = beta * positions[p2p_sol_idx].y() +
+        //          alpha * positions[p2p_sol_idx + 1].y();
+        px_[i] = positions[p2p_sol_idx].x() + 
+                 velocities[p2p_sol_idx].x()*(t_[i] - accumulated_time) + 
+                 0.5*(t_[i] - accumulated_time)*(t_[i] - accumulated_time)*accelerations[p2p_sol_idx].x();
+        py_[i] = positions[p2p_sol_idx].y() + 
+                 velocities[p2p_sol_idx].y()*(t_[i] - accumulated_time) + 
+                 0.5*(t_[i] - accumulated_time)*(t_[i] - accumulated_time)*accelerations[p2p_sol_idx].y();
         vx_[i] = beta * velocities[p2p_sol_idx].x() +
                  alpha * velocities[p2p_sol_idx + 1].x();
         vy_[i] = beta * velocities[p2p_sol_idx].y() +
