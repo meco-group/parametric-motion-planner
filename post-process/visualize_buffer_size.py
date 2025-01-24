@@ -19,18 +19,25 @@ def visualize_buffer_size_over_time(data):
 
     # fill the buffer size vector
     number_of_samples_provided_to_mover = 0
+    number_of_samples_read_by_mover = 0
+    number_of_irrelevant_samples_read = 0
     for i in range(len(time_grid)):
         t = time_grid[i]
         # number_of_samples_read_by_mover = max(0, int(min(t/data["travelled_trajectory"]["dt"],
         #                                                  data["travelled_trajectory"]["nb_samples"])))
-        number_of_samples_read_by_mover = max(0, int(t/data["travelled_trajectory"]["dt"]))
+        number_of_samples_read_by_mover = max(0, int(t/data["travelled_trajectory"]["dt"]) - 
+                                                     number_of_irrelevant_samples_read)
 
         while (number_of_samples_provided_to_mover < len(data["duration_of_request_since_first_sample_in_ms"]) and
                t + data["mover_started_moving"]/1000 > data["duration_of_request_since_first_sample_in_ms"][number_of_samples_provided_to_mover]/1000):
             number_of_samples_provided_to_mover += 1
 
-        buffer_size[i] = max(0, number_of_samples_provided_to_mover - number_of_samples_read_by_mover)
-        
+        # buffer_size[i] = max(0, number_of_samples_provided_to_mover - number_of_samples_read_by_mover)
+        buffer_size[i] = number_of_samples_provided_to_mover - number_of_samples_read_by_mover
+
+        if buffer_size[i] < 0:
+            number_of_irrelevant_samples_read += -buffer_size[i] - 1
+            buffer_size[i] = 0
     
     # plot the buffer size over time
     plt.figure()
