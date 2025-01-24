@@ -10,8 +10,8 @@ bool DynamicSampler::GetSample(Point2D<double> &pos, Point2D<double> &vel,
         }
         auto now = std::chrono::high_resolution_clock::now();
         duration_of_request_since_first_sample_in_ms_.push_back(
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                now - time_of_first_sample_request_).count());
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                now - time_of_first_sample_request_).count()/1000.0);
     }
     // RecordTrigger("Sample requested");
     // First, check triggers and perform actions
@@ -58,7 +58,7 @@ bool DynamicSampler::GetSample(Point2D<double> &pos, Point2D<double> &vel,
 
     if (record_sample_time_){
         stop = std::chrono::high_resolution_clock::now();
-        double ms = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
+        double ms = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count()/1000.0;
         ms_to_retrieve_sample_.push_back(ms);
     }
 
@@ -291,8 +291,8 @@ void DynamicSampler::DumpToJson(const std::string &filename) const {
 void DynamicSampler::FirstBufferDeployedToPLC(){
     auto now = std::chrono::high_resolution_clock::now();
     mover_started_moving_since_first_sample_in_ms_ = 
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - time_of_first_sample_request_).count();
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            now - time_of_first_sample_request_).count()/1000.0;
 };
  
 void DynamicSampler::ExecuteTriggerActions(){
