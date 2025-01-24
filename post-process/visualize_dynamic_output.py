@@ -811,7 +811,7 @@ else:
     
     MAKE_FRAMES = 0
     MAKE_SIMULATION_MP4 = 0
-    MAKE_REALTIME_PLOT = 1
+    MAKE_REALTIME_PLOT = 0
 
 
 

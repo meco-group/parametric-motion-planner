@@ -129,7 +129,7 @@ void MotionPlanner::Plan(){
 
     if (last_solution_.TotalComputationTime() < 0 || 
         last_solution_.SolverTime() < 0 ||
-        last_solution_.CorridorInfeasibilitiesDetected()){
+        (last_solution_.CorridorInfeasibilitiesDetected() && method_ != OCP)){
         emergency_mode_ = true;
         last_solution_ = previous_solution_;
         logger_.LogEvent(PlannerFailedEvent());

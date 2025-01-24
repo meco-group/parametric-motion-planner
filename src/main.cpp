@@ -337,7 +337,7 @@ void SwitchDestinationCarrotStyle(){
     Point2D<double> start_vel(0,0);
 
     try{
-        dynamic_simulator.MoveDestination(start, start_vel, 40);
+        dynamic_simulator.MoveDestination(start, start_vel, 15);
         dynamic_simulator.DumpToJson("dynamic_solution_movable_destination.json");
     } catch (std::exception &e){
         std::cerr << e.what() << std::endl;
@@ -355,6 +355,7 @@ void SwitchDestinationCarrotStyleUsingSampler(){
     // environment.AddRandomObstacles(0.1);
     Parameters params = Parameters();
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    my_motion_planner.SetMethod(OCP);
     // my_motion_planner.SetSilentMode(true);
     my_motion_planner.SetJustInTimePreparationMode(false);
 
