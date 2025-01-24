@@ -43,7 +43,7 @@ class DynamicSampler{
         json ToJson() const;
         void DumpToJson(const std::string &filename) const;
 
-        void FirstBufferDeployedToPLC(){mover_started_moving_ = std::chrono::high_resolution_clock::now();};
+        void FirstBufferDeployedToPLC();
 
     private:     
         void ExecuteTriggerActions();
@@ -72,7 +72,7 @@ class DynamicSampler{
         bool record_sample_request_times_ = 1;
         std::vector<double> duration_of_request_since_first_sample_in_ms_ = {};
         std::chrono::high_resolution_clock::time_point time_of_first_sample_request_ = std::chrono::high_resolution_clock::now();
-        std::chrono::high_resolution_clock::time_point mover_started_moving_ = std::chrono::high_resolution_clock::now();
+        double mover_started_moving_since_first_sample_in_ms_;
 
         std::vector<double> replanning_times_ = {};
         std::vector<Trajectory> previous_trajectories_ = {};

@@ -33,13 +33,15 @@ def visualize_real_time_solution(data, T=None, fig=None, clean=False):
     traj_idx = 0
     while len(data["replanning_times"]) > traj_idx and T >= data["replanning_times"][traj_idx]:
         traj_idx += 1
-    local_replanning_times = [0] + data["replanning_times"]
     number_of_samples_read_by_mover = int(min(T/data["travelled_trajectory"]["dt"],
                                        data["travelled_trajectory"]["nb_samples"]))
     
     number_of_samples_provided_to_mover = 0
-    while (T > data["duration_of_request_since_first_sample_in_ms"][number_of_samples_provided_to_mover]/1000):
+    while (number_of_samples_provided_to_mover < len(data["duration_of_request_since_first_sample_in_ms"]) and
+        T + data["mover_started_moving"] > data["duration_of_request_since_first_sample_in_ms"][number_of_samples_provided_to_mover]/1000):
         number_of_samples_provided_to_mover += 1
+
+    print(f"buffer size: {number_of_samples_provided_to_mover - number_of_samples_read_by_mover}")
 
     plt.figure(fig.number)
     plt.clf()
@@ -79,12 +81,11 @@ def visualize_real_time_solution(data, T=None, fig=None, clean=False):
                            data["motion_planner"]["parameters"]["veh_height"], True)
 
     # Show the trajectory of the mover
-    # nb_of_unfaded_samples = 100
-    # if original_T > data["travelled_trajectory"]["Tf"]:
-    #     normal_unfaded_time = nb_of_unfaded_samples*data["travelled_trajectory"]["dt"]
-    #     unfaded_time = max(0, normal_unfaded_time - (original_T - data["travelled_trajectory"]["Tf"]))
-    #     nb_of_unfaded_samples = int(unfaded_time/data["travelled_trajectory"]["dt"])
-    nb_of_unfaded_samples = max(0, number_of_samples_provided_to_mover - number_of_samples_read_by_mover)
+    nb_of_unfaded_samples = 100
+    if original_T > data["travelled_trajectory"]["Tf"]:
+        normal_unfaded_time = nb_of_unfaded_samples*data["travelled_trajectory"]["dt"]
+        unfaded_time = max(0, normal_unfaded_time - (original_T - data["travelled_trajectory"]["Tf"]))
+        nb_of_unfaded_samples = int(unfaded_time/data["travelled_trajectory"]["dt"])
     show_trajectory(data["travelled_trajectory"], 'blue', False, 
                     data["motion_planner"]["parameters"]["veh_width"], 
                     data["motion_planner"]["parameters"]["veh_height"],
@@ -92,6 +93,17 @@ def visualize_real_time_solution(data, T=None, fig=None, clean=False):
                     nb_samples_to_show=number_of_samples_read_by_mover,
                     virtual_initial_footprint=True, 
                     virtual_final_footprint=False,
+                    unfaded_nb_samples=nb_of_unfaded_samples,
+                    show_initial_footprint_if_showing_footprints=False)
+    
+    nb_of_unfaded_samples = max(0, number_of_samples_provided_to_mover - 
+    number_of_samples_read_by_mover)
+    show_trajectory(data["travelled_trajectory"], 'blue', False, 
+                    data["motion_planner"]["parameters"]["veh_width"], 
+                    data["motion_planner"]["parameters"]["veh_height"],
+                    with_footprints=True,
+                    virtual_final_footprint=True, 
+                    nb_samples_to_show=number_of_samples_read_by_mover,
                     unfaded_nb_samples=nb_of_unfaded_samples,
                     show_initial_footprint_if_showing_footprints=False)
     if data["previous_trajectories"][traj_idx]["emergency_braking"]:
@@ -801,7 +813,6 @@ else:
 
 
 
-
     if MAKE_FRAMES:
         ## Make animation frames
         total_time = data["travelled_trajectory"]["Tf"]
@@ -818,7 +829,8 @@ else:
         print(f"Last figure has count: {counter}")
 
     if MAKE_SIMULATION_MP4 or MAKE_REALTIME_PLOT:
-        fps = 25
+        # fps = 25
+        fps = 10
         mp4_dt = 1.0/fps
         total_time = data["travelled_trajectory"]["Tf"] + 1.5 
         clean = True
