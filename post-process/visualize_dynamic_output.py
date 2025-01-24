@@ -667,9 +667,14 @@ else:
     plt.figure()
     ideal_planning_ms = 30
     for i in range(len(data["replanning_times"])):
+        # check if key is in dictionary
+        if "record_sample_time" in data and data["record_sample_time"]:
+            plt.plot([data["replanning_times"][i], data["replanning_times"][i]], 
+                     [0, data["ms_to_retrieve_sample"][i]], 'o-', color='blue')
+            
         plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["total_computation_time"]], 'o-', color='gray')
         plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["solver_time"]], 'o-k')
-
+        
         if data["previous_trajectories"][i]["solver_time"] > ideal_planning_ms:
             # add value in text
             plt.text(data["replanning_times"][i], 15, 
@@ -682,8 +687,8 @@ else:
                      f" {data['previous_trajectories'][i]['total_computation_time']:.2f}", 
                      fontsize=6, ha='left', va='bottom', color='k', rotation=90)
             
-        if data["previous_trajectories"][i]["vx"][0] == 0 and data["previous_trajectories"][i]["vy"][0] == 0:
-            plt.text(data["replanning_times"][i], 11, "not\ncritical", fontsize=8, ha='center', va='bottom', color='r')
+            if data["previous_trajectories"][i]["vx"][0] == 0 and data["previous_trajectories"][i]["vy"][0] == 0:
+                plt.text(data["replanning_times"][i], 11, "not\ncritical", fontsize=8, ha='center', va='bottom', color='r')
 
     plt.axhline(y=ideal_planning_ms, color='r', linestyle='-', lw=2)
 
@@ -697,7 +702,7 @@ else:
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
     print(data["travelled_trajectory"]["Tf"])
     print(data["replanning_times"])
-    # exit()
+    exit()
     
     ### Make animation frames
     # total_time = data["travelled_trajectory"]["Tf"]
