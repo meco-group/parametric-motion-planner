@@ -21,6 +21,98 @@ def latexify():
  
 latexify()
 
+def visualize_real_time_solution(data, T=None, fig=None, clean=False):
+    assert "duration_of_request_since_first_sample_in_ms" in data
+
+    # T: time since the mover started moving
+
+    original_T = T
+
+    if T == None or T > data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]:
+        T = data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]
+    traj_idx = 0
+    while len(data["replanning_times"]) > traj_idx and T >= data["replanning_times"][traj_idx]:
+        traj_idx += 1
+    local_replanning_times = [0] + data["replanning_times"]
+    number_of_samples_read_by_mover = int(min(T/data["travelled_trajectory"]["dt"],
+                                       data["travelled_trajectory"]["nb_samples"]))
+    
+    number_of_samples_provided_to_mover = 0
+    while (T > data["duration_of_request_since_first_sample_in_ms"][number_of_samples_provided_to_mover]/1000):
+        number_of_samples_provided_to_mover += 1
+
+    plt.figure(fig.number)
+    plt.clf()
+
+    env = data["previous_environments"][traj_idx]
+    show_environment(env)
+    
+    # Show the corridor sequence
+    if not clean:
+        corridors = data["previous_corridor_sequences"][traj_idx]
+        show_corridors(corridors)
+
+    # show all previously computed trajectories
+    if not clean:
+        start_traj_idx = max(0, min(len(data["previous_trajectories"]), traj_idx) - 1)
+        for i in range(start_traj_idx, min(len(data["previous_trajectories"]), traj_idx)):
+            show_trajectory(data["previous_trajectories"][i], 'gray', False, 
+                            data["motion_planner"]["parameters"]["veh_width"], 
+                            data["motion_planner"]["parameters"]["veh_height"],
+                            with_footprints=False, 
+                            virtual_initial_footprint=True,
+                            virtual_final_footprint=True,
+                            show_markers=False, linewidth=0.5 + 0.5*(i==traj_idx))
+            plt.plot(data["previous_trajectories"][i]["px"][0],
+                    data["previous_trajectories"][i]["py"][0], 'o', color='k', markersize=5)
+        show_trajectory(data["previous_trajectories"][traj_idx], 'gray', False, 
+                        data["motion_planner"]["parameters"]["veh_width"], 
+                        data["motion_planner"]["parameters"]["veh_height"],
+                        with_footprints=False)
+        plt.plot(data["previous_trajectories"][traj_idx]["px"][0],
+                    data["previous_trajectories"][traj_idx]["py"][0], 'o', color='k', markersize=5)
+    
+    # show current destination
+    plot_vehicle_footprint(plt.gca(), data["previous_corridor_sequences"][traj_idx]["dest"]["x"],
+                           data["previous_corridor_sequences"][traj_idx]["dest"]["y"], 
+                           data["motion_planner"]["parameters"]["veh_width"], 
+                           data["motion_planner"]["parameters"]["veh_height"], True)
+
+    # Show the trajectory of the mover
+    # nb_of_unfaded_samples = 100
+    # if original_T > data["travelled_trajectory"]["Tf"]:
+    #     normal_unfaded_time = nb_of_unfaded_samples*data["travelled_trajectory"]["dt"]
+    #     unfaded_time = max(0, normal_unfaded_time - (original_T - data["travelled_trajectory"]["Tf"]))
+    #     nb_of_unfaded_samples = int(unfaded_time/data["travelled_trajectory"]["dt"])
+    nb_of_unfaded_samples = max(0, number_of_samples_provided_to_mover - number_of_samples_read_by_mover)
+    show_trajectory(data["travelled_trajectory"], 'blue', False, 
+                    data["motion_planner"]["parameters"]["veh_width"], 
+                    data["motion_planner"]["parameters"]["veh_height"],
+                    with_footprints=True, 
+                    nb_samples_to_show=number_of_samples_read_by_mover,
+                    virtual_initial_footprint=True, 
+                    virtual_final_footprint=False,
+                    unfaded_nb_samples=nb_of_unfaded_samples,
+                    show_initial_footprint_if_showing_footprints=False)
+    if data["previous_trajectories"][traj_idx]["emergency_braking"]:
+        show_trajectory(data["previous_trajectories"][traj_idx], 'red', False, 
+                    data["motion_planner"]["parameters"]["veh_width"], 
+                    data["motion_planner"]["parameters"]["veh_height"],
+                    with_footprints=False, 
+                    virtual_initial_footprint=True,
+                    virtual_final_footprint=True,
+                    show_markers=False, linewidth=2)
+    
+    set_env_plot_limits(env)
+
+    if clean:
+        plt.xticks([])
+        plt.yticks([])
+        plt.tight_layout()
+
+    return
+
+
 def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None, clean=False):
     DPI = 300
     original_T = T
@@ -668,7 +760,7 @@ else:
     ideal_planning_ms = 30
     for i in range(len(data["replanning_times"])):
         # check if key is in dictionary
-        if "record_sample_time" in data and data["record_sample_time"]:
+        if data["record_sample_time"]:
             plt.plot([data["replanning_times"][i], data["replanning_times"][i]], 
                      [0, data["ms_to_retrieve_sample"][i]], 'o-', color='blue')
             
@@ -702,39 +794,52 @@ else:
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
     print(data["travelled_trajectory"]["Tf"])
     print(data["replanning_times"])
-    exit()
     
-    ### Make animation frames
-    # total_time = data["travelled_trajectory"]["Tf"]
-    # counter = 0
-    # curr_time = 0.0
-    # step_size = 1
-    # while curr_time < total_time + data["travelled_trajectory"]["dt"]:
-    #     print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%) with counter = {counter}")
-    #     visualize_dynamic_solution(data, curr_time, counter)
-    #     counter += 1
-    #     curr_time += step_size * data["travelled_trajectory"]["dt"]
+    MAKE_FRAMES = 0
+    MAKE_SIMULATION_MP4 = 0
+    MAKE_REALTIME_PLOT = 1
 
-    # visualize_dynamic_solution(data, total_time, counter)
-    # print(f"Last figure has count: {counter}")
 
-    fps = 25
-    mp4_dt = 1.0/fps
-    total_time = data["travelled_trajectory"]["Tf"] + 1.5 
-    clean = True
 
-    import matplotlib.animation as animation
-    from matplotlib.animation import FFMpegWriter
 
-    writer = FFMpegWriter(fps=fps, codec="libx264", extra_args=['-pix_fmt', 'yuv420p'])
-    fig = plt.figure()
-    def update(frame):
-        if frame % 5 == 0:
-            print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
-        visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig, clean=clean)
-        return fig
-    anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt))), repeat=False)
-    if clean:
-        anim.save("post-process/figures/animation/animation_traj_clean.mp4", writer=writer)
-    else:
-        anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
+    if MAKE_FRAMES:
+        ## Make animation frames
+        total_time = data["travelled_trajectory"]["Tf"]
+        counter = 0
+        curr_time = 0.0
+        step_size = 1
+        while curr_time < total_time + data["travelled_trajectory"]["dt"]:
+            print(f"creating figure at t = {curr_time:.3f} ({curr_time/total_time*100:.2f}%) with counter = {counter}")
+            visualize_dynamic_solution(data, curr_time, counter)
+            counter += 1
+            curr_time += step_size * data["travelled_trajectory"]["dt"]
+
+        visualize_dynamic_solution(data, total_time, counter)
+        print(f"Last figure has count: {counter}")
+
+    if MAKE_SIMULATION_MP4 or MAKE_REALTIME_PLOT:
+        fps = 25
+        mp4_dt = 1.0/fps
+        total_time = data["travelled_trajectory"]["Tf"] + 1.5 
+        clean = True
+
+        import matplotlib.animation as animation
+        from matplotlib.animation import FFMpegWriter
+
+        writer = FFMpegWriter(fps=fps, codec="libx264", extra_args=['-pix_fmt', 'yuv420p'])
+        fig = plt.figure()
+        def update(frame):
+            if frame % 5 == 0:
+                print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
+            
+            if MAKE_SIMULATION_MP4:
+                visualize_dynamic_solution(data, T=mp4_dt*frame, counter=None, making_mp4=True, fig=fig, clean=clean)
+            elif MAKE_REALTIME_PLOT:
+                visualize_real_time_solution(data, T=mp4_dt*frame, fig=fig, clean=clean)
+            
+            return fig
+        anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt))), repeat=False)
+        if clean:
+            anim.save("post-process/figures/animation/animation_traj_clean.mp4", writer=writer)
+        else:
+            anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
