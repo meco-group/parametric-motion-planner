@@ -17,38 +17,25 @@ def visualize_buffer_size_over_time(data):
 
     # construct a time-grid vector going from 0 to Tf with steps dt/refinment
     refinment = 10
-    time_grid = np.arange(0, Tf, dt/refinment)
+    time_grid = np.arange(-0.5, Tf + 2, dt/refinment)
 
     # construct a buffer size vector
     buffer_size = np.zeros(len(time_grid))
 
     # fill the buffer size vector
-    time_since_last_provided_sample = 0.0
-    time_since_last_read_sample = 0.0
-    curr_nb_samples_in_buffer = 0
-    prev_time = time_grid[0]
-    sample_duration_ptr = 0
-    for i in range(1, len(time_grid)):
-        curr_time = time_grid[i]
-        dt = curr_time - prev_time
+    for i in range(len(time_grid)):
+        t = time_grid[i]
+        # number_of_samples_read_by_mover = max(0, int(min(t/data["travelled_trajectory"]["dt"],
+        #                                                  data["travelled_trajectory"]["nb_samples"])))
+        number_of_samples_read_by_mover = max(0, int(t/data["travelled_trajectory"]["dt"]))
+
+        number_of_samples_provided_to_mover = 0
+        while (number_of_samples_provided_to_mover < len(data["duration_of_request_since_first_sample_in_ms"]) and
+               t + data["mover_started_moving"]/1000 > data["duration_of_request_since_first_sample_in_ms"][number_of_samples_provided_to_mover]/1000):
+            number_of_samples_provided_to_mover += 1
+
+        buffer_size[i] = number_of_samples_provided_to_mover - number_of_samples_read_by_mover
         
-        # check if multiple of 0.010s has been reached
-        time_since_last_provided_sample += dt
-        time_since_last_read_sample += dt
-
-        if time_since_last_read_sample >= 0.010:
-            time_since_last_read_sample -= 0.010
-            curr_nb_samples_in_buffer -= 1
-
-        while sample_duration_ptr < len(sample_durations) and \
-                time_since_last_provided_sample >= sample_durations[sample_duration_ptr]:
-            time_since_last_provided_sample -= sample_durations[sample_duration_ptr]
-            curr_nb_samples_in_buffer += 1
-            sample_duration_ptr += 1
-
-        buffer_size[i] = curr_nb_samples_in_buffer
-
-        prev_time = curr_time
     
     # plot the buffer size over time
     plt.figure()
