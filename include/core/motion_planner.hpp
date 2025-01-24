@@ -32,6 +32,7 @@ class MotionPlanner{
 
         void SetMethod(PlannerMethod method){
             method_ = method;
+            SetSolver(solver_name_);
         };
 
         // Update the starting position

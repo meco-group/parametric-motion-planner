@@ -263,7 +263,7 @@ void MotionPlanner::SetSolver(std::string solver_name){
         opts_solver_["mu_init"] = 1.0e-1;
     }
 	opts_solver_["print_level"] = print_level_;
-	opts_solver_["max_iter"] = max_iter_;
+	opts_solver_["max_iter"] = method_ == OCP ? 3000 : max_iter_;
     if (silent_mode_){ opts_casadi_["print_time"] = false;}
 
     if (!just_in_time_preparation_mode_){
