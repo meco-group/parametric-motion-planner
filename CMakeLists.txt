@@ -14,19 +14,26 @@ if(WIN32)
     
     #### Find CasADi
     # Set the path to CasADi library and build directories
-    set(CASADI_DIR "C:/Users/u0143705/Documents/PhD/casadi-build-windows/casadi/build/Release")
+    set(CASADI_DIR "C:/Users/Administrator/source/repos/casadi/build-mingw-ucrt64")
     find_library(CASADI_LIBRARY NAMES casadi PATHS "${CASADI_DIR}")
 
     # Include CasADi headers
-    set(CASADI_INCLUDE "C:/Users/u0143705/Documents/PhD/casadi-build-windows/casadi")
+    set(CASADI_INCLUDE "C:/Users/Administrator/source/repos/casadi")
     include_directories("${CASADI_INCLUDE}")
 
     # Include the build directory where casadi_export.h is generated
     include_directories("${CASADI_INCLUDE}/build/")
 
+    ### Find Pybind11
+    # ~/.local/lib/python3.10/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake
+    # find_package(pybind11 REQUIRED)
 
     #### Collect source files
     file(GLOB SOURCES "src/*.cpp")
+
+    # remove the bindings.cpp file
+    list(FILTER SOURCES EXCLUDE REGEX "src/bindings.cpp")
+
     include_directories(include)
 
 
@@ -79,11 +86,11 @@ if(WIN32)
     include(CMakePackageConfigHelpers)
 
     # Copy the casadi.dll to the output directory after building (Windows specific)
-    set(CASADI_DLL "C:/Users/u0143705/Documents/PhD/casadi-build-windows/casadi/out/build/debug/casadi.dll")
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CASADI_DLL}"
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+    #set(CASADI_DLL "C:/Users/u0143705/Documents/PhD/casadi-build-windows/casadi/out/build/debug/casadi.dll")
+    #add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    #    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    #        "${CASADI_DLL}"
+    #        $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 else()
     message(STATUS "Configuring for Unix/Linux")
 
