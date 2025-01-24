@@ -6,9 +6,9 @@ bool DynamicSampler::GetSample(Point2D<double> &pos, Point2D<double> &vel,
     if (record_sample_time_){ start = std::chrono::high_resolution_clock::now();}
     if (record_sample_request_times_){
         if (nb_samples_provided_ == 0){
-            time_of_first_sample_request_ = std::chrono::system_clock::now();
+            time_of_first_sample_request_ = std::chrono::high_resolution_clock::now();
         }
-        auto now = std::chrono::system_clock::now();
+        auto now = std::chrono::high_resolution_clock::now();
         duration_of_request_since_first_sample_in_ms_.push_back(
             std::chrono::duration_cast<std::chrono::milliseconds>(
                 now - time_of_first_sample_request_).count());
