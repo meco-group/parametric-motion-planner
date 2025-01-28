@@ -2,10 +2,10 @@ import sys
 sys.path.append('post-process/')
 from visualization_helpers import *
 
-def visualize_collision_check(data):
+def visualize_collision_check(data, output_folder):
 
     vehicle_colors = ['b', 'green', 'k', 'orange', 'green']
-
+    counter = 0
     for iteration in data["iterations"]:
         plt.figure()
 
@@ -28,6 +28,9 @@ def visualize_collision_check(data):
                 plt.plot(point["x"], point["y"], 'rx')
 
         set_env_plot_limits(env)
+
+        plt.savefig(output_folder + "collision_check_" + str(counter) + ".png", dpi=300)
+        counter += 1
     
     plt.show()
 
@@ -39,4 +42,4 @@ file = "build/output/trajectory_collision_check.json"
 with open(file) as f:
     data = json.load(f)
 
-visualize_collision_check(data)
+visualize_collision_check(data, "post-process/collision_check/figures/")
