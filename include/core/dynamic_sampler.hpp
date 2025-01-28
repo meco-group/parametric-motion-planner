@@ -25,11 +25,13 @@ class DynamicSampler{
         void AddTrigger(std::function<bool()> trigger,
                         std::function<void()> action);
         void ClearTriggers(){ trigger_action_pairs_.clear();};
-        void AddInitialization();
+        void AddInitialization(bool with_obstacles=false);
         void AddBasicReplanningTriggers();
         void RecordTrigger(std::string&& trigger_statement);
 
         void MoveDestinationDemo(int max_nb_replans, bool alternate_dest=false);
+        void SuddenObstacleDemo(double time_of_sudden_obstacle, 
+                                Point2D<int> obstacle_position);
 
         // functions to be used in trigger and action specifications
         int GetCurrentNbSamples() const ;
@@ -84,9 +86,12 @@ class DynamicSampler{
         bool last_planning_succeeded_ = true;
         double last_succesfull_planning_time_ = 0.0;
 
-
+        // attributes for MoveDestinationDemo
         std::vector<Point2D<int>> movable_obstacle_position_ = 
             {Point2D<int>(1, 5), Point2D<int>(3, 7), Point2D<int>(0, 7)};
+
+        // attributes for SuddenObstacleDemo
+        bool sudden_obstacle_deployed_ = false;
 
         // temporary variables
         std::vector<Point2D<double>> travelled_positions_ = {};

@@ -360,7 +360,7 @@ void SwitchDestinationCarrotStyleUsingSampler(){
     my_motion_planner.SetJustInTimePreparationMode(false);
 
     DynamicSampler dynamic_sampler = DynamicSampler(environment, my_motion_planner);
-    dynamic_sampler.AddInitialization();
+    dynamic_sampler.AddInitialization(true);
     dynamic_sampler.AddBasicReplanningTriggers();
     dynamic_sampler.MoveDestinationDemo(20, true);
 
@@ -377,12 +377,52 @@ void SwitchDestinationCarrotStyleUsingSampler(){
     dynamic_sampler.DumpToJson("dynamic_solution_movable_destination_sampler.json");
 }
 
+void AvoidSuddenAndLateObstacle(){
+    Environment environment = Environment();
+    std::vector<int> rr_test = {};
+    std::vector<int> cc_test = {};
+    for (int i = 0; i < rr_test.size(); i++){
+        environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
+    }
+    // environment.AddRandomObstacles(0.1);
+    Parameters params = Parameters();
+    MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    // my_motion_planner.SetMethod(OCP);
+    // my_motion_planner.SetSilentMode(true);
+    my_motion_planner.SetJustInTimePreparationMode(false);
+
+    DynamicSampler dynamic_sampler = DynamicSampler(environment, my_motion_planner);
+    dynamic_sampler.AddInitialization();
+    dynamic_sampler.AddBasicReplanningTriggers();
+    dynamic_sampler.SuddenObstacleDemo(0.65, Point2D<int>(3, 7));
+
+    try{
+    Point2D<double> curr_pos, curr_vel, curr_acc;
+    bool finished = false;
+    int sample_counter = 0;
+    int buffer_size = 7;
+    while (!finished){
+        auto start = std::chrono::high_resolution_clock::now();
+        finished = dynamic_sampler.GetSample(curr_pos, curr_vel, curr_acc);
+        sample_counter++;
+        auto end = std::chrono::high_resolution_clock::now();
+        while (sample_counter > buffer_size && std::chrono::duration<double, std::milli>(end - start).count() < 10.0){
+            end = std::chrono::high_resolution_clock::now();
+        }
+    }
+    } catch (std::exception &e){
+        std::cerr << e.what() << std::endl;
+    }
+
+    dynamic_sampler.DumpToJson("dynamic_solution_sudden_obstacle_sampler.json");
+}
+
 int GetMaxNbCollisions(int n){return n*n-n*(n+1)/2;};
 
 void TestTrajectoryCollisionCheck(){
     Environment environment = Environment();
     Parameters params = Parameters();
-    int nb_of_planners = 4;
+    int nb_of_planners = 2;
 
     std::vector<std::unique_ptr<MotionPlanner>> planners;
     std::vector<Trajectory> trajectories(nb_of_planners);
@@ -479,7 +519,8 @@ int main(){
     // TestRandomVehiclePositions();
     // SolveFatropFailureCase();
     // SwitchDestinationCarrotStyle();
-    SwitchDestinationCarrotStyleUsingSampler();
+    // SwitchDestinationCarrotStyleUsingSampler();
+    AvoidSuddenAndLateObstacle();
     // TestTrajectoryCollisionCheck();
     // TestEmergencyBraking();
 }

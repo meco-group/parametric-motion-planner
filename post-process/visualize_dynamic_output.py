@@ -762,7 +762,8 @@ if PLOT_COMPARISON:
 else:
     # file = "output/dynamic_solution_ocp.json"
     # file = "build/output/dynamic_solution_movable_destination.json"
-    file = "build/output/dynamic_solution_movable_destination_sampler.json"
+    # file = "build/output/dynamic_solution_movable_destination_sampler-ocp.json"
+    file = "build/output/dynamic_solution_sudden_obstacle_sampler.json"
     with open(file) as f:
         data = json.load(f)
 
@@ -772,37 +773,47 @@ else:
     ### plot computation times
     plt.figure()
     ideal_planning_ms = 30
-    for i in range(len(data["replanning_times"])):
+    rr = [0] + data["replanning_times"]
+    for i in range(len(rr)):
         # check if key is in dictionary
-        if data["record_sample_time"]:
-            plt.plot([data["replanning_times"][i], data["replanning_times"][i]], 
-                     [0, data["ms_to_retrieve_sample"][i]], 'o-', color='blue')
+        # if data["record_sample_time"]:
+        #     plt.plot([rr[i], rr[i]], 
+        #              [0, data["ms_to_retrieve_sample"][i]], 'o-', color='blue')
+        print(data["ms_to_retrieve_sample"][i], data["previous_trajectories"][i]["total_computation_time"])
             
-        plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["total_computation_time"]], 'o-', color='gray')
-        plt.plot([data["replanning_times"][i], data["replanning_times"][i]], [0, data["previous_trajectories"][i]["solver_time"]], 'o-k')
+        plt.plot([rr[i], rr[i]], 
+                 [0, data["previous_trajectories"][i]["total_computation_time"]], 
+                 'o-', color='gray', label='total time' if i == 0 else None)
+        plt.plot([rr[i], rr[i]], 
+                 [0, data["previous_trajectories"][i]["solver_time"]], 
+                 'o-k', label='solver time' if i == 0 else None)
         
-        if data["previous_trajectories"][i]["solver_time"] > ideal_planning_ms:
-            # add value in text
-            plt.text(data["replanning_times"][i], 15, 
-                     f" {data['previous_trajectories'][i]['solver_time']:.2f}", 
-                     fontsize=12, ha='left', va='bottom', color='gray')
+        # if data["previous_trajectories"][i]["solver_time"] > ideal_planning_ms:
+        #     # add value in text
+        #     plt.text(rr[i], 15, 
+        #              f" {data['previous_trajectories'][i]['solver_time']:.2f}", 
+        #              fontsize=12, ha='left', va='bottom', color='gray')
 
         if data["previous_trajectories"][i]["total_computation_time"] > ideal_planning_ms:
             # add value in text
-            plt.text(data["replanning_times"][i], 1.8*ideal_planning_ms, 
+            plt.text(rr[i]+0.1, 1.8*ideal_planning_ms, 
                      f" {data['previous_trajectories'][i]['total_computation_time']:.2f}", 
                      fontsize=6, ha='left', va='bottom', color='k', rotation=90)
             
             if data["previous_trajectories"][i]["vx"][0] == 0 and data["previous_trajectories"][i]["vy"][0] == 0:
-                plt.text(data["replanning_times"][i], 11, "not\ncritical", fontsize=8, ha='center', va='bottom', color='r')
+                plt.text(rr[i], ideal_planning_ms+2, 
+                         "not\ncritical", fontsize=8, ha='center', 
+                         va='bottom', color='r', backgroundcolor='white')
 
-    plt.axhline(y=ideal_planning_ms, color='r', linestyle='-', lw=2)
+    # plt.axhline(y=ideal_planning_ms, color='r', linestyle='-', lw=2)
 
-    plt.xlabel('t')
-    plt.ylabel('solver time [ms]')
-    # plt.ylim([0, max(data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"])))*1.1])
+    plt.xlabel('time [s]')
+    plt.ylabel('computation time [ms]')
+    # plt.ylim([0, max(data["previous_trajectories"][i]["total_computation_time"] for i in range(len(rr)))*1.1])
     plt.ylim([0, 2*ideal_planning_ms])
-    plt.title('Solver time at replanning times')
+    # plt.title('Solver time at replanning times')
+    plt.grid(axis='y')
+    plt.legend()
     plt.savefig(f"post-process/figures/solver_time.png", dpi=300)
 
     print([data["previous_trajectories"][i]["total_computation_time"] for i in range(len(data["replanning_times"]))])
@@ -811,7 +822,7 @@ else:
     
     MAKE_FRAMES = 0
     MAKE_SIMULATION_MP4 = 0
-    MAKE_REALTIME_PLOT = 0
+    MAKE_REALTIME_PLOT = 1
 
 
 
@@ -834,6 +845,8 @@ else:
         fps = 25
         mp4_dt = 1.0/fps
         total_time = data["travelled_trajectory"]["Tf"] + 1.5 
+        start_time = 0.0
+        stop_time = total_time
         clean = True
 
         import matplotlib.animation as animation
@@ -851,7 +864,10 @@ else:
                 visualize_real_time_solution(data, T=mp4_dt*frame, fig=fig, clean=clean)
             
             return fig
-        anim = animation.FuncAnimation(fig, update, range(int((total_time/mp4_dt))), repeat=False)
+        anim = animation.FuncAnimation(fig, update, 
+                                       range(int((start_time/mp4_dt)), 
+                                             int((stop_time/mp4_dt))), 
+                                       repeat=False)
         if clean:
             anim.save("post-process/figures/animation/animation_traj_clean.mp4", writer=writer)
         else:

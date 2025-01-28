@@ -70,18 +70,20 @@ void DynamicSampler::AddTrigger(std::function<bool()> trigger,
     trigger_action_pairs_.push_back(std::make_pair(trigger, action));
 };
 
-void DynamicSampler::AddInitialization(){
+void DynamicSampler::AddInitialization(bool with_obstacles){
     AddTrigger(
         [this](){ return GetTotalNbSamplesProvided() == 0;}, 
-        [this](){
+        [this, with_obstacles](){
             SetInitialStart();
             // SetRandomDestination();
             motion_planner_.SetDest(Point2D<int>(6, 8).ConvertCellToWorld(
                 environment_.CellWidth(), environment_.CellHeight()));
 
             // add obstacle
-            for (int i = 0; i < movable_obstacle_position_.size(); i++){
-                environment_.AddObstacle(movable_obstacle_position_[i]);
+            if (with_obstacles){
+                for (int i = 0; i < movable_obstacle_position_.size(); i++){
+                    environment_.AddObstacle(movable_obstacle_position_[i]);
+                }
             }
 
             Plan();
@@ -200,6 +202,40 @@ void DynamicSampler::MoveDestinationDemo(int max_nb_replans,
     );
 };
 
+void DynamicSampler::SuddenObstacleDemo(double time_of_sudden_obstacle, 
+                                        Point2D<int> obstacle_position){
+    // make sure to start properly
+    AddInitialization();
+
+    // make sure to replan properly
+    AddBasicReplanningTriggers();
+
+    // add the sudden obstacle
+    AddTrigger(
+        [this, time_of_sudden_obstacle, obstacle_position](){
+            if (sudden_obstacle_deployed_){ return false;}
+            // time based appraoch:
+            auto now = std::chrono::high_resolution_clock::now();
+            double moving_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                now - time_of_first_sample_request_).count()/(1.0e6);
+            return moving_time >= time_of_sudden_obstacle;
+
+            //// distance based appraoch:
+            // double d = curr_pos_.Distance(obstacle_position.ConvertCellToWorld(
+            //     environment_.CellWidth(), environment_.CellHeight()));
+            // return d < 3*environment_.CellWidth();
+        },
+        [this, obstacle_position](){
+            std::cout << environment_ << std::endl;
+            environment_.AddObstacle(obstacle_position);
+            sudden_obstacle_deployed_ = true;
+            std::cout << environment_ << std::endl;
+            Plan();
+            RecordTrigger("Adding sudden obstacle and replanning");
+        }
+    );
+};
+
 int DynamicSampler::GetCurrentNbSamples() const {
     return motion_planner_.GetLastSolution().NbSamples();
 };
@@ -218,6 +254,7 @@ void DynamicSampler::SetInitialStart(){
 };
 
 void DynamicSampler::Plan(){
+    bool second_to_last_planning_succeeded = last_planning_succeeded_;
     try{
         motion_planner_.SetStart(curr_pos_);
         motion_planner_.SetStartVel(curr_vel_);
@@ -229,7 +266,13 @@ void DynamicSampler::Plan(){
         }
 
         if (curr_time_ > 0){
-            replanning_times_.push_back(curr_time_);
+            // replanning_times_.push_back(curr_time_);
+            if (second_to_last_planning_succeeded){
+                auto now = std::chrono::high_resolution_clock::now();
+                double replanning_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                    now - time_of_first_sample_request_).count()/(1.0e6);
+                replanning_times_.push_back(replanning_time);
+            }
 
             // discard first sample of the trajectory
             double t; Point2D<double> a_temp;
@@ -239,6 +282,12 @@ void DynamicSampler::Plan(){
         previous_corridor_sequences_.push_back(motion_planner_.GetCorridorSequence());
         previous_environments_.push_back(environment_.ToJson());
     } catch (std::exception &e){
+        if (second_to_last_planning_succeeded){
+            auto now = std::chrono::high_resolution_clock::now();
+            double replanning_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                now - time_of_first_sample_request_).count()/(1.0e6);
+                replanning_times_.push_back(replanning_time);
+        }
         last_planning_succeeded_ = false;
     }
     nb_samples_provided_since_last_replan_ = 0;
