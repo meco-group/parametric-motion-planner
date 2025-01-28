@@ -41,6 +41,20 @@ def visualize_real_time_solution(data, T=None, fig=None, clean=False):
         T + data["mover_started_moving"]/1000 > data["duration_of_request_since_first_sample_in_ms"][number_of_samples_provided_to_mover]/1000):
         number_of_samples_provided_to_mover += 1
 
+    # count how many samples in the travelled trajectory are the same as the previous sample
+    # nb_irrelevant_samples = 0
+    # for i in range(1, number_of_samples_provided_to_mover):
+    #     if data["travelled_trajectory"]["px"][i-1] == data["travelled_trajectory"]["px"][i] and \
+    #         data["travelled_trajectory"]["py"][i-1] == data["travelled_trajectory"]["py"][i] and \
+    #         data["travelled_trajectory"]["vx"][i-1] == data["travelled_trajectory"]["vx"][i] and \
+    #         data["travelled_trajectory"]["vy"][i-1] == data["travelled_trajectory"]["vy"][i]:
+    #         nb_irrelevant_samples += 1
+    
+    # print(f"number of irrelevant samples: {nb_irrelevant_samples}")
+    # number_of_samples_read_by_mover = max(0, number_of_samples_read_by_mover - nb_irrelevant_samples)
+    number_of_samples_read_by_mover = min(number_of_samples_read_by_mover, 
+                                          number_of_samples_provided_to_mover)
+
     print(f"buffer size: {number_of_samples_provided_to_mover - number_of_samples_read_by_mover}")
 
     plt.figure(fig.number)
@@ -305,6 +319,7 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
     axs[1].plot([t + local_replanning_times[traj_idx] for t in data["previous_trajectories"][traj_idx]["t"]],
                 data["previous_trajectories"][traj_idx]["vy"], '-', 
                 color='gray', linewidth=1.0)
+    axs[0].axhline(0)
     
     axs[0].plot(data["travelled_trajectory"]["t"][:travelled_traj_sample_idx],
                 data["travelled_trajectory"]["vx"][:travelled_traj_sample_idx],
@@ -312,6 +327,7 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
     axs[1].plot(data["travelled_trajectory"]["t"][:travelled_traj_sample_idx],
                 data["travelled_trajectory"]["vy"][:travelled_traj_sample_idx],
                 '-', color='blue')
+    axs[0].axhline(0)
         
     axs[0].set_ylabel('vx')
     axs[1].set_ylabel('vy')
@@ -323,14 +339,16 @@ def visualize_dynamic_solution(data, T=-1, counter=0, making_mp4=False, fig=None
                         [-1000, -1000], color='lightgrey')
     axs[0].fill_between([-10, 1000], [vmax, vmax],
                         [1000, 1000], color='lightgrey')
-    axs[0].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    # axs[0].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    axs[0].set_xlim([27, 30])
     axs[0].set_ylim([-1.1*vmax, 1.1*vmax])
 
     axs[1].fill_between([-10, 1000], [-vmax, -vmax],
                         [-1000, -1000], color='lightgrey')
     axs[1].fill_between([-10, 1000], [vmax, vmax],
                         [1000, 1000], color='lightgrey')
-    axs[1].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    # axs[1].set_xlim([0, max(data["travelled_trajectory"]["t"])])
+    axs[1].set_xlim([27, 30])
     axs[1].set_ylim([-1.1*vmax, 1.1*vmax])
     
     if counter is None:
