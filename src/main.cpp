@@ -400,7 +400,7 @@ void AvoidSuddenAndLateObstacle(){
     Point2D<double> curr_pos, curr_vel, curr_acc;
     bool finished = false;
     int sample_counter = 0;
-    int buffer_size = 7;
+    int buffer_size = 15;
     while (!finished){
         auto start = std::chrono::high_resolution_clock::now();
         finished = dynamic_sampler.GetSample(curr_pos, curr_vel, curr_acc);

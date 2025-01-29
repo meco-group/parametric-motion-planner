@@ -840,8 +840,8 @@ else:
     
     MAKE_FRAMES = 0
     MAKE_SIMULATION_MP4 = 0
-    MAKE_REALTIME_PLOT = 1
-
+    MAKE_REALTIME_PLOT = 0
+    MAKE_REALTIME_SNAPSHOT = 1
 
 
     if MAKE_FRAMES:
@@ -890,3 +890,14 @@ else:
             anim.save("post-process/figures/animation/animation_traj_clean.mp4", writer=writer)
         else:
             anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
+
+    if MAKE_REALTIME_SNAPSHOT:
+        time = 0.67
+        clean = True
+
+        fig = plt.figure()
+        visualize_real_time_solution(data, T=time, fig=fig, clean=clean)
+        if clean:
+            plt.savefig("post-process/figures/realtime_snapshot_clean.png", dpi=300)
+        else:
+            plt.savefig("post-process/figures/realtime_snapshot.png", dpi=300)
