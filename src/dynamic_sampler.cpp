@@ -218,6 +218,7 @@ void DynamicSampler::SuddenObstacleDemo(double time_of_sudden_obstacle,
             auto now = std::chrono::high_resolution_clock::now();
             double moving_time = std::chrono::duration_cast<std::chrono::microseconds>(
                 now - time_of_first_sample_request_).count()/(1.0e6);
+            moving_time -= mover_started_moving_since_first_sample_in_ms_;
             return moving_time >= time_of_sudden_obstacle;
 
             //// distance based appraoch:
