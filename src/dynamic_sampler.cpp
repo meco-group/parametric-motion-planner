@@ -235,6 +235,21 @@ void DynamicSampler::SuddenObstacleDemo(double time_of_sudden_obstacle,
             RecordTrigger("Adding sudden obstacle and replanning");
         }
     );
+
+    // go back to home position
+    AddTrigger(
+        [this]() {
+            return (GetCurrentRemainingNbSamples() <= 1 &&
+                curr_vel_.Norm() <= 1.0e-3 &&
+                curr_pos_.y() >= 0.5);
+        },
+        [this]() {
+            motion_planner_.SetDest(Point2D<int>(10, 1).ConvertCellToWorld(
+                environment_.CellWidth(), environment_.CellHeight()));
+            Plan();
+            RecordTrigger("Going back home");
+        }
+    );
 };
 
 int DynamicSampler::GetCurrentNbSamples() const {
