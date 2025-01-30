@@ -7,6 +7,7 @@ settings.json
 *.json
 *.pdf
 
+!doc/
 !doc/*.json
 
 *__pycache__*
