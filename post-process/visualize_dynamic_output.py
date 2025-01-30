@@ -31,7 +31,7 @@ def visualize_real_time_solution(data, T=None, fig=None, clean=False):
     if T == None or T > data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]:
         T = data["travelled_trajectory"]["Tf"] + 0*data["travelled_trajectory"]["dt"]
     traj_idx = 0
-    while len(data["replanning_times"]) > traj_idx and T >= data["replanning_times"][traj_idx]:
+    while len(data["replanning_times"]) > traj_idx and T + 0.001*data["mover_started_moving"] >= data["replanning_times"][traj_idx]:
         traj_idx += 1
     number_of_samples_read_by_mover = int(min(T/data["travelled_trajectory"]["dt"],
                                        data["travelled_trajectory"]["nb_samples"]))
@@ -132,6 +132,8 @@ def visualize_real_time_solution(data, T=None, fig=None, clean=False):
                     show_markers=False, linewidth=2)
     
     set_env_plot_limits(env)
+
+    plt.title(f"time = {T:.3f}s")
 
     if clean:
         plt.xticks([])
@@ -781,7 +783,7 @@ else:
     # file = "output/dynamic_solution_ocp.json"
     # file = "build/output/dynamic_solution_movable_destination.json"
     # file = "build/output/dynamic_solution_movable_destination_sampler-ocp.json"
-    file = "build/output/dynamic_solution_sudden_obstacle_sampler.json"
+    file = "build/output/dynamic_solution_sudden_obstacle_sampler_ocp.json"
     with open(file) as f:
         data = json.load(f)
 
@@ -840,8 +842,8 @@ else:
     
     MAKE_FRAMES = 0
     MAKE_SIMULATION_MP4 = 0
-    MAKE_REALTIME_PLOT = 0
-    MAKE_REALTIME_SNAPSHOT = 1
+    MAKE_REALTIME_PLOT = 1
+    MAKE_REALTIME_SNAPSHOT = 0
 
 
     if MAKE_FRAMES:
@@ -860,7 +862,7 @@ else:
         print(f"Last figure has count: {counter}")
 
     if MAKE_SIMULATION_MP4 or MAKE_REALTIME_PLOT:
-        fps = 25
+        fps = 25*2
         mp4_dt = 1.0/fps
         total_time = data["travelled_trajectory"]["Tf"] + 1.5 
         start_time = 0.0
@@ -888,6 +890,7 @@ else:
                                        repeat=False)
         if clean:
             anim.save("post-process/figures/animation/animation_traj_clean.mp4", writer=writer)
+            anim.save("post-process/figures/animation/sudden_obstacle_ocp_clean.mp4", writer=writer)
         else:
             anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
 
