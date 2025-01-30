@@ -270,6 +270,9 @@ void DynamicSampler::SetInitialStart(){
 
 void DynamicSampler::Plan(){
     bool second_to_last_planning_succeeded = last_planning_succeeded_;
+    auto now = std::chrono::high_resolution_clock::now();
+    double replanning_time = std::chrono::duration_cast<std::chrono::microseconds>(
+        now - time_of_first_sample_request_).count() / (1.0e6);
     try{
         motion_planner_.SetStart(curr_pos_);
         motion_planner_.SetStartVel(curr_vel_);
@@ -283,9 +286,9 @@ void DynamicSampler::Plan(){
         if (curr_time_ > 0){
             // replanning_times_.push_back(curr_time_);
             if (second_to_last_planning_succeeded){
-                auto now = std::chrono::high_resolution_clock::now();
-                double replanning_time = std::chrono::duration_cast<std::chrono::microseconds>(
-                    now - time_of_first_sample_request_).count()/(1.0e6);
+                //auto now = std::chrono::high_resolution_clock::now();
+                //double replanning_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                //    now - time_of_first_sample_request_).count()/(1.0e6);
                 replanning_times_.push_back(replanning_time);
             }
 
@@ -298,10 +301,10 @@ void DynamicSampler::Plan(){
         previous_environments_.push_back(environment_.ToJson());
     } catch (std::exception &e){
         if (second_to_last_planning_succeeded){
-            auto now = std::chrono::high_resolution_clock::now();
-            double replanning_time = std::chrono::duration_cast<std::chrono::microseconds>(
-                now - time_of_first_sample_request_).count()/(1.0e6);
-                replanning_times_.push_back(replanning_time);
+            //auto now = std::chrono::high_resolution_clock::now();
+            //double replanning_time = std::chrono::duration_cast<std::chrono::microseconds>(
+            //    now - time_of_first_sample_request_).count()/(1.0e6);
+            //    replanning_times_.push_back(replanning_time);
         }
         last_planning_succeeded_ = false;
     }
