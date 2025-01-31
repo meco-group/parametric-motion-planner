@@ -498,6 +498,100 @@ void TestTrajectoryCollisionCheck(){
     outFile.close();
 }
 
+void TestCollisionResolution(){
+    Parameters params = Parameters();
+    int nb_of_planners = 2;
+
+    std::vector<std::shared_ptr<Environment>> environments;
+    std::vector<std::unique_ptr<MotionPlanner>> planners;
+    std::vector<Trajectory> trajectories(nb_of_planners);
+    std::vector<Point2D<int>> starts = {Point2D<int>(5, 0), Point2D<int>(0, 9), Point2D<int>(7, 0), Point2D<int>(11, 0)};
+    std::vector<Point2D<int>> dests = {Point2D<int>(5, 9), Point2D<int>(2, 0), Point2D<int>(11, 3), Point2D<int>(7, 3)};
+    for (int i = 0; i < nb_of_planners; i++){
+        environments.emplace_back(std::make_shared<Environment>());
+        planners.emplace_back(std::make_unique<MotionPlanner>(params, *environments[i]));
+        planners[i]->SetStart(starts[i].ConvertCellToWorld(environments[i]->CellWidth(), environments[i]->CellHeight()));
+        planners[i]->SetDest(dests[i].ConvertCellToWorld(environments[i]->CellWidth(), environments[i]->CellHeight()));
+    }
+
+    std::vector<Point2D<double>> points_of_collision(GetMaxNbCollisions(nb_of_planners));
+    int point_ptr = 0;
+    bool ready = false;
+    int counter = 0;
+
+    json trajectory_collision_check;
+    trajectory_collision_check["iterations"] = json::array();
+
+    while (!ready && counter < 4){
+        json iteration;
+        // plan for all vehicles
+        for (int i = 0; i < nb_of_planners; i++){
+            planners[i]->PlanSafely();
+            trajectories[i] = planners[i]->GetLastSolution();
+        }
+
+        // check all possible collisions
+        ready = true;
+        point_ptr = 0;
+        for (int i = 0; i < nb_of_planners; i++){
+            for (int j = i+1; j < nb_of_planners; j++){
+                trajectories[i].CheckCollision(trajectories[j], params, params, points_of_collision[point_ptr]);
+                std::cout << "collision point: " << points_of_collision[point_ptr] << std::endl;
+                if (environments[i]->isValidPosition(points_of_collision[point_ptr])){
+                    // collision between vehicle i and j is detected
+
+                    if (planners[i]->GetCorridorSequence().AreSequencesSeparable(
+                            planners[j]->GetCorridorSequence(), 
+                            points_of_collision[point_ptr])){
+                        // if the corridors are separable, resolve by restricting the free space
+                        environments[i]->AddObstacle(
+                            points_of_collision[point_ptr].ConvertWorldToCell(
+                                environments[i]->CellWidth(), environments[i]->CellHeight()));
+                        ready = false;
+                    } else {
+                        // otherwise resolve by telling shortest trajectory to wait
+                        double waiting_time = std::max(trajectories[i].Tf(), trajectories[j].Tf());
+                        if (trajectories[i].Tf() < trajectories[j].Tf()){
+                            trajectories[i].InsertInitialWaitingTime(waiting_time);
+                        } else {
+                            trajectories[j].InsertInitialWaitingTime(waiting_time);
+                        }
+                    }
+                }
+                point_ptr++;
+            }
+        }
+
+        // store info in json       
+        iteration["vehicle_planners"] = json::array();
+        for (int i = 0; i < nb_of_planners; i++){
+            iteration["vehicle_planners"].push_back(planners[i]->ToJson());
+        }
+
+        // store collision info in json       
+        for (int i = 0; i < points_of_collision.size(); i++){
+            iteration["point_of_collision"].push_back(points_of_collision[i].ToJson());
+        }
+        trajectory_collision_check["iterations"].push_back(iteration);
+
+        counter++;
+    }
+
+
+    // // add updated trajectories to json
+    // json next_iteration;
+    // next_iteration["vehicle_planners"] = json::array();
+    // for (int i = 0; i < nb_of_planners; i++){
+    //     next_iteration["vehicle_planners"].push_back(planners[i]->ToJson());
+    // }
+    // next_iteration["point_of_collision"] = json::array();
+    // trajectory_collision_check["iterations"].push_back(next_iteration);
+
+    std::ofstream outFile("output/trajectory_collision_check.json");
+    outFile << trajectory_collision_check.dump(4);
+    outFile.close();
+}
+
 void TestEmergencyBraking(){
     Environment environment = Environment(18, 26, 0.12, 0.12);
     std::vector<int> rr = {0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 12, 13, 13, 14, 14, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 19, 19, 19, 20, 21, 21, 21, 22, 22, 22, 22, 22, 22, 22, 22, 23, 23, 23, 24, 24, 25, 25};
@@ -520,8 +614,9 @@ int main(){
     // SolveFatropFailureCase();
     // SwitchDestinationCarrotStyle();
     // SwitchDestinationCarrotStyleUsingSampler();
-    AvoidSuddenAndLateObstacle();
+    // AvoidSuddenAndLateObstacle();
     // TestTrajectoryCollisionCheck();
+    TestCollisionResolution();
     // TestEmergencyBraking();
 }
 

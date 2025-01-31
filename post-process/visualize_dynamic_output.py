@@ -783,7 +783,7 @@ else:
     # file = "output/dynamic_solution_ocp.json"
     # file = "build/output/dynamic_solution_movable_destination.json"
     # file = "build/output/dynamic_solution_movable_destination_sampler-ocp.json"
-    file = "build/output/dynamic_solution_sudden_obstacle_sampler_ocp.json"
+    file = "build/output/dynamic_solution_sudden_obstacle_sampler_arena.json"
     with open(file) as f:
         data = json.load(f)
 
@@ -842,8 +842,8 @@ else:
     
     MAKE_FRAMES = 0
     MAKE_SIMULATION_MP4 = 0
-    MAKE_REALTIME_PLOT = 1
-    MAKE_REALTIME_SNAPSHOT = 0
+    MAKE_REALTIME_PLOT = 0
+    MAKE_REALTIME_SNAPSHOT = 1
 
 
     if MAKE_FRAMES:
@@ -895,7 +895,7 @@ else:
             anim.save("post-process/figures/animation/animation_traj.mp4", writer=writer)
 
     if MAKE_REALTIME_SNAPSHOT:
-        time = 0.67
+        time = 0.656
         clean = True
 
         fig = plt.figure()

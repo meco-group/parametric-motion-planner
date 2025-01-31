@@ -428,6 +428,50 @@ void CorridorSequence::GetDest(Point2D<double> &point) const {
     point.CopyValues(dest_);
 };
 
+int CorridorSequence::GetIdxOfCorridorThatContainsPoint(
+        const Point2D<double> &point) const {
+    // TODO: consider the case where the point is in multiple corridors
+    Corridor curr_corridor;
+    for (int i = 0; i < NbCorridors(); i++){
+        GetCorridor(i, curr_corridor);
+        if (curr_corridor.ContainsPoint(point)){
+            return i;
+        }
+    }
+    return -1;
+};
+
+bool CorridorSequence::AreSequencesSeparable(
+    CorridorSequence const &other, Point2D<double> const &collision_point) const {
+    
+    // get indices of corridors that contain the collision point
+    int corridor_idx_this = GetIdxOfCorridorThatContainsPoint(collision_point);
+    int corridor_idx_other = other.GetIdxOfCorridorThatContainsPoint(collision_point);
+    if (corridor_idx_this == -1 || corridor_idx_other == -1){
+        throw std::runtime_error("Collision point not in any corridor");
+    }
+
+    std::cout << std::endl;
+    std::cout << "checking separation of corridor " << GetCorridor(corridor_idx_this) << " and " << other.GetCorridor(corridor_idx_other) << std::endl;
+    
+    // get the edge points of the line segments to check intersection for
+    // let's consider the centers of the overlapping regions --> bad idea!
+    // TODO: consider the waypoints
+    Point2D<double> p1_this, p2_this, p1_other, p2_other;
+    std::vector<Point2D<double>> overlap_centers_this = GetCorridorOverlapCenters();
+    std::vector<Point2D<double>> overlap_centers_other = other.GetCorridorOverlapCenters();
+    p1_this = overlap_centers_this[corridor_idx_this];
+    p2_this = overlap_centers_this[corridor_idx_this + 1];
+    p1_other = overlap_centers_other[corridor_idx_other];
+    p2_other = overlap_centers_other[corridor_idx_other + 1];
+
+    std::cout << "checking separation of lines " << p1_this << " - " << p2_this << " and " << p1_other << " - " << p2_other << std::endl;
+    std::cout << "seperation? : " << !LineSegmentsIntersect(p1_this, p2_this, p1_other, p2_other) << std::endl;
+    std::cout << std::endl;
+    // check if the line segments intersect
+    return !LineSegmentsIntersect(p1_this, p2_this, p1_other, p2_other);
+};
+
 std::vector<Point2D<double>> CorridorSequence::GetCorridorOverlapCenters() const {
     // Initialize points
     std::vector<Point2D<double>> centers(1 + NbCorridors());
@@ -985,4 +1029,25 @@ bool CorridorSequence::MergeCorridors(){
         }
     }
     return made_change;
+};
+
+bool CorridorSequence::LineSegmentsIntersect(Point2D<double> const &p1, 
+                                             Point2D<double> const &p2, 
+                                             Point2D<double> const &q1, 
+                                             Point2D<double> const &q2) const {
+    // Check if the line segments intersect
+    double x1 = p1.x(); double y1 = p1.y();
+    double x2 = p2.x(); double y2 = p2.y();
+    double x3 = q1.x(); double y3 = q1.y();
+    double x4 = q2.x(); double y4 = q2.y();
+
+    double denominator = (x2 - x1)*(y4 - y3) - (y2 - y1)*(x4 - x3);
+    if (denominator == 0){
+        return false;
+    }
+
+    double t = ((x1 - x3)*(y3 - y4) - (y1 - y3)*(x3 - x4)) / denominator;
+    double u = -((x1 - x2)*(y1 - y3) - (y1 - y2)*(x1 - x3)) / denominator;
+
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
 };

@@ -212,6 +212,10 @@ class CorridorSequence{
         int GetVersion() const { return version_;};
         int GetFirstCorridorIdx() const { return first_corridor_idx_;};
         int GetLastCorridorIdx() const { return last_corridor_idx_;};
+        int GetIdxOfCorridorThatContainsPoint(Point2D<double> const &point) const;
+
+        bool AreSequencesSeparable(CorridorSequence const &other,
+                                   Point2D<double> const &collision_point) const;
 
         std::vector<Point2D<double>> GetCorridorOverlapCenters() const;
 
@@ -265,6 +269,11 @@ class CorridorSequence{
 
         bool RemoveIrrelevantCorridors();
         bool MergeCorridors();
+
+        bool LineSegmentsIntersect(Point2D<double> const &p1, 
+                                   Point2D<double> const &p2, 
+                                   Point2D<double> const &q1, 
+                                   Point2D<double> const &q2) const;
 
         const Environment& environment_;    // Reference to the environment object
         bool use_smart_update_ = false;

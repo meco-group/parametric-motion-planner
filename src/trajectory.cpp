@@ -577,6 +577,40 @@ void Trajectory::Concatenate(Trajectory const &other){
         other.CorridorInfeasibilitiesDetected();
 }
 
+void Trajectory::InsertInitialWaitingTime(double waiting_time){
+    int nb_samples_to_insert = std::ceil(waiting_time / dt_);
+
+    if (std::abs(vx_[0]) >= 1.0e-7 || std::abs(vy_[0]) >= 1.0e-7){
+        throw std::runtime_error("Can only insert waiting time for stationary vehicle");
+    }
+
+    if (curr_nb_samples_ + nb_samples_to_insert > max_nb_samples_){
+        throw std::runtime_error("Trajectory is too long to insert waiting time");
+    }
+
+    // shift all samples to the right
+    for (int i = curr_nb_samples_ - 1; i >= 0; i--){
+        t_[i + nb_samples_to_insert] = t_[i] + waiting_time;
+        px_[i + nb_samples_to_insert] = px_[i];
+        py_[i + nb_samples_to_insert] = py_[i];
+        vx_[i + nb_samples_to_insert] = vx_[i];
+        vy_[i + nb_samples_to_insert] = vy_[i];
+        ax_[i + nb_samples_to_insert] = ax_[i];
+        ay_[i + nb_samples_to_insert] = ay_[i];
+    }
+
+    // insert the waiting time
+    for (int i = 0; i < nb_samples_to_insert; i++){
+        t_[i] = i * dt_;
+        px_[i] = px_[nb_samples_to_insert];
+        py_[i] = py_[nb_samples_to_insert];
+        vx_[i] = 0.0;
+        vy_[i] = 0.0;
+        ax_[i] = 0.0;
+        ay_[i] = 0.0;
+    }
+}
+
 json Trajectory::ToJson() const {
     json j;
 

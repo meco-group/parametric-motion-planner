@@ -9,13 +9,15 @@ def visualize_collision_check(data, output_folder):
     for iteration in data["iterations"]:
         plt.figure()
 
-        # print([len(d) for d in data["vehicle_planners"]])
-        # print(data["vehicle_planners"][iteration])
+        # show environment
         env = iteration["vehicle_planners"][0]["environment"]
         show_environment(env)
 
         planners = iteration["vehicle_planners"]
         for i in range(len(planners)):
+            corridors = planners[i]["corridor_sequence"]
+            show_corridors(corridors, color=vehicle_colors[i])
+
             trajectory = planners[i]["trajectory"]
             show_trajectory(trajectory, vehicle_colors[i], with_trace=True,
                             with_footprints=True, 

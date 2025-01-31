@@ -103,7 +103,11 @@ class Trajectory{
                             Parameters const &params_other,
                             Point2D<double>& collision_point);
 
+        // append this trajectory with the other trajectory
         void Concatenate(Trajectory const &other);
+
+        // insert the initial waiting time (rounded upwards to a multiple of dt)
+        void InsertInitialWaitingTime(double waiting_time);
 
         // Basic getters
         double Dt() const { return dt_;};
