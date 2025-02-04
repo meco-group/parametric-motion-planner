@@ -101,7 +101,7 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
     /// MotionPlanner ///
     /////////////////////
     pybind11::class_<MotionPlanner>(m, "MotionPlanner")
-        .def(pybind11::init<PlannerMethod, Parameters const &, Environment const &>())
+        .def(pybind11::init<PlannerMethod, Parameters const &, Environment &>())
         .def("SetStart", &MotionPlanner::SetStart)
         .def("SetDest", &MotionPlanner::SetDest)
         .def("SetStartVel", &MotionPlanner::SetStartVel)

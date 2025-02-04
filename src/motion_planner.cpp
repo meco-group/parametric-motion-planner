@@ -15,7 +15,7 @@ using namespace casadi;
 using json = nlohmann::json;
 
 MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params, 
-                             Environment const &environment) :
+                             Environment &environment) :
         params_(params),
         environment_(environment),
         corridor_sequence_(environment_, params),
@@ -827,6 +827,93 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     }
 }
 
+bool MotionPlanner::AreSequencesSeparable(MotionPlanner const &other, 
+                            Point2D<double> const &collision_point) const {
+    
+    CorridorSequence seq_this = GetCorridorSequence();
+    CorridorSequence seq_other = other.GetCorridorSequence();
+
+    // get indices of corridors that contain the collision point
+    int corridor_idx_this = seq_this.GetIdxOfCorridorThatContainsPoint(collision_point);
+    int corridor_idx_other = seq_other.GetIdxOfCorridorThatContainsPoint(collision_point);
+    if (corridor_idx_this == -1 || corridor_idx_other == -1){
+        throw std::runtime_error("Collision point not in any corridor");
+    }
+
+    std::cout << std::endl;
+    std::cout << "checking separation of corridor " << 
+        seq_this.GetCorridor(corridor_idx_this) << " and " << 
+        seq_other.GetCorridor(corridor_idx_other) << std::endl;
+    
+    // get the edge points of the line segments to check intersection for
+    Point2D<double> p1_this, p2_this, p1_other, p2_other;
+    if (GetMethod() == ARENA){
+        p1_this = parametrization_.GetWaypoint(corridor_idx_this);
+        p2_this = parametrization_.GetWaypoint(corridor_idx_this + 1);
+    } else {
+        std::vector<Point2D<double>> segment_points_this = seq_this.GetCorridorOverlapCenters();
+        p1_this = segment_points_this[corridor_idx_this];
+        p2_this = segment_points_this[corridor_idx_this + 1];
+
+    }
+    if (other.GetMethod() == ARENA){
+        p1_other = other.parametrization_.GetWaypoint(corridor_idx_other);
+        p2_other = other.parametrization_.GetWaypoint(corridor_idx_other + 1);
+    } else {
+        std::vector<Point2D<double>> segment_points_other = seq_other.GetCorridorOverlapCenters();
+        p1_other = segment_points_other[corridor_idx_other];
+        p2_other = segment_points_other[corridor_idx_other + 1];
+    }
+
+    std::cout << "checking separation of lines " << p1_this << " - " << p2_this << " and " << p1_other << " - " << p2_other << std::endl;
+    std::cout << "seperation? : " << !LineSegmentsIntersect(p1_this, p2_this, p1_other, p2_other) << std::endl;
+    std::cout << std::endl;
+
+    // check if the line segments intersect
+    return !LineSegmentsIntersect(p1_this, p2_this, p1_other, p2_other);
+};
+
+void MotionPlanner::SeparateVehicleFreeSpace(MotionPlanner &other,
+                            Point2D<double> const &collision_point,
+                            Point2D<double> const &pos_this_at_collision,
+                            Point2D<double> const &pos_other_at_collision){
+    // get the potential obstacle locations (neighbours of collision cell)
+    double w = environment_.CellWidth();
+    double h = environment_.CellHeight();
+    Point2D<int> collision_cell = collision_point.ConvertWorldToCell(w, h);
+    Point2D<double> collision_cell_center = collision_cell.ConvertCellToWorld(w, h);
+
+    int x = collision_cell.x(); int y = collision_cell.y();
+    std::vector<Point2D<int>> collision_cell_neighbours = {
+        Point2D<int>(x - 1, y), // left
+        Point2D<int>(x + 1, y), // right
+        Point2D<int>(x, y - 1), // down
+        Point2D<int>(x, y + 1), // up
+    };
+
+    // select the correct neighbour
+    std::vector<double> distance_to_neighbour_edge = {
+        std::abs(collision_point.x() - (collision_cell_neighbours[0].ConvertCellToWorld(w, h).x() + w/2)),
+        std::abs(collision_point.x() - (collision_cell_neighbours[1].ConvertCellToWorld(w, h).x() - w/2)),
+        std::abs(collision_point.y() - (collision_cell_neighbours[2].ConvertCellToWorld(w, h).y() + h/2)),
+        std::abs(collision_point.y() - (collision_cell_neighbours[3].ConvertCellToWorld(w, h).y() - h/2))
+    };
+    auto min_it = std::min_element(distance_to_neighbour_edge.begin(), distance_to_neighbour_edge.end());
+    int neighbour_idx = std::distance(distance_to_neighbour_edge.begin(), min_it);
+    Point2D<double> neighbour_center = collision_cell_neighbours[neighbour_idx].ConvertCellToWorld(w, h);
+
+    // add the obstacles
+    double dist_to_collision_this = (pos_this_at_collision - neighbour_center).Norm();
+    double dist_to_collision_other = (pos_other_at_collision - neighbour_center).Norm();
+    if (dist_to_collision_this <= dist_to_collision_other){
+       environment_.AddObstacle(collision_cell);
+       other.environment_.AddObstacle(collision_cell_neighbours[neighbour_idx]);
+    } else {
+        environment_.AddObstacle(collision_cell_neighbours[neighbour_idx]);
+        other.environment_.AddObstacle(collision_cell);
+    }
+};
+
 void MotionPlanner::LogEmergencyBrakingComputation(
         bool print,
         std::vector<Point2D<double>>& p1_samples, 
@@ -1060,3 +1147,24 @@ void MotionPlanner::PrintPythonImplementationInfo() const {
     std::cout << "\tparams = {'a_max': " << params_.GetAmax() << ", 'v_max': " << params_.GetVmax() << ", 'veh_width': " << params_.GetVehWidth() << ", 'veh_height': " << params_.GetVehHeight() << ", 'M': " << params_.GetMargin() << "}" << std::endl;
     std::cout << "=================================================" << std::endl;   
 }
+
+bool MotionPlanner::LineSegmentsIntersect(Point2D<double> const &p1, 
+                                          Point2D<double> const &p2, 
+                                          Point2D<double> const &q1, 
+                                          Point2D<double> const &q2) const {
+    // Check if the line segments intersect
+    double x1 = p1.x(); double y1 = p1.y();
+    double x2 = p2.x(); double y2 = p2.y();
+    double x3 = q1.x(); double y3 = q1.y();
+    double x4 = q2.x(); double y4 = q2.y();
+
+    double denominator = (x2 - x1)*(y4 - y3) - (y2 - y1)*(x4 - x3);
+    if (denominator == 0){
+        return false;
+    }
+
+    double t = ((x1 - x3)*(y3 - y4) - (y1 - y3)*(x3 - x4)) / denominator;
+    double u = -((x1 - x2)*(y1 - y3) - (y1 - y2)*(x1 - x3)) / denominator;
+
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+};

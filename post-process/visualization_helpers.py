@@ -21,7 +21,7 @@ def load_data(output_file):
     else:
         return (env, params, corridors, planner_method, trajectory, None)
 
-def show_environment(env):
+def show_environment(env, obstacle_color='firebrick', **kwargs):
     occupancy = env["occupancy_grid"]
     cell_width = env["cell_width"]
     cell_height = env["cell_height"]
@@ -30,23 +30,30 @@ def show_environment(env):
             if occupancy[i][j] == 1:
                 color = 'k'
             elif occupancy[i][j] == 2:
-                color = 'firebrick'
+                color = obstacle_color
             else:
                 color = 'white'
-            
-            plt.gca().add_patch(Rectangle((i*cell_width, j*cell_height), 
-                                          cell_width, cell_height, fill=True,
-                                          facecolor=color, edgecolor=None))
+
+            # check if user set the obstacles_only option
+            obstacles_only = kwargs["obstacles_only"] if "obstacles_only" in kwargs else False
+            obstacles_alpha = kwargs["obstacles_alpha"] if "obstacles_alpha" in kwargs else 1.0
+            if occupancy[i][j] != 2:
+                obstacles_alpha = 1.0
+            if not obstacles_only or occupancy[i][j] == 2:
+                plt.gca().add_patch(Rectangle((i*cell_width, j*cell_height), 
+                                            cell_width, cell_height, fill=True,
+                                            facecolor=color, edgecolor=None,
+                                            alpha=obstacles_alpha))
             
     # plot a light grid showing the cell
-    # for i in range(env["nb_cell_cols"]+1):
-    #     plt.plot([i*cell_width, i*cell_width], 
-    #              [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
-    #              color='gray', zorder=1)
-    # for j in range(env["nb_cell_rows"]+1):
-    #     plt.plot([0, cell_width*env["nb_cell_cols"]], 
-    #              [j*cell_height, j*cell_height], linewidth=0.1, \
-    #              color='gray', zorder=1)
+    for i in range(env["nb_cell_cols"]+1):
+        plt.plot([i*cell_width, i*cell_width], 
+                 [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
+                 color='gray', zorder=1)
+    for j in range(env["nb_cell_rows"]+1):
+        plt.plot([0, cell_width*env["nb_cell_cols"]], 
+                 [j*cell_height, j*cell_height], linewidth=0.1, \
+                 color='gray', zorder=1)
         
 def set_env_plot_limits(env):
     cell_width = env["cell_width"]

@@ -1091,7 +1091,7 @@ bool Parametrization::AddOvershootingConstraints(std::set<int> &add_list,
 
 void Parametrization::OptimizeSingleArc(const UpdateToken&){
 	waypoints_[0].CopyValues(corridor_sequence_.GetStart());
-	// waypoints_[1].CopyValues(corridor_sequence_.GetDest());
+	waypoints_[1].CopyValues(corridor_sequence_.GetDest());
 	waypoints_sol_[0].CopyValues(corridor_sequence_.GetStart());
 	waypoints_sol_[1].CopyValues(corridor_sequence_.GetDest());
 	waypoint_velocities_sol_[0].CopyValues(corridor_sequence_.GetStartVel());

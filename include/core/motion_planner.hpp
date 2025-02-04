@@ -23,11 +23,11 @@ enum PlannerState{
 class MotionPlanner{
     public:
         MotionPlanner(Parameters const &params, 
-                      Environment const &environment)
+                      Environment &environment)
             : MotionPlanner(ARENA, params, environment){};
 
         MotionPlanner(PlannerMethod method, Parameters const &params, 
-                      Environment const &environment);
+                      Environment &environment);
             
 
         void SetMethod(PlannerMethod method){
@@ -70,6 +70,7 @@ class MotionPlanner{
         int GetCurrentSampleIdx() const;
         
         // Basic getters
+        const PlannerMethod GetMethod() const { return method_;};
         const Environment& GetEnvironment() const { return environment_;};
         const CorridorSequence& GetCorridorSequence() const { return corridor_sequence_;};
         const Parametrization& GetParametrization() const { return parametrization_;};
@@ -127,6 +128,14 @@ class MotionPlanner{
 
         void ComputeEmergencyBrakingTrajectory(double T_scaling_factor=1.0);
         void PlanConcatenatedSections(bool resursive=false);
+
+        bool AreSequencesSeparable(MotionPlanner const &other,
+                Point2D<double> const &collision_point) const;
+        void SeparateVehicleFreeSpace(MotionPlanner &other,
+                Point2D<double> const &collision_point,
+                Point2D<double> const &pos_this_at_collision,
+                Point2D<double> const &pos_other_at_collision);
+
     private:
 
         void LogEmergencyBrakingComputation(bool print,
@@ -158,8 +167,13 @@ class MotionPlanner{
         std::string PlannerMethodToString() const;
 
         void PrintPythonImplementationInfo() const;
+
+        bool LineSegmentsIntersect(Point2D<double> const &p1, 
+                                   Point2D<double> const &p2, 
+                                   Point2D<double> const &q1, 
+                                   Point2D<double> const &q2) const;
         
-        const Environment& environment_;               
+        Environment& environment_;               
         CorridorSequence corridor_sequence_;    // contains a reference to the environment
         Parametrization parametrization_;       // contains a reference to the corridor sequence
         OCPSolver ocp_solver_;                  // contains a reference to the corridor sequence

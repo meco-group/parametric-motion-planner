@@ -101,7 +101,9 @@ class Trajectory{
         void CheckCollision(Trajectory const &other, 
                             Parameters const &params_this, 
                             Parameters const &params_other,
-                            Point2D<double>& collision_point);
+                            Point2D<double>& collision_point,
+                            Point2D<double>& pos_at_collision_this,
+                            Point2D<double>& pos_at_collision_other);
 
         // append this trajectory with the other trajectory
         void Concatenate(Trajectory const &other);

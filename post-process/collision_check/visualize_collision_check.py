@@ -2,21 +2,24 @@ import sys
 sys.path.append('post-process/')
 from visualization_helpers import *
 
-def visualize_collision_check(data, output_folder):
+def visualize_collision_check(data, output_folder, **kwargs):
 
     vehicle_colors = ['b', 'green', 'k', 'orange', 'green']
     counter = 0
     for iteration in data["iterations"]:
         plt.figure()
 
-        # show environment
-        env = iteration["vehicle_planners"][0]["environment"]
-        show_environment(env)
-
         planners = iteration["vehicle_planners"]
         for i in range(len(planners)):
-            corridors = planners[i]["corridor_sequence"]
-            show_corridors(corridors, color=vehicle_colors[i])
+
+            # show environment
+            env = iteration["vehicle_planners"][i]["environment"]
+            show_environment(env, obstacle_color=vehicle_colors[i], obstacles_only=(i > 0), obstacles_alpha=0.5)
+
+            # show corridors
+            if "show_corridors" in kwargs and kwargs["show_corridors"]:
+                corridors = planners[i]["corridor_sequence"]
+                show_corridors(corridors, color=vehicle_colors[i])
 
             trajectory = planners[i]["trajectory"]
             show_trajectory(trajectory, vehicle_colors[i], with_trace=True,
@@ -31,6 +34,8 @@ def visualize_collision_check(data, output_folder):
 
         set_env_plot_limits(env)
 
+        plt.xticks([])
+        plt.yticks([])
         plt.savefig(output_folder + "collision_check_" + str(counter) + ".png", dpi=300)
         counter += 1
     

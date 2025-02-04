@@ -495,7 +495,9 @@ void Trajectory::GetSample(int idx, double &time, Point2D<double> &pos,
 void Trajectory::CheckCollision(Trajectory const &other, 
                                 Parameters const &params_this, 
                                 Parameters const &params_other,
-                                Point2D<double>& collision_point){
+                                Point2D<double>& collision_point,
+                                Point2D<double>& pos_at_collision_this,
+                                Point2D<double>& pos_at_collision_other){
     int sample_idx = 0;
     double distance_x, distance_y;
     double x_margin = params_this.GetWidthOffset() + params_other.GetWidthOffset();
@@ -521,6 +523,8 @@ void Trajectory::CheckCollision(Trajectory const &other,
             std::cout << "Collision detected at t = " << t_this << std::endl;
             std::cout << pos_this << " - " << pos_other << std::endl;
             collision_point = (pos_this + pos_other)*0.5;
+            pos_at_collision_this = pos_this;
+            pos_at_collision_other = pos_other;
             return;
         }
 
