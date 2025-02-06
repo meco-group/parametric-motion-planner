@@ -4,7 +4,7 @@ from visualization_helpers import *
 
 def visualize_collision_check(data, output_folder, **kwargs):
 
-    vehicle_colors = ['b', 'green', 'k', 'orange', 'green']
+    vehicle_colors = ['b', 'green', 'k', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
     counter = 0
     for iteration in data["iterations"]:
         plt.figure()
@@ -38,6 +38,12 @@ def visualize_collision_check(data, output_folder, **kwargs):
         plt.yticks([])
         plt.savefig(output_folder + "collision_check_" + str(counter) + ".png", dpi=300)
         counter += 1
+    
+    plt.show()
+
+def create_multi_mover_motion_video(data, output_folder, **kwargs):
+    vehicle_colors = ['b', 'green', 'k', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
+    last_iteration = data["iterations"][-1]
     
     plt.show()
 
