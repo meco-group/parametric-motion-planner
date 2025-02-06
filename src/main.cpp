@@ -501,26 +501,33 @@ void TestTrajectoryCollisionCheck(){
 }
 
 void TestCollisionResolution(){
-    Parameters params = Parameters();
-    int nb_of_planners = 2;
+    int nb_of_planners = 6;
 
+    std::vector<Parameters> params(nb_of_planners, Parameters());
     std::vector<std::shared_ptr<Environment>> environments;
     std::vector<std::unique_ptr<MotionPlanner>> planners;
     std::vector<Trajectory> trajectories(nb_of_planners);
-    std::vector<Point2D<int>> starts = {Point2D<int>(6, 3), Point2D<int>(0, 8), Point2D<int>(7, 0), Point2D<int>(11, 0)};
-    std::vector<Point2D<int>> dests = {Point2D<int>(5, 9), Point2D<int>(2, 0), Point2D<int>(11, 3), Point2D<int>(7, 3)};
+    std::vector<Point2D<int>> starts = {Point2D<int>(6, 3), Point2D<int>(0, 9), 
+        Point2D<int>(7, 0), Point2D<int>(11, 2), Point2D<int>(7, 8), Point2D<int>(0, 0)};
+    std::vector<Point2D<int>> dests = {Point2D<int>(7, 9), Point2D<int>(2, 0), 
+        Point2D<int>(11, 1), Point2D<int>(7, 1), Point2D<int>(1, 9), Point2D<int>(0, 3)};
     for (int i = 0; i < nb_of_planners; i++){
         environments.emplace_back(std::make_shared<Environment>());
-        planners.emplace_back(std::make_unique<MotionPlanner>(params, *environments[i]));
+        environments[i]->AddObstacle(Point2D<int>(0, 2));
+        planners.emplace_back(std::make_unique<MotionPlanner>(params[i], *environments[i]));
         planners[i]->SetStart(starts[i].ConvertCellToWorld(environments[i]->CellWidth(), environments[i]->CellHeight()));
         planners[i]->SetDest(dests[i].ConvertCellToWorld(environments[i]->CellWidth(), environments[i]->CellHeight()));
     }
+
+    params[4].SetVmax(0.5);
+    params[5].SetAmax(3);
 
     std::vector<Point2D<double>> points_of_collision(GetMaxNbCollisions(nb_of_planners));
     int point_ptr = 0;
     bool ready = false;
     int counter = 0;
     Point2D<double> pos_at_collision_i, pos_at_collision_j;
+    double separation_angle;
 
     json trajectory_collision_check;
     trajectory_collision_check["iterations"] = json::array();
@@ -544,18 +551,18 @@ void TestCollisionResolution(){
         point_ptr = 0;
         for (int i = 0; i < nb_of_planners; i++){
             for (int j = i+1; j < nb_of_planners; j++){
-                trajectories[i].CheckCollision(trajectories[j], params, params,
+                trajectories[i].CheckCollision(trajectories[j], params[i], params[j],
                     points_of_collision[point_ptr], pos_at_collision_i, pos_at_collision_j);
                 std::cout << "collision point: " << points_of_collision[point_ptr] << std::endl;
                 if (environments[i]->isValidPosition(points_of_collision[point_ptr])){
                     // collision between vehicle i and j is detected
 
-                    if (planners[i]->AreSequencesSeparable(
-                            *planners[j], points_of_collision[point_ptr])){
+                    if (planners[i]->AreSequencesSeparable(*planners[j], 
+                            points_of_collision[point_ptr], separation_angle)){
                         // if the corridors are separable, resolve by restricting the free space
                         planners[i]->SeparateVehicleFreeSpace(*planners[j], 
                             points_of_collision[point_ptr], pos_at_collision_i,
-                            pos_at_collision_j);
+                            pos_at_collision_j, separation_angle);
                         ready = false;
                     } else {
                         // otherwise resolve by telling shortest trajectory to wait

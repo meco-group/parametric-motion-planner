@@ -828,7 +828,8 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
 }
 
 bool MotionPlanner::AreSequencesSeparable(MotionPlanner const &other, 
-                            Point2D<double> const &collision_point) const {
+                            Point2D<double> const &collision_point, 
+                            double& angle) const {
     
     CorridorSequence seq_this = GetCorridorSequence();
     CorridorSequence seq_other = other.GetCorridorSequence();
@@ -865,8 +866,22 @@ bool MotionPlanner::AreSequencesSeparable(MotionPlanner const &other,
         p2_other = segment_points_other[corridor_idx_other + 1];
     }
 
+    double dist_1 = (p1_this - p1_other).Norm() + (p2_this - p2_other).Norm();
+    double dist_2 = (p1_this - p2_other).Norm() + (p2_this - p1_other).Norm();
+    Point2D<double> a, b, v;
+    if (dist_1 < dist_2){
+        a = (p1_this + p1_other)*0.5;
+        b = (p2_this + p2_other)*0.5;
+    } else {
+        a = (p1_this + p2_other)*0.5;
+        b = (p2_this + p1_other)*0.5;
+    }
+    v = b - a;
+    angle = std::atan2(v.y(), v.x());
+
     std::cout << "checking separation of lines " << p1_this << " - " << p2_this << " and " << p1_other << " - " << p2_other << std::endl;
     std::cout << "seperation? : " << !LineSegmentsIntersect(p1_this, p2_this, p1_other, p2_other) << std::endl;
+    std::cout << "separation angle: " << angle << std::endl;
     std::cout << std::endl;
 
     // check if the line segments intersect
@@ -876,7 +891,8 @@ bool MotionPlanner::AreSequencesSeparable(MotionPlanner const &other,
 void MotionPlanner::SeparateVehicleFreeSpace(MotionPlanner &other,
                             Point2D<double> const &collision_point,
                             Point2D<double> const &pos_this_at_collision,
-                            Point2D<double> const &pos_other_at_collision){
+                            Point2D<double> const &pos_other_at_collision,
+                            double separation_angle){
     // get the potential obstacle locations (neighbours of collision cell)
     double w = environment_.CellWidth();
     double h = environment_.CellHeight();
@@ -900,6 +916,28 @@ void MotionPlanner::SeparateVehicleFreeSpace(MotionPlanner &other,
     };
     auto min_it = std::min_element(distance_to_neighbour_edge.begin(), distance_to_neighbour_edge.end());
     int neighbour_idx = std::distance(distance_to_neighbour_edge.begin(), min_it);
+    
+    std::cout << "received separation angle: " << separation_angle << std::endl;
+    while (separation_angle <= 0){ separation_angle += M_PI;}
+    while (separation_angle >= M_PI){ separation_angle -= M_PI;}
+    std::cout << "modified separation angle: " << separation_angle << std::endl;
+    if (separation_angle <= M_PI_4 || separation_angle >= 3*M_PI_4){
+        // trajectories should be pulled apart vertically
+        std::cout << "pulling apart vertically" << std::endl;
+        if (distance_to_neighbour_edge[2] < distance_to_neighbour_edge[3]){
+            neighbour_idx = 2;
+        } else {
+            neighbour_idx = 3;
+        }
+    } else {
+        // trajectories should be pulled apart horizontally
+        std::cout << "pulling apart horizontally" << std::endl;
+        if (distance_to_neighbour_edge[0] < distance_to_neighbour_edge[1]){
+            neighbour_idx = 0;
+        } else {
+            neighbour_idx = 1;
+        }
+    }
     Point2D<double> neighbour_center = collision_cell_neighbours[neighbour_idx].ConvertCellToWorld(w, h);
 
     // add the obstacles

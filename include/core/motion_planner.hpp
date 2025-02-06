@@ -130,11 +130,12 @@ class MotionPlanner{
         void PlanConcatenatedSections(bool resursive=false);
 
         bool AreSequencesSeparable(MotionPlanner const &other,
-                Point2D<double> const &collision_point) const;
+                Point2D<double> const &collision_point, double& angle) const;
         void SeparateVehicleFreeSpace(MotionPlanner &other,
                 Point2D<double> const &collision_point,
                 Point2D<double> const &pos_this_at_collision,
-                Point2D<double> const &pos_other_at_collision);
+                Point2D<double> const &pos_other_at_collision,
+                double separation_angle);
 
     private:
 
