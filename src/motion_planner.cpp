@@ -944,11 +944,11 @@ void MotionPlanner::SeparateVehicleFreeSpace(MotionPlanner &other,
     double dist_to_collision_this = (pos_this_at_collision - neighbour_center).Norm();
     double dist_to_collision_other = (pos_other_at_collision - neighbour_center).Norm();
     if (dist_to_collision_this <= dist_to_collision_other){
-       environment_.AddObstacle(collision_cell);
-       other.environment_.AddObstacle(collision_cell_neighbours[neighbour_idx]);
+       environment_.AddVirtualObstacle(collision_cell);
+       other.environment_.AddVirtualObstacle(collision_cell_neighbours[neighbour_idx]);
     } else {
-        environment_.AddObstacle(collision_cell_neighbours[neighbour_idx]);
-        other.environment_.AddObstacle(collision_cell);
+        environment_.AddVirtualObstacle(collision_cell_neighbours[neighbour_idx]);
+        other.environment_.AddVirtualObstacle(collision_cell);
     }
 };
 

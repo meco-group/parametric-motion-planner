@@ -440,6 +440,7 @@ void TestTrajectoryCollisionCheck(){
     bool ready = false;
     int counter = 0;
     Point2D<double> pos_i, pos_j;
+    double collision_time;
 
     json trajectory_collision_check;
     // every element is a list of vehicles (motion planners) at that iteration
@@ -473,7 +474,7 @@ void TestTrajectoryCollisionCheck(){
         for (int i = 0; i < nb_of_planners; i++){
             for (int j = i+1; j < nb_of_planners; j++){
                 trajectories[i].CheckCollision(trajectories[j], params, params, 
-                    points_of_collision[point_ptr], pos_i, pos_j);
+                    points_of_collision[point_ptr], pos_i, pos_j, collision_time);
                 std::cout << "collision point: " << points_of_collision[point_ptr] << std::endl;
                 if (environment.isValidPosition(points_of_collision[point_ptr])){
                     ready = false;
@@ -501,7 +502,9 @@ void TestTrajectoryCollisionCheck(){
 }
 
 void TestCollisionResolution(){
-    int nb_of_planners = 6;
+    int nb_of_planners = 3;
+
+    bool RANDOMIZE = true;
 
     std::vector<Parameters> params(nb_of_planners, Parameters());
     std::vector<std::shared_ptr<Environment>> environments;
@@ -511,32 +514,67 @@ void TestCollisionResolution(){
         Point2D<int>(7, 0), Point2D<int>(11, 2), Point2D<int>(7, 8), Point2D<int>(0, 0)};
     std::vector<Point2D<int>> dests = {Point2D<int>(7, 9), Point2D<int>(2, 0), 
         Point2D<int>(11, 1), Point2D<int>(7, 1), Point2D<int>(1, 9), Point2D<int>(0, 3)};
+    Point2D<double> start, dest;
+    bool good_start_dest_found = false;
+    Environment test_env = Environment();
+    std::unordered_set<Point2D<int>, Point2DHash<int>> occupied_cells;
+    double w, h, m;
     for (int i = 0; i < nb_of_planners; i++){
         environments.emplace_back(std::make_shared<Environment>());
-        environments[i]->AddObstacle(Point2D<int>(0, 2));
+        if (!RANDOMIZE){ environments[i]->AddObstacle(Point2D<int>(0, 2));}
         planners.emplace_back(std::make_unique<MotionPlanner>(params[i], *environments[i]));
-        planners[i]->SetStart(starts[i].ConvertCellToWorld(environments[i]->CellWidth(), environments[i]->CellHeight()));
-        planners[i]->SetDest(dests[i].ConvertCellToWorld(environments[i]->CellWidth(), environments[i]->CellHeight()));
+
+        w = params[i].GetVehWidth(); h = params[i].GetVehHeight(); m = params[i].GetMargin();
+        if (RANDOMIZE){
+            good_start_dest_found = false;
+            while (!good_start_dest_found){
+                test_env.GetRandomFreeVehiclePosition(start, w, h, m);
+                test_env.GetRandomFreeVehiclePosition(dest, w, h, m);
+                good_start_dest_found = 
+                    start.Distance(dest) > 0.6;
+            }
+            // Add occupied starting and ending positions
+            planners[i]->SetStart(start); planners[i]->SetDest(dest);
+            occupied_cells = test_env.GetOccupiedFootprintCells(start, w, h, m);
+            for (auto &cell : occupied_cells){
+                test_env.AddObstacle(cell);
+            }
+            occupied_cells = test_env.GetOccupiedFootprintCells(dest, w, h, m);
+            for (auto &cell : occupied_cells){
+                test_env.AddObstacle(cell);
+            }
+        } else {
+            planners[i]->SetStart(starts[i].ConvertCellToWorld(
+                environments[i]->CellWidth(), environments[i]->CellHeight()));
+            planners[i]->SetDest(dests[i].ConvertCellToWorld(
+                environments[i]->CellWidth(), environments[i]->CellHeight()));
+        }
     }
 
-    params[4].SetVmax(0.5);
-    params[5].SetAmax(3);
+    if (!RANDOMIZE){
+        params[4].SetVmax(0.5);
+        params[5].SetAmax(3);
+    }
 
     std::vector<Point2D<double>> points_of_collision(GetMaxNbCollisions(nb_of_planners));
     int point_ptr = 0;
     bool ready = false;
     int counter = 0;
-    Point2D<double> pos_at_collision_i, pos_at_collision_j;
-    double separation_angle;
+    json collision_info;
+    Point2D<double> pos_at_collision_i, pos_at_collision_j, pos_temp;
+    double collision_time, separation_angle, double_temp;
+    int collision_veh_i, collision_veh_j;
 
     json trajectory_collision_check;
     trajectory_collision_check["iterations"] = json::array();
+    std::vector<double> waiting_times(nb_of_planners, 0.0);
 
     while (!ready && counter < 4){
         json iteration;
         // plan for all vehicles
         for (int i = 0; i < nb_of_planners; i++){
             planners[i]->PlanSafely();
+            planners[i]->InsertInitialWaitingTime(waiting_times[i]);
             trajectories[i] = planners[i]->GetLastSolution();
         }
 
@@ -546,41 +584,69 @@ void TestCollisionResolution(){
             iteration["vehicle_planners"].push_back(planners[i]->ToJson());
         }
 
+        // let "collisions" be an array of dictionaries
+        iteration["collisions"] = json::array();
+
         // check all possible collisions
         ready = true;
         point_ptr = 0;
         for (int i = 0; i < nb_of_planners; i++){
             for (int j = i+1; j < nb_of_planners; j++){
-                trajectories[i].CheckCollision(trajectories[j], params[i], params[j],
-                    points_of_collision[point_ptr], pos_at_collision_i, pos_at_collision_j);
-                std::cout << "collision point: " << points_of_collision[point_ptr] << std::endl;
-                if (environments[i]->isValidPosition(points_of_collision[point_ptr])){
+                if (trajectories[i].CheckCollision(
+                        trajectories[j], params[i], params[j],
+                        points_of_collision[point_ptr], pos_at_collision_i, 
+                        pos_at_collision_j, collision_time)){
                     // collision between vehicle i and j is detected
 
                     if (planners[i]->AreSequencesSeparable(*planners[j], 
                             points_of_collision[point_ptr], separation_angle)){
                         // if the corridors are separable, resolve by restricting the free space
+
                         planners[i]->SeparateVehicleFreeSpace(*planners[j], 
                             points_of_collision[point_ptr], pos_at_collision_i,
                             pos_at_collision_j, separation_angle);
                         ready = false;
                     } else {
-                        // otherwise resolve by telling shortest trajectory to wait
-                        double waiting_time = std::max(trajectories[i].Tf(), trajectories[j].Tf());
-                        if (trajectories[i].Tf() < trajectories[j].Tf()){
-                            trajectories[i].InsertInitialWaitingTime(waiting_time);
+                        // resolve by waiting
+                        double waiting_time_i = trajectories[i].GetWaitingTimeThis(trajectories[j], params[i], params[j]);
+                        double waiting_time_j = trajectories[j].GetWaitingTimeThis(trajectories[i], params[j], params[i]);
+                        std::cout << "case i: " << waiting_time_i << " " << trajectories[j].Tf() << std::endl;
+                        std::cout << "case j: " << waiting_time_j << " " << trajectories[i].Tf() << std::endl;
+
+                        // check if we're not waiting indefinetly
+                        if (waiting_time_i >= trajectories[j].Tf() && waiting_time_j >= trajectories[i].Tf()){
+                            // no point in waiting, we need to add obstacles
+                            std::cout << "HERE!" << std::endl;
+                            occupied_cells = environments[i]->GetOccupiedFootprintCells(planners[j]->GetDest(), w, h, m);
+                            for (auto &cell : occupied_cells){
+                                environments[i]->AddVirtualObstacle(cell);
+                                
+                            }
+                            // occupied_cells = environments[j]->GetOccupiedFootprintCells(planners[i]->GetDest(), w, h, m);
+                            // for (auto &cell : occupied_cells){
+                            //     environments[j]->AddVirtualObstacle(cell);
+                            // }
+                            // waiting_times[i] = 0.0;
+                            // waiting_times[j] = 0.0;
+
+                        } else if (waiting_time_i < waiting_time_j){
+                            waiting_times[i] += waiting_time_i;
                         } else {
-                            trajectories[j].InsertInitialWaitingTime(waiting_time);
+                            waiting_times[i] += waiting_time_j;
                         }
+                        ready = false;
                     }
+
+                    // store collision info
+                    collision_info.clear();
+                    collision_info["point_of_collision"] = points_of_collision[point_ptr].ToJson();
+                    collision_info["vehicle_positions"] = {pos_at_collision_i.ToJson(), pos_at_collision_j.ToJson()};
+                    collision_info["collision_time"] = collision_time;
+                    collision_info["vehicle_indices"] = {i, j};
+                    iteration["collisions"].push_back(collision_info);
                 }
                 point_ptr++;
             }
-        }
-
-        // store collision info in json       
-        for (int i = 0; i < points_of_collision.size(); i++){
-            iteration["point_of_collision"].push_back(points_of_collision[i].ToJson());
         }
         trajectory_collision_check["iterations"].push_back(iteration);
 

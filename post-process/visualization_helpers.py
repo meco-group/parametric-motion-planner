@@ -30,16 +30,18 @@ def show_environment(env, obstacle_color='firebrick', **kwargs):
             if occupancy[i][j] == 1:
                 color = 'k'
             elif occupancy[i][j] == 2:
+                color = 'firebrick'
+            elif occupancy[i][j] == 5:
                 color = obstacle_color
             else:
                 color = 'white'
 
             # check if user set the obstacles_only option
-            obstacles_only = kwargs["obstacles_only"] if "obstacles_only" in kwargs else False
-            obstacles_alpha = kwargs["obstacles_alpha"] if "obstacles_alpha" in kwargs else 1.0
-            if occupancy[i][j] != 2:
+            obstacles_only = kwargs.get("obstacles_only", False)
+            obstacles_alpha = kwargs.get("obstacles_alpha", 1.0)
+            if occupancy[i][j] != 5:
                 obstacles_alpha = 1.0
-            if not obstacles_only or occupancy[i][j] == 2:
+            if not obstacles_only or occupancy[i][j] == 2 or occupancy[i][j] == 5:
                 plt.gca().add_patch(Rectangle((i*cell_width, j*cell_height), 
                                             cell_width, cell_height, fill=True,
                                             facecolor=color, edgecolor=None,
@@ -100,7 +102,7 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
                     show_markers=True, linewidth=1, with_line=True,
                     unfaded_nb_samples=-1,
                     show_initial_footprint_if_showing_footprints=True,
-                    show_final_footprint_if_showing_footprints=True):
+                    show_final_footprint_if_showing_footprints=True, **kwargs):
     if nb_samples_to_show == -1:
         nb_samples_to_show = len(trajectory["px"])
 
@@ -129,6 +131,7 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
         footprint_trace = so.unary_union(footprints)
         try:
             x, y = footprint_trace.exterior.xy
+            trace_alpha = kwargs.get("trace_alpha", 0.2)
             plt.gca().fill(x, y, color=color, alpha=0.2, edgecolor='none', zorder=1)
             # plt.gca().fill(x, y, color='none', alpha=0.5, edgecolor=color)
             # plt.plot(x, y, color=colors[i], linewidth=1)
@@ -169,8 +172,11 @@ def show_moving_obstacle(obstacle, sample_idx, color):
                                     width, height, fill=True, 
                                     facecolor=color, edgecolor=None))
 
-def plot_vehicle_footprint(ax, px, py, veh_width, veh_height, virtual_position=False):
-    alpha = 1.0 if not virtual_position else 1.0
+def plot_vehicle_footprint(ax, px, py, veh_width, veh_height, virtual_position=False, **kwargs):
+    max_alpha = kwargs.get("max_alpha", 1.0)
+    zorder = kwargs.get("zorder", 2)
+
+    alpha = 1.0*max_alpha if not virtual_position else 1.0*max_alpha
     anchor = (px-veh_width/2, py-veh_height/2)
     width = veh_width
     height = veh_height
@@ -179,21 +185,21 @@ def plot_vehicle_footprint(ax, px, py, veh_width, veh_height, virtual_position=F
     linestyle = '-' if not virtual_position else '--'
 
     inner_factor = 0.8
-    alpha_inner = 1.0 if not virtual_position else 1.0
+    alpha_inner = 1.0*max_alpha if not virtual_position else 1.0*max_alpha
     anchor_inner = (px-inner_factor*veh_width/2, 
                     py-inner_factor*veh_height/2)
     width_inner = inner_factor*veh_width
     height_inner = inner_factor*veh_height
     boxstyle_inner = "round,pad=0.0, rounding_size=0.002"
-    color_inner = 'gainsboro' if not virtual_position else 'whitesmoke'
+    color_inner = kwargs.get("color", 'gainsboro' if not virtual_position else 'whitesmoke')
 
     # create a fancybox with rounded corners
     rect = FancyBboxPatch(anchor, width, height, boxstyle=boxstyle, 
                             fill=True, facecolor=color, 
-                            edgecolor='k', linestyle=linestyle, alpha=alpha, zorder=2)
+                            edgecolor='k', linestyle=linestyle, alpha=alpha, zorder=zorder)
     ax.add_patch(rect)
     rect = FancyBboxPatch(anchor_inner, width_inner, height_inner, 
                             boxstyle=boxstyle_inner, fill=True, 
                             facecolor=color_inner, edgecolor=color_inner, 
-                            alpha=alpha_inner, zorder=2)
+                            alpha=alpha_inner, zorder=zorder)
     ax.add_patch(rect)

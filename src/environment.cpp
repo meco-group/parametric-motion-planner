@@ -133,10 +133,35 @@ void Environment::RemoveObstacle(Point2D<int> cell){
     UpdateVersion();
 }
 
+void Environment::AddVirtualObstacle(Point2D<int> cell){
+    if (!isValidCell(cell)){
+        throw InvalidEnvironmentOperationException("Cannot add a virtual obstacle outside of the environment");
+    }
+
+    // Only add if the cell is free
+    if (occupancy_grid_[cell.x()][cell.y()] == FREE){
+        occupancy_grid_[cell.x()][cell.y()] = VIRTUAL_OBS;
+        UpdateVersion();
+    }
+}
+
+void Environment::RemoveVirtualObstacle(Point2D<int> cell){
+    if (!isValidCell(cell)){
+        throw InvalidEnvironmentOperationException("Cannot remove a virtual obstacle outside of the environment");
+    }
+
+    // Only remove if the cell is a virtual obstacle
+    if (occupancy_grid_[cell.x()][cell.y()] == VIRTUAL_OBS){
+        occupancy_grid_[cell.x()][cell.y()] = FREE;
+        UpdateVersion();
+    }
+}
+
 void Environment::ClearAllObstacles(){
     for (int i = 0; i < nb_cell_cols_; i++){
         for (int j = 0; j < nb_cell_rows_; j++){
-            if (occupancy_grid_[i][j] == OCCUPIED_STATIC){
+            if (occupancy_grid_[i][j] == OCCUPIED_STATIC || 
+                occupancy_grid_[i][j] == VIRTUAL_OBS){
                 occupancy_grid_[i][j] = FREE;
             }
         }

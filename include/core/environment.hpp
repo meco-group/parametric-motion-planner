@@ -44,6 +44,8 @@ class Environment{
         void AddCell(Point2D<int> cell);
         void AddObstacle(Point2D<int> cell);
         void RemoveObstacle(Point2D<int> cell);
+        void AddVirtualObstacle(Point2D<int> cell);
+        void RemoveVirtualObstacle(Point2D<int> cell);
         void ClearAllObstacles();
         void AddRandomObstacles(double obstacle_probability);
 

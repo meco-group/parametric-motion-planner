@@ -98,12 +98,17 @@ class Trajectory{
                        Point2D<double> &vel, Point2D<double> &acc) const;
 
         // Check if two vehicles will collide
-        void CheckCollision(Trajectory const &other, 
+        bool CheckCollision(Trajectory const &other, 
                             Parameters const &params_this, 
                             Parameters const &params_other,
                             Point2D<double>& collision_point,
                             Point2D<double>& pos_at_collision_this,
-                            Point2D<double>& pos_at_collision_other);
+                            Point2D<double>& pos_at_collision_other,
+                            double& collision_time) const;
+        
+        double GetWaitingTimeThis(Trajectory const &other,
+                                  Parameters const &params_this,
+                                  Parameters const &params_other) const;
 
         // append this trajectory with the other trajectory
         void Concatenate(Trajectory const &other);

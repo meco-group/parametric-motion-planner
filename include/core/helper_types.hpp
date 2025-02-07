@@ -20,7 +20,8 @@ enum CellOccupancy{
     DELETED = 1,
     OCCUPIED_STATIC = 2,
     OCCUPIED_DYNAMIC = 3,
-    OCCUPIED_STATIC_AND_DYNAMIC = 4
+    OCCUPIED_STATIC_AND_DYNAMIC = 4,
+    VIRTUAL_OBS = 5,
 };
 
 // Class for a 2D point (world coordinates (double) or grid cell (int))

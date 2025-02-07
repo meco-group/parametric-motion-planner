@@ -137,6 +137,10 @@ class MotionPlanner{
                 Point2D<double> const &pos_other_at_collision,
                 double separation_angle);
 
+        void InsertInitialWaitingTime(double waiting_time){
+            last_solution_.InsertInitialWaitingTime(waiting_time);
+        };
+
     private:
 
         void LogEmergencyBrakingComputation(bool print,

@@ -492,12 +492,13 @@ void Trajectory::GetSample(int idx, double &time, Point2D<double> &pos,
     acc.SetY(ay_[idx]);
 }
 
-void Trajectory::CheckCollision(Trajectory const &other, 
+bool Trajectory::CheckCollision(Trajectory const &other, 
                                 Parameters const &params_this, 
                                 Parameters const &params_other,
                                 Point2D<double>& collision_point,
                                 Point2D<double>& pos_at_collision_this,
-                                Point2D<double>& pos_at_collision_other){
+                                Point2D<double>& pos_at_collision_other,
+                                double& collision_time) const {
     int sample_idx = 0;
     double distance_x, distance_y;
     double x_margin = params_this.GetWidthOffset() + params_other.GetWidthOffset();
@@ -525,7 +526,8 @@ void Trajectory::CheckCollision(Trajectory const &other,
             collision_point = (pos_this + pos_other)*0.5;
             pos_at_collision_this = pos_this;
             pos_at_collision_other = pos_other;
-            return;
+            collision_time = t_this;
+            return true;
         }
 
         // Increment the sample index cleverly
@@ -536,9 +538,30 @@ void Trajectory::CheckCollision(Trajectory const &other,
         );
     }
 
-    collision_point.SetX(-1.0);
-    collision_point.SetY(-1.0);
+    return false;
 }
+
+double Trajectory::GetWaitingTimeThis(Trajectory const &other,
+                                      Parameters const &params_this,
+                                      Parameters const &params_other) const {
+    double waiting_time_step = 0.1;
+    double waiting_time = 0;
+    Trajectory waiter = *this;
+    
+    Point2D<double> pos_temp;
+    double double_temp;
+
+    while (waiting_time <= other.Tf() && 
+            waiter.CheckCollision(
+                other, params_this, params_other, pos_temp, 
+                pos_temp, pos_temp, double_temp)){
+
+        std::cout << waiter.Tf() << " " << Tf() << " " << other.Tf() << std::endl;
+        waiting_time += waiting_time_step;
+        waiter.InsertInitialWaitingTime(waiting_time_step);
+    }
+    return waiting_time;
+};
 
 void Trajectory::Concatenate(Trajectory const &other){
     if (curr_nb_samples_ + other.NbSamples() > max_nb_samples_){
@@ -613,6 +636,9 @@ void Trajectory::InsertInitialWaitingTime(double waiting_time){
         ax_[i] = 0.0;
         ay_[i] = 0.0;
     }
+
+    curr_nb_samples_ += nb_samples_to_insert;
+    tf_ += waiting_time;
 }
 
 json Trajectory::ToJson() const {
