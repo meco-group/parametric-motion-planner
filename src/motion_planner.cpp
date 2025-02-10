@@ -24,7 +24,7 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 	method_ = method;
 
     // SetSolver("ipopt");
-    SetSolver("fatrop");
+    SetSolver("fatrop", true);
 
 	// P2P method attributes
 	int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
@@ -246,7 +246,8 @@ int MotionPlanner::GetCurrentSampleIdx() const {
     }
 }
 
-void MotionPlanner::SetSolver(std::string solver_name){
+void MotionPlanner::SetSolver(std::string solver_name, 
+                              bool update_prepared_opti_instances){
     assert (solver_name == "ipopt" || solver_name == "fatrop");
 
     opts_casadi_.clear();
@@ -264,9 +265,9 @@ void MotionPlanner::SetSolver(std::string solver_name){
     }
 	opts_solver_["print_level"] = print_level_;
 	opts_solver_["max_iter"] = method_ == OCP ? 1000 : max_iter_;
-    if (silent_mode_){ opts_casadi_["print_time"] = false;}
+    // if (silent_mode_){ opts_casadi_["print_time"] = false;}
 
-    if (!just_in_time_preparation_mode_){
+    if (!just_in_time_preparation_mode_ && update_prepared_opti_instances){
         parametrization_.PrepareOptiInstances(parametrization_update_token_,
                                             solver_name_, opts_casadi_,
                                             opts_solver_);
@@ -278,7 +279,6 @@ void MotionPlanner::SetSolver(std::string solver_name){
 
 void MotionPlanner::SetJustInTimePreparationMode(bool set){
     if (!set && just_in_time_preparation_mode_){
-        just_in_time_preparation_mode_ = set;
         parametrization_.PrepareOptiInstances(parametrization_update_token_,
                                              solver_name_, opts_casadi_,
                                              opts_solver_);
@@ -512,8 +512,10 @@ void MotionPlanner::PlanARENA(){
     
     // Try to solve a single arc
     double solver_time = 0.0;
+    double sampling_time = 0.0;
     parametrization_.OptimizeSingleArc(parametrization_update_token_);
     std::set<int> problematic_corridors = CheckOutOfCorridor(solver_time);
+    sampling_time += last_solution_.SamplingTime();
 
     // only continue if that didn't work
     if (problematic_corridors.size() > 0){
@@ -542,6 +544,7 @@ void MotionPlanner::PlanARENA(){
                 
             // Sample the trajectory and check if extra constraints are needed
             add_constraints_list_ = CheckOutOfCorridor(solver_time);
+            sampling_time += last_solution_.SamplingTime();
                        
             bool added_new_constraints = add_constraints_list_.size() > 0;
             while (added_new_constraints && solver_time > 0){
@@ -561,6 +564,7 @@ void MotionPlanner::PlanARENA(){
 
                     // Sample the trajectory and check if extra constraints are needed
                     add_constraints_list_ = CheckOutOfCorridor(solver_time);
+                    sampling_time += last_solution_.SamplingTime();
                 } else {
                     // If no new constraints were added, there is no change
                     // in the solution either, so we're done
@@ -574,6 +578,7 @@ void MotionPlanner::PlanARENA(){
             } 
         }
     }
+    last_solution_.SetSamplingTime(sampling_time);
 }
 
 

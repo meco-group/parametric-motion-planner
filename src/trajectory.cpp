@@ -26,6 +26,7 @@ void Trajectory::Update(int nb_corridors,
                         std::vector<Point2D<double>> const &accelerations,
                         std::vector<double> const &time_durations,
                         double solver_time){
+    auto start_sampling_time = std::chrono::high_resolution_clock::now();
     total_computation_time_ = -1;
     corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
@@ -42,6 +43,9 @@ void Trajectory::Update(int nb_corridors,
     if (curr_nb_samples_ > max_nb_samples_){
         // throw std::runtime_error("Trajectory  is too long to be updated");
         curr_nb_samples_ = 0;
+        trajectory_sampling_time_ = 
+            std::chrono::duration<double, std::milli>(
+                std::chrono::high_resolution_clock::now() - start_sampling_time).count();
         return;
     }
 
@@ -89,6 +93,10 @@ void Trajectory::Update(int nb_corridors,
     vy_[curr_nb_samples_ - 1] = 0.0;
     ax_[curr_nb_samples_ - 1] = 0.0;
     ay_[curr_nb_samples_ - 1] = 0.0;
+
+    trajectory_sampling_time_ = 
+        std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - start_sampling_time).count();
 }
 
 void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp, 
@@ -96,6 +104,7 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
                         double solver_time, 
                         CorridorSequence const &corridor_sequence,
                         Parameters const &params){
+    auto start_sampling_time = std::chrono::high_resolution_clock::now();
     total_computation_time_ = -1;
     corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
@@ -107,6 +116,9 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     if (curr_nb_samples_ > max_nb_samples_){
         // throw std::runtime_error("Trajectory  is too long to be updated");
         curr_nb_samples_ = 0;
+        trajectory_sampling_time_ = 
+            std::chrono::duration<double, std::milli>(
+                std::chrono::high_resolution_clock::now() - start_sampling_time).count();
         return;
     }
 
@@ -179,6 +191,10 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     vy_[curr_nb_samples_ - 1] = 0.0;
     ax_[curr_nb_samples_ - 1] = 0.0;
     ay_[curr_nb_samples_ - 1] = 0.0;
+
+    trajectory_sampling_time_ = 
+        std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - start_sampling_time).count();
 }
 
 std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
@@ -191,6 +207,7 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
                                         &waypoint_velocities,
                                  Parameters const &params,
                                  double solver_time){
+    auto start_sampling_time = std::chrono::high_resolution_clock::now();
     total_computation_time_ = -1;
     corridor_infeasibilities_detected_ = false;
     solver_time_ = solver_time;
@@ -216,6 +233,9 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     if (curr_nb_samples_ > max_nb_samples_){
         // throw std::runtime_error("Trajectory  is too long to be updated");
         curr_nb_samples_ = 0;
+        trajectory_sampling_time_ = 
+            std::chrono::duration<double, std::milli>(
+                std::chrono::high_resolution_clock::now() - start_sampling_time).count();
         return out_of_corridor_list;
     }
 
@@ -338,6 +358,10 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     ax_[curr_nb_samples_ - 1] = 0.0;
     ay_[curr_nb_samples_ - 1] = 0.0;
 
+    trajectory_sampling_time_ = 
+        std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - start_sampling_time).count();
+
     return out_of_corridor_list;
 }
 
@@ -346,7 +370,8 @@ void Trajectory::Update(Point2D<double> const &start,
                         std::vector<double> const &accel_x,
                         std::vector<double> const &accel_y,
                         std::vector<double> const &t_x,
-                        std::vector<double> const &t_y){       
+                        std::vector<double> const &t_y){    
+    auto start_sampling_time = std::chrono::high_resolution_clock::now();   
     emergency_braking_ = true;
     
     // compute the total time
@@ -424,6 +449,10 @@ void Trajectory::Update(Point2D<double> const &start,
     vy_[curr_nb_samples_ - 1] = 0.0;
     ax_[curr_nb_samples_ - 1] = 0.0;
     ay_[curr_nb_samples_ - 1] = 0.0;
+
+    trajectory_sampling_time_ = 
+        std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - start_sampling_time).count();
 }
 
 void Trajectory::Reset(Point2D<double> const &start){
@@ -655,6 +684,7 @@ json Trajectory::ToJson() const {
     j["ay"] = std::vector<double>(ay_.begin(), ay_.begin() + curr_nb_samples_);
     j["total_computation_time"] = total_computation_time_;
     j["solver_time"] = solver_time_;
+    j["sampling_time"] = trajectory_sampling_time_;
     j["Tf"] = Tf();
     j["corridor_infeasibilities_detected"] = corridor_infeasibilities_detected_;
     j["emergency_braking"] = emergency_braking_;
