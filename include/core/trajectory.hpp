@@ -129,6 +129,7 @@ class Trajectory{
         std::vector<double> Ay() const { return ay_;};
         double TotalComputationTime() const { return total_computation_time_;};
         double SolverTime() const { return solver_time_;};
+        double SamplingTime() const { return trajectory_sampling_time_;};
         bool CorridorInfeasibilitiesDetected() const { 
             return corridor_infeasibilities_detected_;};
 
@@ -136,8 +137,9 @@ class Trajectory{
         void SetTotalComputationTime(double total_computation_time){
             total_computation_time_ = total_computation_time;
         };
-        void SetSolverTime(double solver_time){
-            solver_time_ = solver_time;
+        void SetSolverTime(double solver_time){ solver_time_ = solver_time;};
+        void SetSamplingTime(double sampling_time){ 
+            trajectory_sampling_time_ = sampling_time;
         };
 
         json ToJson() const;
@@ -164,6 +166,7 @@ class Trajectory{
 
         double total_computation_time_ = 0;     // expressed in ms
         double solver_time_ = 0;                // expressed in ms
+        double trajectory_sampling_time_ = 0;   // expressed in ms
         bool corridor_infeasibilities_detected_ = false;
 
         bool emergency_braking_ = false;

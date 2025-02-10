@@ -84,9 +84,12 @@ class MotionPlanner{
         double GetTotalComputationTime() const { return last_solution_.TotalComputationTime();};
         double GetSolverTime() const { return last_solution_.SolverTime();};
         double GetTravelTime() const { return last_solution_.Tf();};
+        double GetCorridorSequenceConstructionTime() const { 
+            return corridor_sequence_.GetCorridorSequenceConstructionTime();};
         bool CorridorInfeasibilitiesDetected() const { 
             return last_solution_.CorridorInfeasibilitiesDetected();};
         bool EmergencyMode() const { return emergency_mode_;};
+        bool GetJustInTimePreparationMode(){ return just_in_time_preparation_mode_;};
 
         // Basic setters
         void SetPrintLevel(int print_level) { print_level_ = print_level;};
@@ -95,11 +98,13 @@ class MotionPlanner{
             nb_points_per_corridor_ = nb_points_per_corridor;};
         void SetSuboptimalityEliminationFeature(bool set){ 
             eliminate_suboptimalities_ = set;};
-        void SetSolver(std::string solver_name);
+        void SetSolver(std::string solver_name, 
+                       bool update_prepared_opti_instances=false);
         void SetParametrizationOptimizationApproach(std::string name){
             parametrization_.SetParametrizationOptimizationApproach(name);};
         void SetJustInTimePreparationMode(bool set);
         void SetSilentMode(bool set){ silent_mode_ = set; SetSolver(solver_name_);};
+        void SetCorridorExtendedMode(bool set){ corridor_sequence_.SetCorridorExtendedMode(set);};
 
         // Printing
         void PrintEnvironment(){
@@ -231,7 +236,7 @@ class MotionPlanner{
         int print_level_ = 0;
         int max_iter_ = 100;
         bool just_in_time_preparation_mode_ = true;
-        bool silent_mode_ = false;
+        bool silent_mode_ = true;
 
         std::vector<std::vector<Point2D<double>>> emergency_trajs_1_;
         std::vector<std::vector<Point2D<double>>> emergency_trajs_2_;
