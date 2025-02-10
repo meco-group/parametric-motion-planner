@@ -184,6 +184,8 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     if (!CurrentlyConsideringFullSequence()){
         throw InvalidCorridorSequenceOperationException("Cannot update corridor sequence when not considering full sequence");
     }
+    auto start_corridor_sequence_update_time = std::chrono::high_resolution_clock::now();
+
     sequence_available_ = false;
     // Input checks
     // if (!environment_.isValidPosition(start) || 
@@ -229,108 +231,60 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
                                                 environment_.CellHeight());
 
     // Compute a path in the cell environment from start to dest
-    std::vector<Point2D<int>> path = environment_.PerformBreadthFirstSearch(start_cell, dest_cell);
-    if (path.size() == 0){
+    path_ = environment_.PerformBreadthFirstSearch(start_cell, dest_cell, dest);
+    if (path_.size() == 0){
         sequence_available_ = false;
         throw std::runtime_error("No path found from start to destination");
         return;
     }
 
-    // std::vector<Point2D<int>> obstacles = {};
-    // Point2D<int> obstacle;
-    // for (int i = 0; i < environment_.NbCellCols(); i++){
-    //     for (int j = 0; j < environment_.NbCellRows(); j++){
-    //         obstacle.SetX(i); obstacle.SetY(j);
-    //         // std::cout << "checking obstacle: " << obstacle << std::endl;
-    //         if (!environment_.IsFree(obstacle)){
-    //             // std::cout << "obstacle!" << std::endl;
-    //             obstacles.push_back(obstacle);
-    //         }
-    //     }
-    // }
-
-    // std::cout << "start = " << start << std::endl;
-    // std::cout << "dest = " << dest << std::endl;
-
-    // std::cout << "number_of_rows = " << environment_.NbCellRows() << std::endl;
-    // std::cout << "number_of_columns = " << environment_.NbCellCols() << std::endl;
-
-    // std::cout << "obstacles = [";
-    // if (obstacles.size() > 0){
-    //     for (int i = 0; i < obstacles.size()-1; i++){
-    //         std::cout << obstacles[i] << ", ";
-    //     }
-    //     std::cout << obstacles[obstacles.size()-1];
-    // }
-    // std::cout << "]" << std::endl;
-
-    // std::cout << "cell_width = " << environment_.CellWidth() << std::endl;
-    // std::cout << "cell_height = " << environment_.CellHeight() << std::endl;
-
-    // std::cout << "path = [";
-    // for (int i = 0; i < path.size()-1; i++){
-    //     std::cout << path[i] << ", ";
-    // }
-    // std::cout << path[path.size()-1] << "]" << std::endl;
-
     // Add cells to ensure initial footprint of the vehicle is included
-    AddInitialFootprint(path);
+    AddInitialFootprint(path_);
 
     // Add cells to ensure final footprint of the vehicle is included
-    AddFinalFootprint(path);
+    AddFinalFootprint(path_);
 
-    // std::cout << "path_prime = [";
-    // for (int i = 0; i < path.size()-1; i++){
-    //     std::cout << path[i] << ", ";
-    // }
-    // std::cout << path[path.size()-1] << "]" << std::endl;
-
-    // Loop over path and add corridors
-    Point2D<int> curr_start_cell = path[0];
-    Point2D<int> curr_end_cell = path[1];
-    Point2D<int> curr_direction = 
-                        Point2D<int>(curr_end_cell.x() - curr_start_cell.x(), 
-                                     curr_end_cell.y() - curr_start_cell.y());
-    // std::cout << "corridors_before = [";
-    // for (int i = 0; i < nb_of_corridors_-1; i++){
-    //     std::cout << sequence_[i] << ", ";
-    // }
-    // std::cout << sequence_[nb_of_corridors_-1] << "]" << std::endl;
-
-    
-    Point2D<int> next_direction;
-    for (int i = 2; i < path.size(); i++){
-        Point2D<int> next_cell = path[i];
-        next_direction.SetX(next_cell.x() - curr_end_cell.x());
-        next_direction.SetY(next_cell.y() - curr_end_cell.y());
-        if (!(next_direction == curr_direction)){
-            AddCorridorFromCells(curr_start_cell, curr_end_cell);
-            curr_start_cell.CopyValues(curr_end_cell);
-            curr_direction.CopyValues(next_direction);
+    if (extended_corridors_mode_){
+        // add a new corridor for all neighbouring cells
+        for (int i = 2; i < path_.size(); i++){
+            AddCorridorFromCells(path_[i-1], path_[i]);
         }
-        curr_end_cell.CopyValues(next_cell);
+    } else {
+        // as long as cells are on the same row/column, add them to the same
+        // corridor
+        Point2D<int> curr_start_cell = path_[0];
+        Point2D<int> curr_end_cell = path_[1];
+        Point2D<int> curr_direction = 
+                            Point2D<int>(curr_end_cell.x() - curr_start_cell.x(), 
+                                     curr_end_cell.y() - curr_start_cell.y());
+
+        Point2D<int> next_direction;
+        for (int i = 2; i < path_.size(); i++){
+            Point2D<int> next_cell = path_[i];
+            next_direction.SetX(next_cell.x() - curr_end_cell.x());
+            next_direction.SetY(next_cell.y() - curr_end_cell.y());
+            if (!(next_direction == curr_direction)){
+                AddCorridorFromCells(curr_start_cell, curr_end_cell);
+                curr_start_cell.CopyValues(curr_end_cell);
+                curr_direction.CopyValues(next_direction);
+            }
+            curr_end_cell.CopyValues(next_cell);
+        }
+        AddCorridorFromCells(curr_start_cell, curr_end_cell);
     }
-
-    AddCorridorFromCells(curr_start_cell, curr_end_cell);
-
-    // std::cout << "corridors_narrow = [";
-    // for (int i = 0; i < nb_of_corridors_-1; i++){
-    //     std::cout << sequence_[i] << ", ";
-    // }
-    // std::cout << sequence_[nb_of_corridors_-1] << "]" << std::endl;
 
     // Inflate the corridors
     InflateCorridors();
 
-    // std::cout << "corridors_final = [";
-    // for (int i = 0; i < nb_of_corridors_-1; i++){
-    //     std::cout << sequence_[i] << ", ";
-    // }
-    // std::cout << sequence_[nb_of_corridors_-1] << "]" << std::endl;
-
     sequence_available_ = true;
     latest_envrionment_version_ = environment_.GetVersion();
     UpdateVersion();
+
+    auto end_corridor_sequence_update_time = std::chrono::high_resolution_clock::now();
+    corridor_sequence_construction_time_ = 
+        std::chrono::duration<double, std::milli>(
+            end_corridor_sequence_update_time - 
+            start_corridor_sequence_update_time).count();
 };
 
 bool CorridorSequence::ContainsPoint(const Point2D<double> &point) const {
@@ -470,10 +424,13 @@ json CorridorSequence::ToJson() const {
     corridor_sequence_json["start_vel"] = start_vel_.ToJson();
     corridor_sequence_json["nb_of_corridors"] = nb_of_corridors_;
     std::vector<json> sequence_json = std::vector<json>(nb_of_corridors_);
-    for (int i = 0; i < nb_of_corridors_; i++){
-        sequence_json[i] = sequence_[i].ToJson();
-    }
+    for (int i = 0; i < nb_of_corridors_; i++){ sequence_json[i] = sequence_[i].ToJson();}
     corridor_sequence_json["sequence"] = sequence_json;
+    std::vector<json> path_json = std::vector<json>(path_.size());
+    for (int i = 0; i < path_.size(); i++){ path_json[i] = path_[i].ToJson();}
+    corridor_sequence_json["original_path"] = path_json;
+    corridor_sequence_json["corridor_sequence_construction_time"] = 
+        corridor_sequence_construction_time_;
 
     return corridor_sequence_json;
 }
@@ -591,7 +548,7 @@ void CorridorSequence::InflateCorridors(){
     }
     bool made_change = true;
     int grow_counter = 0;
-    int max_nb_grow_iterations = 3;
+    int max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 3;
 
     // grow corridors
     while (made_change && grow_counter < max_nb_grow_iterations){
@@ -606,6 +563,13 @@ void CorridorSequence::InflateCorridors(){
             // made_change = MergeCorridors() || made_change;
         }
         grow_counter++;
+
+        // TODO: reduce overlap of consecutive corridors
+        // This would allow for better growing
+
+        // TODO: in extended growing mode, wait to merge. Otherwise, corridors
+        // are merged prematurely leading to a corridor sequence that does
+        // not optimally capture the free space
     }
 
     // grow first corridor even more
@@ -619,15 +583,6 @@ void CorridorSequence::InflateCorridors(){
         sequence_[0].FlipDirection();
         grow_counter++;
     }
-
-    // std::cout << "infalted corridors: [" << std::endl;
-    // for (int i = 0; i < nb_of_corridors_; i++){
-    //     std::cout << sequence_[i];
-    //     if (i < nb_of_corridors_-1){
-    //         std::cout << ", ";
-    //     }
-    // }
-    // std::cout << "]" << std::endl;
 
     // remove irrelevant corridors
     RemoveIrrelevantCorridors();
@@ -652,8 +607,8 @@ void CorridorSequence::AddCorridor(double x_min, double x_max, double y_min,
     last_corridor_idx_ = nb_of_corridors_ - 1;
 };
 
-void CorridorSequence::AddCorridorFromCells(Point2D<int> &start_cell, 
-                                           Point2D<int> &end_cell){
+void CorridorSequence::AddCorridorFromCells(Point2D<int> const &start_cell, 
+                                           Point2D<int> const &end_cell){
     double cell_width = environment_.CellWidth();
     double cell_height = environment_.CellHeight();
 
@@ -690,8 +645,8 @@ bool CorridorSequence::GrowCorridorSideways(int idx){
         throw InvalidCorridorSequenceOperationException("Cannot grow a corridor in a subset of the sequence");
     }
     // A corridor cannot become fat (wider than it's length) unless it is the 
-    // first corridor
-    if (idx > 0 && 
+    // first corridor (or we use extended corridors)
+    if (idx > 0 && !extended_corridors_mode_ &&
         (sequence_[idx-first_corridor_idx_].Direction().x() == 0 && 
             sequence_[idx].Width() >= sequence_[idx].Height() || 
         sequence_[idx].Direction().y() == 0 &&

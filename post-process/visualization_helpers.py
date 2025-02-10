@@ -57,6 +57,17 @@ def show_environment(env, obstacle_color='firebrick', **kwargs):
                  [j*cell_height, j*cell_height], linewidth=0.1, \
                  color='gray', zorder=1)
         
+def show_original_path(path, cell_width, cell_height):
+    for i in range(len(path)):
+        plt.gca().add_patch(
+            Rectangle((path[i]["x"]*cell_width, path[i]["y"]*cell_height),
+                      cell_width, cell_height, fill=True, 
+                      facecolor='gray', edgecolor='gray', alpha=0.3))
+        plt.gca().add_patch(
+            Rectangle((path[i]["x"]*cell_width, path[i]["y"]*cell_height),
+                      cell_width, cell_height, fill=False, 
+                      edgecolor='k', alpha=1.0))
+        
 def set_env_plot_limits(env):
     cell_width = env["cell_width"]
     cell_height = env["cell_height"]

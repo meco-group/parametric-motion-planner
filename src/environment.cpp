@@ -241,7 +241,8 @@ void Environment::ClearAllMovingObstacles(){
 }
 
 std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
-    const Point2D<int> &start, const Point2D<int> &dest) const {
+        const Point2D<int> &start, const Point2D<int> &dest,
+        const Point2D<double> &true_dest) const {
     // Initialize the queue and the set of visited cells
     std::queue<std::vector<Point2D<int>>> path_queue;
     std::set<Point2D<int>> visited;
@@ -252,7 +253,8 @@ std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
     // Perform the search
     std::vector<Point2D<int>> current_path;
     Point2D<int> current;
-    Point2D<int> neighbour;
+    // Point2D<int> neighbour;
+    std::vector<Point2D<int>> neighbours(4);
     while (!path_queue.empty()){
         current_path = path_queue.front();
         current = current_path.back();
@@ -264,31 +266,41 @@ std::vector<Point2D<int>> Environment::PerformBreadthFirstSearch (
         }
 
         // Add the neighbours of the current cell to the queue
-        for (int i = -1; i <= 1; i++){
-            for (int j = -1; j <= 1; j++){
-                // Skip the current cell
-                if (i == 0 && j == 0){
-                    continue;
-                }
+        // for (int i = -1; i <= 1; i++){
+        // //     for (int j = -1; j <= 1; j++){
+        //         // Skip the current cell
+        //         if (i == 0 && j == 0){
+        //             continue;
+        //         }
 
-                // Skip diagonal cells
-                if (i != 0 && j != 0){
-                    continue;
-                }
+        //         // Skip diagonal cells
+        //         if (i != 0 && j != 0){
+        //             continue;
+        //         }
+        //         // Compute the neighbour cell
+        //         neighbour.SetX(current.x() + i);
+        //         neighbour.SetY(current.y() + j);
 
-                // Compute the neighbour cell
-                neighbour.SetX(current.x() + i);
-                neighbour.SetY(current.y() + j);
-
-                // Check if the neighbour is valid and has not been visited
-                if (isValidCell(neighbour) && !visited.count(neighbour) && IsFree(neighbour)){
-                    visited.insert(neighbour);
-                    
-                    // append a copy of current path with the neighbour
-                    std::vector<Point2D<int>> new_path = current_path;
-                    new_path.push_back(neighbour);
-                    path_queue.push(new_path);
-                }
+        neighbours[0].SetX(current.x() - 1); neighbours[0].SetY(current.y());
+        neighbours[1].SetX(current.x() + 1); neighbours[1].SetY(current.y());
+        neighbours[2].SetX(current.x()); neighbours[2].SetY(current.y() - 1);
+        neighbours[3].SetX(current.x()); neighbours[3].SetY(current.y() + 1);
+        // sort the neighbours based on distance to the destination
+        std::sort(neighbours.begin(), neighbours.end(), 
+            [true_dest, this](Point2D<int> a, Point2D<int> b){
+                // return a.ManhattanDistance(dest) < b.ManhattanDistance(dest);
+                return a.ConvertCellToWorld(cell_width_, cell_height_).Distance(true_dest) < b.ConvertCellToWorld(cell_width_, cell_height_).Distance(true_dest);
+            });
+        
+        for (Point2D<int> neighbour : neighbours){
+            // Check if the neighbour is valid and has not been visited
+            if (isValidCell(neighbour) && !visited.count(neighbour) && IsFree(neighbour)){
+                visited.insert(neighbour);
+                
+                // append a copy of current path with the neighbour
+                std::vector<Point2D<int>> new_path = current_path;
+                new_path.push_back(neighbour);
+                path_queue.push(new_path);
             }
         }
     } 

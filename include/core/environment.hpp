@@ -62,7 +62,8 @@ class Environment{
 
         // Function to perform a breadth-first search in the environment
         std::vector<Point2D<int>> PerformBreadthFirstSearch(
-            const Point2D<int> &start,const Point2D<int> &dest) const;
+            const Point2D<int> &start, const Point2D<int> &dest, 
+            const Point2D<double> &true_dest) const;
 
         // Return the cells that are occupied by the footprint of the vehicle
         std::unordered_set<Point2D<int>, Point2DHash<int>> GetOccupiedFootprintCells(

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from visualization_helpers import *
 
 def visualize_output(env, params, corridors, planner_methods, 
-                     trajectories, parametrizations=[]):
+                     trajectories, parametrizations=[], **kwargs):
     assert len(planner_methods) == len(trajectories)
     assert len(parametrizations) == len(trajectories)
 
@@ -35,7 +35,12 @@ def visualize_output(env, params, corridors, planner_methods,
     show_environment(env)
 
     # plot corridors
+    if "ocp_corridors" in kwargs:
+        show_corridors(kwargs["ocp_corridors"], color='r')
     show_corridors(corridors)
+    if "show_original_path" in kwargs and kwargs["show_original_path"]:
+        show_original_path(corridors["original_path"], env["cell_width"], 
+                           env["cell_height"])
         
     # plot waypoints
     for i in range(len(trajectories)):
@@ -249,29 +254,31 @@ def visualize_output(env, params, corridors, planner_methods,
     plt.savefig(fig_folder + '/timings.png', dpi=300)
 
 
-try:
-    files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
-    # files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
-    # files = ["output/solution_ocp.json"]
-    # files = ["output/solution_arena.json"]
+# try:
+files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
+# files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
+# files = ["output/solution_ocp.json"]
+# files = ["output/solution_arena.json"]
 
-    envs_list = []
-    params_list = []
-    corridors_list = []
-    planner_methods_list = []
-    trajectories_list = []
-    parametrizations_list = []
-    for output_file in files:
-        env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
-        envs_list.append(env)
-        params_list.append(params)
-        corridors_list.append(corridors)
-        planner_methods_list.append(planner_method)
-        trajectories_list.append(trajectory)
-        parametrizations_list.append(parametrization)
+envs_list = []
+params_list = []
+corridors_list = []
+planner_methods_list = []
+trajectories_list = []
+parametrizations_list = []
+for output_file in files:
+    env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
+    envs_list.append(env)
+    params_list.append(params)
+    corridors_list.append(corridors)
+    planner_methods_list.append(planner_method)
+    trajectories_list.append(trajectory)
+    parametrizations_list.append(parametrization)
 
-    visualize_output(envs_list[0], params_list[0], corridors_list[0], 
-                    planner_methods_list, trajectories_list, 
-                    parametrizations_list)
-except:
-    pass
+visualize_output(envs_list[0], params_list[0], corridors_list[2], 
+                planner_methods_list, trajectories_list, 
+                parametrizations_list, ocp_corridors=corridors_list[1],
+                show_original_path=False)
+# except:
+#     print("Error in visualize_output")
+#     pass

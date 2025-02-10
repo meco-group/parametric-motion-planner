@@ -14,7 +14,7 @@ using json = nlohmann::json;
 class Environment;
 class CorridorSequence;
 
-const int MAX_NB_CORRIDORS = 20;
+const int MAX_NB_CORRIDORS = 40;
 const int MAX_CORRIDOR_CELL_LENGTH = 25;
 
 // Class to represent corridors
@@ -196,6 +196,7 @@ class CorridorSequence{
         void DecrementFirstCorridorIdx(){SetFirstCorridorIdx(first_corridor_idx_ - 1);};
         void SetLastCorridorIdx(int idx);
         void ResetCorridorIdxs();
+        void SetCorridorExtendedMode(bool set){ extended_corridors_mode_ = set;};
 
         // Getters
         int MaxNbCorridors() const { return max_len_;};
@@ -213,6 +214,7 @@ class CorridorSequence{
         int GetFirstCorridorIdx() const { return first_corridor_idx_;};
         int GetLastCorridorIdx() const { return last_corridor_idx_;};
         int GetIdxOfCorridorThatContainsPoint(Point2D<double> const &point) const;
+        double GetCorridorSequenceConstructionTime() const { return corridor_sequence_construction_time_;};
 
         std::vector<Point2D<double>> GetCorridorOverlapCenters() const;
 
@@ -250,8 +252,8 @@ class CorridorSequence{
         void AddCorridor(double x_min, double x_max, double y_min, double y_max);
 
         // Add a corridor to the sequence based on two cells
-        void AddCorridorFromCells(Point2D<int> &start_cell, 
-                                  Point2D<int> &end_cell);
+        void AddCorridorFromCells(Point2D<int> const &start_cell, 
+                                  Point2D<int> const &end_cell);
 
         // Remove a corridor from the sequence
         void RemoveCorridor(int idx);
@@ -273,6 +275,14 @@ class CorridorSequence{
 
         const Parameters& params_;          // Reference to the parameters object
 
+        double corridor_sequence_construction_time_ = 0; // expressed in ms
+
+        // if true, corridors are grown in a more irregular way, better 
+        // capturing the free-space, but destroying the assumptions stating
+        // that the vehicle takes a turn when transitioning from one corridor
+        // to the next
+        bool extended_corridors_mode_ = false;
+
         // values for the current subsequence
         Point2D<double> start_;
         Point2D<double> dest_;
@@ -286,6 +296,7 @@ class CorridorSequence{
         const int max_len_;                 // maximum length of the sequence
         std::vector<Corridor> sequence_;    // sequence of corridors
         bool sequence_available_;
+        std::vector<Point2D<int>> path_;    // original path of cells from start to dest
 
         int nb_of_corridors_ = 0;         // index of the last corridor in the sequence
         int first_corridor_idx_ = 0; // index of the first corridor in the sequence to be used if motion planner is struggling
