@@ -558,7 +558,7 @@ void CorridorSequence::InflateCorridors(){
             made_change = GrowCorridorSideways(i) || made_change;
         }
 
-        if (made_change){
+        if (!extended_corridors_mode_ && made_change){
             while (MergeCorridors()){ continue;}
             // made_change = MergeCorridors() || made_change;
         }
@@ -566,10 +566,6 @@ void CorridorSequence::InflateCorridors(){
 
         // TODO: reduce overlap of consecutive corridors
         // This would allow for better growing
-
-        // TODO: in extended growing mode, wait to merge. Otherwise, corridors
-        // are merged prematurely leading to a corridor sequence that does
-        // not optimally capture the free space
     }
 
     // grow first corridor even more
@@ -585,7 +581,7 @@ void CorridorSequence::InflateCorridors(){
     }
 
     // remove irrelevant corridors
-    RemoveIrrelevantCorridors();
+    if (!extended_corridors_mode_){ RemoveIrrelevantCorridors();}
 
     // do a final merging
     while (MergeCorridors()){ continue;}
