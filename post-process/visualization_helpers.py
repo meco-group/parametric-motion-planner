@@ -57,7 +57,7 @@ def show_environment(env, obstacle_color='firebrick', **kwargs):
                  [j*cell_height, j*cell_height], linewidth=0.1, \
                  color='gray', zorder=1)
         
-def show_original_path(path, cell_width, cell_height):
+def show_original_path(path, cell_width, cell_height, **kwargs):
     for i in range(len(path)):
         plt.gca().add_patch(
             Rectangle((path[i]["x"]*cell_width, path[i]["y"]*cell_height),
@@ -67,6 +67,11 @@ def show_original_path(path, cell_width, cell_height):
             Rectangle((path[i]["x"]*cell_width, path[i]["y"]*cell_height),
                       cell_width, cell_height, fill=False, 
                       edgecolor='k', alpha=1.0))
+        with_numbering = kwargs.get("with_numbering", False)
+        if with_numbering:
+            plt.text(path[i]["x"]*cell_width + cell_width/2, 
+                    path[i]["y"]*cell_height + cell_height/2, 
+                    str(i), fontsize=8, ha='center', va='center')
         
 def set_env_plot_limits(env):
     cell_width = env["cell_width"]
@@ -77,13 +82,15 @@ def set_env_plot_limits(env):
     plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(1*cell_height))
     plt.gca().set_aspect('equal',adjustable='box')
 
-def show_corridors(corridors, color='green', max_alpha=1, clip_on=False):
+def show_corridors(corridors, color='green', max_alpha=1, clip_on=False, **kwargs):
+    hatch = kwargs.get("hatch", None)
     for c in corridors["sequence"]:
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=True, facecolor=color, alpha=0.2*max_alpha, 
-                            edgecolor=None, clip_on=clip_on))
+                            edgecolor=None, clip_on=clip_on, 
+                            hatch=hatch))
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 

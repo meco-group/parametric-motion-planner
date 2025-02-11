@@ -38,9 +38,9 @@ def visualize_output(env, params, corridors, planner_methods,
     if "ocp_corridors" in kwargs:
         show_corridors(kwargs["ocp_corridors"], color='r')
     show_corridors(corridors)
-    if "show_original_path" in kwargs and kwargs["show_original_path"]:
+    if kwargs.get("show_original_path", False):
         show_original_path(corridors["original_path"], env["cell_width"], 
-                           env["cell_height"])
+                           env["cell_height"], with_numbering=True)
         
     # plot waypoints
     for i in range(len(trajectories)):
@@ -278,7 +278,7 @@ for output_file in files:
 visualize_output(envs_list[0], params_list[0], corridors_list[2], 
                 planner_methods_list, trajectories_list, 
                 parametrizations_list, ocp_corridors=corridors_list[1],
-                show_original_path=False)
+                show_original_path=True)
 # except:
 #     print("Error in visualize_output")
 #     pass
