@@ -81,7 +81,7 @@ void SolveAllMethods(MotionPlanner &motion_planner, std::string const &filename)
 	std::cout << std::endl;
 }
 
-void SolveRandomProblem(){
+void SolveRandomProblem(int nb_runs){
     // Environment environment = Environment();
     Environment environment = Environment(15, 15, 0.12, 0.12);
     // Environment environment = Environment(25, 25, 0.12, 0.12);
@@ -89,43 +89,38 @@ void SolveRandomProblem(){
     MotionPlanner my_motion_planner = MotionPlanner(params, environment);
 
 	environment.AddRandomObstacles(0.1);
-    // std::vector<int> rr_test = {1, 2, 4, 6, 6, 7, 9, 9, 11, 12, 12, 13};
-    // std::vector<int> cc_test = {1, 12, 10, 7, 13, 13, 11, 12, 0, 2, 6, 3};
-    // std::vector<int> rr_test = {1, 1, 6, 7, 9, 9, 10, 12};
-    // std::vector<int> cc_test = {0, 1, 5, 3, 10, 11, 9, 3};
-    // for (int i = 0; i < rr_test.size(); i++){
-    //     environment.AddObstacle(Point2D<int>(rr_test[i], cc_test[i]));
-    // }
 
-    std::vector<int> rr = {};
-    std::vector<int> cc = {};
-    for (int i = 0; i < environment.NbCellCols(); i++){
-        for (int j = 0; j < environment.NbCellRows(); j++){
-            if (!environment.IsFree(Point2D<int>(i, j))){
-                rr.push_back(i);
-                cc.push_back(j);
-            }
-        }
-    }
-    std::cout << "std::vector<int> rr_test = {";
-    for (int i = 0; i < rr.size(); i++){
-        std::cout << rr[i];
-        if (i < rr.size() - 1){
-            std::cout << ", ";
-        }
-    }
-    std::cout << "};" << std::endl;
-    std::cout << "std::vector<int> cc_test = {";
-    for (int i = 0; i < cc.size(); i++){
-        std::cout << cc[i];
-        if (i < cc.size() - 1){
-            std::cout << ", ";
-        }
-    }
-    std::cout << "};" << std::endl;
+    // std::vector<int> rr = {};
+    // std::vector<int> cc = {};
+    // for (int i = 0; i < environment.NbCellCols(); i++){
+    //     for (int j = 0; j < environment.NbCellRows(); j++){
+    //         if (!environment.IsFree(Point2D<int>(i, j))){
+    //             rr.push_back(i);
+    //             cc.push_back(j);
+    //         }
+    //     }
+    // }
+    // std::cout << "std::vector<int> rr_test = {";
+    // for (int i = 0; i < rr.size(); i++){
+    //     std::cout << rr[i];
+    //     if (i < rr.size() - 1){
+    //         std::cout << ", ";
+    //     }
+    // }
+    // std::cout << "};" << std::endl;
+    // std::cout << "std::vector<int> cc_test = {";
+    // for (int i = 0; i < cc.size(); i++){
+    //     std::cout << cc[i];
+    //     if (i < cc.size() - 1){
+    //         std::cout << ", ";
+    //     }
+    // }
+    // std::cout << "};" << std::endl;
 
     std::cout << "Created motion planner in environment " << environment << std::endl;
 
+    for (int i = 0; i < nb_runs; i++){
+    environment.AddRandomObstacles(0.1);    
 	// Point2D<double> start = Point2D<double>(1.74, 0.06);
     // Point2D<double> dest = Point2D<double>(0.06, 1.38);
     // Point2D<double> start = Point2D<double>(0.46368271444046694, 0.5541697302378621);
@@ -140,6 +135,10 @@ void SolveRandomProblem(){
     my_motion_planner.SetSuboptimalityEliminationFeature(true);
 
     SolveAllMethods(my_motion_planner, "solution");
+
+    // wait for user to press spacebar
+    if (i < nb_runs - 1){getchar();}
+    }
 }
 
 void SolveFatropFailureCase(){
@@ -705,8 +704,12 @@ void TestEmergencyBraking(){
     my_motion_planner.ComputeEmergencyBrakingTrajectory();
 }
 
-int main(){
-    SolveRandomProblem();
+int main(int argc, char *argv[]){
+    int nb_runs = 1;
+    if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
+        nb_runs = std::max(1, atoi(argv[2]));
+    }
+    SolveRandomProblem(nb_runs);
     // SolveDynamicProblem();
     // TestRandomVehiclePositions();
     // SolveFatropFailureCase();
