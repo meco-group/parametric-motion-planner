@@ -125,6 +125,9 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
             return corridors;
         })
         .def("GetLastSolution", &MotionPlanner::GetLastSolution)
+        .def("ToJson", [](const MotionPlanner &self){
+            return self.ToJson().dump();
+        })
         .def("DumpToJson", &MotionPlanner::DumpToJson)
         .def("PrintParametrization", &MotionPlanner::PrintParametrization)
         .def("ShowInitialization", &MotionPlanner::PrintInitialization)

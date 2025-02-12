@@ -7,6 +7,23 @@ sys.path.append('post-process')
 from visualization_helpers import show_environment, show_corridors, plot_vehicle_footprint, \
         set_env_plot_limits
 
+def latexify():
+    params = {#'backend': 'ps',
+              'axes.labelsize': 15,
+              'axes.titlesize': 15,
+              'legend.fontsize': 15,
+              'xtick.labelsize': 15,
+              'ytick.labelsize': 15,
+              'text.usetex': True,
+              'font.family': 'serif',
+              'figure.figsize': [7,5],
+            #   'text.latex.preamble': [r'\usepackage{bm}'],
+              }
+ 
+    plt.rcParams.update(params)
+ 
+latexify()
+
 def create_environment_figure(output_file):
     with open(output_file) as f:
         data = json.load(f)
@@ -14,7 +31,7 @@ def create_environment_figure(output_file):
     plt.figure()
 
     show_environment(data['environment'])
-    show_corridors(data['corridor_sequence'], max_alpha=0.5)
+    show_corridors(data['corridor_sequence'])
     
     start = data['corridor_sequence']['start']
     dest = data['corridor_sequence']['dest']
@@ -59,6 +76,49 @@ def get_variance(time, x, y, z):
     }
     return result
 
+def get_statistical_latex_table(stats_pos, stats_vel, stats_angle):
+    # start table
+    table = "\n\\begin{table}\n"
+    table += "\t\\centering\n"
+    table += "\t\\caption{Variance of measurements noise for a stationary, hovering mover}\n"
+    table += "\t\\label{tab:variance}\n"
+    table += "\t\\subcaption{Variance of position and velocity measurements}\n"
+    table += "\t\\begin{tabular}{r|ccc}\n"
+    table += "\t\t\\toprule\n"
+
+    # header row
+    table += "\t\tdimension & x & y & z \\\\\n"
+    table += "\t\t\\midrule\n"
+
+    # position row
+    table += "\t\tposition [mm$^2$]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_pos["x_variance"], stats_pos["y_variance"], stats_pos["z_variance"])
+
+    # velocity row
+    table += "\t\tvelocity [mm$^2/s^2$]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_vel["x_variance"], stats_vel["y_variance"], stats_vel["z_variance"])
+    table += "\t\t\\bottomrule\n"
+    table += "\t\\end{tabular}\n\n"
+    # end first tabular
+
+    # start second tabular
+    table += "\t\\vspace{1em}\n"
+    table += "\t\\subcaption{Variance of attitude measurements}\n"
+    table += "\t\\begin{tabular}{r|ccc}\n"
+    table += "\t\t\\toprule\n"
+
+    # header row
+    table += "\t\tdimension & roll & pitch & yaw \\\\\n"
+    table += "\t\t\\midrule\n"
+
+    # angle row
+    table += "\t\tvariance on angle [degree$^2$]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_angle["x_variance"], stats_angle["y_variance"], stats_angle["z_variance"])
+
+    # end table
+    table += "\t\t\\bottomrule\n"
+    table += "\t\\end{tabular}\n"
+    table += "\\end{table}\n"
+
+    print(table)
+
 # read the 7th row of the csv file
 df_column_names = pd.read_csv('experimental-validation/Scope-Project.csv', skiprows = lambda x : x != 6)
 print(df_column_names)
@@ -101,52 +161,87 @@ position_distance = np.sqrt((actual_px - true_setpoint_px)**2 + (actual_py - tru
 total_squared_error = np.sum(position_distance**2)
 print(f'Total Squared Error: {total_squared_error:.2f} [mm^2]')
 print(f"Max Position Distance Error: {np.max(position_distance):.2f} [mm]")
+print(f"Max position measurent error at rest: {np.max(position_distance[time < 40000]):.2f} [mm]")
 
-print(f"statistical data on position level:")
-print(get_variance(time, actual_px, actual_py, pz))
+stats_pos = get_variance(time, actual_px, actual_py, pz)
+stats_vel = get_variance(time, actual_vx, actual_vy, vz)
+stats_angle = get_variance(time, pa, pb, pc)
+get_statistical_latex_table(stats_pos, stats_vel, stats_angle)
 
-print(f"statistical data on velocity level:")
-print(get_variance(time, actual_vx, actual_vy, vz))
-
-def plot_actual_vs_setpoint(time, actual, setpoint, name, ylabel):
+def plot_actual_vs_setpoint(time, actual, setpoint, name, ylabel, start_time=0, stop_time=None):
+    if stop_time is None:
+        stop_time = max(time)
     if setpoint is None:
         setpoint = 0*actual
+
+    ind = np.where(np.logical_and(time > start_time, time < stop_time))[0]
+
     plt.figure(figsize=(10, 5))
-    plt.plot(time, actual, label=f'Actual {name}', linestyle='', marker='.')
-    plt.plot(time, setpoint, label=f'Setpoint {name}', linestyle='', marker='.')
-    plt.xlabel('Time [ms]')
+    plt.plot(time[ind], actual[ind], label=f'Actual {name}', linestyle='', marker='.')
+    plt.plot(time[ind], setpoint[ind], label=f'Setpoint {name}', linestyle='', marker='.')
+    plt.xlabel('time [ms]')
     plt.ylabel(ylabel)
     plt.legend()
 
-plot_actual_vs_setpoint(time, actual_px, true_setpoint_px, 'px', 'x position [mm]')
-plot_actual_vs_setpoint(time, actual_py, true_setpoint_py, 'py', 'y position [mm]')
-plot_actual_vs_setpoint(time, actual_vx, true_setpoint_vx, 'vx', 'x velocity [mm/s]')
-plot_actual_vs_setpoint(time, actual_vy, true_setpoint_vy, 'vy', 'y velocity [mm/s]')
-plot_actual_vs_setpoint(time, pz, None, 'pz', 'z position [mm]')
-plot_actual_vs_setpoint(time, vz, None, 'vz', 'z velocity [mm/s]')
-plot_actual_vs_setpoint(time, pa, None, 'pa', 'a position')
-plot_actual_vs_setpoint(time, pb, None, 'pb', 'b position')
-plot_actual_vs_setpoint(time, pc, None, 'pc', 'c position')
-plot_actual_vs_setpoint(time, va, None, 'va', 'a velocity')
-plot_actual_vs_setpoint(time, vb, None, 'vb', 'b velocity')
-plot_actual_vs_setpoint(time, vc, None, 'vc', 'c velocity')
+def plot_actual_with_colorbar(time, actual, setpoint, name, ylabel, start_time=0, stop_time=None):
+    if stop_time is None:
+        stop_time = max(time)
+    if setpoint is None:
+        setpoint = 0*actual
+
+    ind = np.where(np.logical_and(time > start_time, time < stop_time))[0]
+
+    tracking_error = actual - setpoint
+
+    plt.figure(figsize=(6, 3))
+    plt.scatter(time[ind]-time[ind][0], actual[ind], c=tracking_error[ind], cmap='plasma', marker='.')
+    plt.xlim(0, time[ind][-1]-time[ind][0])
+    plt.colorbar(label='Signed tracking error [mm]')
+    plt.xlabel('time [ms]')
+    plt.ylabel(ylabel)
+    plt.tight_layout()
+
+    print(f"Min tracking error: {np.min(tracking_error[ind]):.2f} [mm]")
+    print(f"Max tracking error: {np.max(tracking_error[ind]):.2f} [mm]")
+
+# plot_actual_vs_setpoint(time, actual_px, true_setpoint_px, 'px', 'x position [mm]', 44000, 47500)
+# plot_actual_vs_setpoint(time, actual_py, true_setpoint_py, 'py', 'y position [mm]')
+# plot_actual_vs_setpoint(time, actual_vx, true_setpoint_vx, 'vx', 'x velocity [mm/s]')
+# plot_actual_vs_setpoint(time, actual_vy, true_setpoint_vy, 'vy', 'y velocity [mm/s]')
+# plot_actual_vs_setpoint(time, pz, None, 'pz', 'z position [mm]')
+# plot_actual_vs_setpoint(time, vz, None, 'vz', 'z velocity [mm/s]')
+# plot_actual_vs_setpoint(time, pa, None, 'pa', 'a position')
+# plot_actual_vs_setpoint(time, pb, None, 'pb', 'b position')
+# plot_actual_vs_setpoint(time, pc, None, 'pc', 'c position')
+# plot_actual_vs_setpoint(time, va, None, 'va', 'a velocity')
+# plot_actual_vs_setpoint(time, vb, None, 'vb', 'b velocity')
+# plot_actual_vs_setpoint(time, vc, None, 'vc', 'c velocity')
+
+plot_actual_with_colorbar(time, actual_px, true_setpoint_px, 'px', 'x position [mm]', 44000, 47200)
+plt.savefig('experimental-validation/figures/x_position_tracking_error.png', dpi=300)
+plot_actual_with_colorbar(time, actual_py, true_setpoint_py, 'py', 'y position [mm]', 44000, 47200)
+plt.savefig('experimental-validation/figures/y_position_tracking_error.png', dpi=300)
+
 
 from matplotlib.collections import LineCollection
 actual_px = 0.001*actual_px
 actual_py = 0.001*actual_py
 points = np.column_stack([actual_px, actual_py])
 segments = np.array([points[:-1], points[1:]]).transpose(1, 0, 2)
-lc = LineCollection(segments, cmap='coolwarm', norm=plt.Normalize(position_distance.min(), position_distance.max()), lw=4, zorder=999)
+lc = LineCollection(segments, cmap='plasma', norm=plt.Normalize(position_distance.min(), position_distance.max()), lw=4, zorder=999)
 lc.set_array(position_distance[:-1])  # Set color based on position error
 
 create_environment_figure('experimental-validation/record_tracking_error_demo_output.json')
 ax = plt.gca()
 ax.add_collection(lc)
-plt.colorbar(lc, label='Position Distance Error (mm)')
-plt.xlabel('X Position')
-plt.ylabel('Y Position')
-plt.title('XY Position Tracking with Distance Error')
+plt.colorbar(lc, label='Tracking error in the plane [mm]')
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')
+
+# set xticks to step in 0.24m
+plt.xticks(np.arange(0, plt.xlim()[1]+0.01, 0.24))
+
+plt.savefig('experimental-validation/figures/position_tracking_error.png', dpi=300)
 
 plt.show()
-
 

@@ -432,9 +432,9 @@ def create_latex_table(results):
 
     # print the table
     if INCLUDE_CORRIDOR_EXTENSION:
-        print("\t\\begin{tabular}{l|cccc|c|c}")
+        print("\t\\begin{tabular}{r|cccc|c|c}")
     else:
-        print("\t\\begin{tabular}{l|cccc|c}")
+        print("\t\\begin{tabular}{r|cccc|c}")
     print("\t\\toprule")
     
     # print header (method names)

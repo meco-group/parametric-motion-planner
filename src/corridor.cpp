@@ -569,7 +569,7 @@ void CorridorSequence::InflateCorridors(){
     }
 
     // grow first corridor even more
-    max_nb_grow_iterations = 3; grow_counter = 0;
+    max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 3; grow_counter = 0;
     made_change = true;
     while (made_change && grow_counter < max_nb_grow_iterations){
         made_change = GrowCorridorSideways(0);
