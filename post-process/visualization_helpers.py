@@ -48,14 +48,16 @@ def show_environment(env, obstacle_color='firebrick', **kwargs):
                                             alpha=obstacles_alpha))
             
     # plot a light grid showing the cell
-    for i in range(env["nb_cell_cols"]+1):
-        plt.plot([i*cell_width, i*cell_width], 
-                 [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
-                 color='gray', zorder=1)
-    for j in range(env["nb_cell_rows"]+1):
-        plt.plot([0, cell_width*env["nb_cell_cols"]], 
-                 [j*cell_height, j*cell_height], linewidth=0.1, \
-                 color='gray', zorder=1)
+    show_light_grid = kwargs.get('show_light_grid', False)
+    if show_light_grid:
+        for i in range(env["nb_cell_cols"]+1):
+            plt.plot([i*cell_width, i*cell_width], 
+                    [0, cell_height*env["nb_cell_rows"]], linewidth=0.1, \
+                    color='gray', zorder=1)
+        for j in range(env["nb_cell_rows"]+1):
+            plt.plot([0, cell_width*env["nb_cell_cols"]], 
+                    [j*cell_height, j*cell_height], linewidth=0.1, \
+                    color='gray', zorder=1)
         
 def show_original_path(path, cell_width, cell_height, **kwargs):
     for i in range(len(path)):
