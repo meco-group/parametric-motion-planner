@@ -36,8 +36,8 @@ def visualize_output(env, params, corridors, planner_methods,
 
     # plot corridors
     if "ocp_corridors" in kwargs:
-        show_corridors(kwargs["ocp_corridors"], color='r')
-    show_corridors(corridors)
+        show_corridors(kwargs["ocp_corridors"])
+    show_corridors(corridors, hatch=kwargs.get("hatch", None))
     if kwargs.get("show_original_path", False):
         show_original_path(corridors["original_path"], env["cell_width"], 
                            env["cell_height"], with_numbering=True)
@@ -278,7 +278,7 @@ for output_file in files:
 visualize_output(envs_list[0], params_list[0], corridors_list[2], 
                 planner_methods_list, trajectories_list, 
                 parametrizations_list, ocp_corridors=corridors_list[1],
-                show_original_path=True)
+                show_original_path=False, hatch='//')
 # except:
 #     print("Error in visualize_output")
 #     pass
