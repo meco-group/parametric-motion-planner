@@ -38,6 +38,27 @@ def shift_samples(samples, shift_amount=1):
 def get_data(df, columns_name_to_index, name):
     return np.array(get_plain_list(df.iloc[:, columns_name_to_index[name]]))
 
+def get_variance(time, x, y, z):
+    start_time = 0.001
+    stop_time = 40000
+
+    # select the correct indices
+    # ind = np.asarray(np.logical_and(time > start_time, time < stop_time)).nonzero()
+    ind = np.asarray(time < stop_time).nonzero()
+    x_rest = x[ind]
+    y_rest = y[ind]
+    z_rest = z[ind]
+
+    result = {
+        "x_mean" : np.mean(x_rest),
+        "x_variance" : np.var(x_rest),
+        "y_mean" : np.mean(y_rest),
+        "y_variance" : np.var(y_rest),
+        "z_mean" : np.mean(z_rest),
+        "z_variance" : np.var(z_rest),
+    }
+    return result
+
 # read the 7th row of the csv file
 df_column_names = pd.read_csv('experimental-validation/Scope-Project.csv', skiprows = lambda x : x != 6)
 print(df_column_names)
@@ -80,6 +101,12 @@ position_distance = np.sqrt((actual_px - true_setpoint_px)**2 + (actual_py - tru
 total_squared_error = np.sum(position_distance**2)
 print(f'Total Squared Error: {total_squared_error:.2f} [mm^2]')
 print(f"Max Position Distance Error: {np.max(position_distance):.2f} [mm]")
+
+print(f"statistical data on position level:")
+print(get_variance(time, actual_px, actual_py, pz))
+
+print(f"statistical data on velocity level:")
+print(get_variance(time, actual_vx, actual_vy, vz))
 
 def plot_actual_vs_setpoint(time, actual, setpoint, name, ylabel):
     if setpoint is None:
