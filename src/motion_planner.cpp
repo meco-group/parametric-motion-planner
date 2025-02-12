@@ -923,10 +923,10 @@ void MotionPlanner::SeparateVehicleFreeSpace(MotionPlanner &other,
     int neighbour_idx = std::distance(distance_to_neighbour_edge.begin(), min_it);
     
     std::cout << "received separation angle: " << separation_angle << std::endl;
-    while (separation_angle <= 0){ separation_angle += M_PI;}
-    while (separation_angle >= M_PI){ separation_angle -= M_PI;}
+    while (separation_angle <= 0){ separation_angle += 3.1415926535;}
+    while (separation_angle >= 3.1415926535){ separation_angle -= 3.1415926535;}
     std::cout << "modified separation angle: " << separation_angle << std::endl;
-    if (separation_angle <= M_PI_4 || separation_angle >= 3*M_PI_4){
+    if (separation_angle <= 0.25* 3.1415926535 || separation_angle >= 3*0.25* 3.1415926535){
         // trajectories should be pulled apart vertically
         std::cout << "pulling apart vertically" << std::endl;
         if (distance_to_neighbour_edge[2] < distance_to_neighbour_edge[3]){
