@@ -133,5 +133,6 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("SetSolver", &MotionPlanner::SetSolver)
         .def("SetOptimizationApproach", &MotionPlanner::SetParametrizationOptimizationApproach)
         .def("SetJustInTimePreparationMode", &MotionPlanner::SetJustInTimePreparationMode)
+        .def("SetCorridorExtendedMode", &MotionPlanner::SetCorridorExtendedMode)
         ;
 }

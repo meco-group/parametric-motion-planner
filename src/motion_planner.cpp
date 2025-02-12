@@ -130,8 +130,10 @@ void MotionPlanner::Plan(){
     if (last_solution_.TotalComputationTime() < 0 || 
         last_solution_.SolverTime() < 0 ||
         (last_solution_.CorridorInfeasibilitiesDetected() && method_ != OCP)){
-        emergency_mode_ = true;
-        last_solution_ = previous_solution_;
+
+        // must be uncommented in benchmark mode
+        // emergency_mode_ = true;
+        // last_solution_ = previous_solution_;
         logger_.LogEvent(PlannerFailedEvent());
         throw std::runtime_error("Planner failed to find a (feasible) solution");
     } else {
