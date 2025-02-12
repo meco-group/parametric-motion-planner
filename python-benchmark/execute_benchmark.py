@@ -24,7 +24,8 @@ methods = [pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.OCP, 
            pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.OCP,
-           pmp.PlannerMethod.P2P]
+           pmp.PlannerMethod.P2P,
+           pmp.PlannerMethod.OCP]
 method_names = ["ARENA", 
                 "ARENA-FATROP",
                 "OCP-5", 
@@ -32,16 +33,20 @@ method_names = ["ARENA",
                 "OCP-20", 
                 "OCP-30",
                 "OCP-30-FATROP", 
-                "P2P"]
-default_selection = [1, 1, 0, 0, 0, 1, 1, 1]
-arena_selection = [1, 1, 0, 0, 0, 0, 0, 0]
+                "P2P",
+                "OCP-30-EXTENDED-FATROP"]
+default_selection = [1, 1, 0, 0, 0, 1, 1, 1, 0]
+arena_selection = [1, 1, 0, 0, 0, 0, 0, 0, 0]
+extended_selection = [0, 0, 0, 0, 0, 0, 0, 0, 1]
 assert len(methods) == len(method_names)
 
-my_selection = default_selection
+# my_selection = default_selection
 # my_selection = arena_selection
+my_selection = extended_selection
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
+motion_planner.SetJustInTimePreparationMode(False)
 # motion_planner.SetSolver("ipopt")
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
@@ -64,6 +69,7 @@ except FileNotFoundError:
 expected_failures = []
 failures = []
 avg_solver_time = 0
+avg_travel_time = 0
 
 # Benchmark
 for method, method_name in zip(methods, method_names):
@@ -83,10 +89,17 @@ for method, method_name in zip(methods, method_names):
         n = int(method_name_split[1])
         motion_planner.SetOCPNumberOfPointsPerCorridor(n)
 
-    if method_name.endswith("FATROP"):
-        motion_planner.SetSolver("fatrop")
+    # check if we want extended approach or not
+    if "EXTENDED" in method_name:
+        motion_planner.SetCorridorExtendedMode(True)
     else:
-        motion_planner.SetSolver("ipopt")
+        motion_planner.SetCorridorExtendedMode(False)
+
+    # set the correct solver
+    if method_name.endswith("FATROP"):
+        motion_planner.SetSolver("fatrop", False)
+    else:
+        motion_planner.SetSolver("ipopt", False)
 
     # loop over all environments
     for i in range(len(envs)):
@@ -105,13 +118,18 @@ for method, method_name in zip(methods, method_names):
 
         if method is not None:
             print("Planning...")
-            # try:
-            #     motion_planner.Plan()
-            # except:
-            #     pass
-            motion_planner.Plan()
+            try:
+                motion_planner.Plan()
+            except Exception as e:
+                print("\n\n\n\n\n\n\n\nPLANNER FAILED\n\n\n\n\n\n\n\n")
+                print(e)
+
+                pass
+            # motion_planner.Plan()
             print("Done.")
             print("Travel time: ", motion_planner.GetTravelTime())
+            print("Total computation time: ", motion_planner.GetTotalComputationTime())
+            print("Solver time: ", motion_planner.GetSolverTime())
 
             # store results
             results[method_name]["Tf"].append(motion_planner.GetTravelTime())
@@ -121,6 +139,8 @@ for method, method_name in zip(methods, method_names):
                 motion_planner.CorridorInfeasibilitiesDetected())
             if motion_planner.GetTotalComputationTime() < 0 or motion_planner.GetSolverTime() < 0:
                 failures.append(i)
+            else:
+                avg_travel_time += motion_planner.GetTravelTime()
             avg_solver_time += motion_planner.GetSolverTime()
 
             corridors = motion_planner.GetCorridorSequence()
@@ -167,8 +187,10 @@ for method, method_name in zip(methods, method_names):
 print(f"Failures: {failures}")
 avg_solver_time /= len(envs)
 print(f"Average solver time: {avg_solver_time}")
+avg_travel_time /= (len(envs) - len(failures))
+print(f"Average travel time: {avg_travel_time}")
 
-# # store results as a json
+# store results as a json
 import json
-with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
+with open('python-benchmark/files/results_new' + file_name_appendix + '.json', 'w') as f:
     json.dump(results, f, indent=4)

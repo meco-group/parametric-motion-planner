@@ -20,13 +20,16 @@ def latexify():
  
 latexify()
 
+SAVE_FIGURES = False
+
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
 # with open('python-benchmark/files/results_double.json', 'r') as f:
 # with open('python-benchmark/files/results_large.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double_more_obstacles.json', 'r') as f:
-with open('python-benchmark/files/results_large_double_more_obstacles_10.json', 'r') as f:
+# with open('python-benchmark/files/results_large_double_more_obstacles_10.json', 'r') as f:
+with open('python-benchmark/files/results_new_large_double_more_obstacles_10.json', 'r') as f:
     results = json.load(f)
 
 def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
@@ -398,44 +401,55 @@ def create_latex_table(results):
             "infeasible": np.array(results[method]["corridor_infeasibilities_detected"])
         }
 
-    row_names = ["average $t_\mathrm{solver}$ [ms]", 
-                 "average $t_\mathrm{total}$ [ms]",
-                 "average $T^*$ [s]", 
-                 "worst case $t_\mathrm{solver}$ [ms]", 
-                 "worst case $t_\mathrm{total}$ [ms]", 
+    row_names = ["avg $t_\mathrm{solver}$ [ms]", 
+                 "max $t_\mathrm{solver}$ [ms]", 
+                 "avg $t_\mathrm{total}$ [ms]",
+                 "max $t_\mathrm{total}$ [ms]", 
+                 "avg $t_\mathrm{move}$ [s]", 
+                 "total $t_\mathrm{move}$ [min]",
                  "\# infeasible cases",
-                 "\# solver failures",
-                 "total moving time [min]"]
+                 "\# solver failures"]
+
+    INCLUDE_CORRIDOR_EXTENSION = True
 
     # create the table
     table = {}
-    for method in ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P"]:
+    methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P"]
+    if INCLUDE_CORRIDOR_EXTENSION:
+        methods.append("OCP-30-EXTENDED-FATROP")
+    for method in methods:
     # for method in data.keys():
         table[method] = {
-            "average $t_\mathrm{solver}$ [ms]": np.mean(data[method]["t_solver"][~failures]),
-            "average $t_\mathrm{total}$ [ms]": np.mean(data[method]["t_total"][~failures]),
-            "average $T^*$ [s]": np.mean(data[method]["Tf"][~failures]),
-            "worst case $t_\mathrm{solver}$ [ms]": np.max(data[method]["t_solver"][~failures]),
-            "worst case $t_\mathrm{total}$ [ms]": np.max(data[method]["t_total"][~failures]),
+            "avg $t_\mathrm{solver}$ [ms]": np.mean(data[method]["t_solver"][~failures]),
+            "max $t_\mathrm{solver}$ [ms]": np.max(data[method]["t_solver"][~failures]),
+            "avg $t_\mathrm{total}$ [ms]": np.mean(data[method]["t_total"][~failures]),
+            "max $t_\mathrm{total}$ [ms]": np.max(data[method]["t_total"][~failures]),
+            "avg $t_\mathrm{move}$ [s]": np.mean(data[method]["Tf"][~failures]),
+            "total $t_\mathrm{move}$ [min]": np.sum(data[method]["Tf"][~failures]/60.0),
             "\# infeasible cases": np.sum(data[method]["infeasible"][~failures]),
             "\# solver failures": np.sum(data[method]["t_solver"] < 0),
-            "total moving time [min]": np.sum(data[method]["Tf"][~failures]/60.0),
         }
 
     # print the table
-    print("\t\\begin{tabular}{l|cccc|c}")
-    # print("\\hline")
+    if INCLUDE_CORRIDOR_EXTENSION:
+        print("\t\\begin{tabular}{l|cccc|c|c}")
+    else:
+        print("\t\\begin{tabular}{l|cccc|c}")
+    print("\t\\toprule")
     
     # print header (method names)
     method_names = list(table.keys())
     print("\t\t" + " & ".join([""] + translate_method_names(method_names)) + " \\\\")
-    print(f"\t\t\\hline")
+    print(f"\t\t\\midrule")
 
     # print rows
-    for row_name in row_names:
+    for r in range(len(row_names)):
+        row_name = row_names[r]
         row_values = [table[method][row_name] for method in table.keys()]
         min_idx = np.argmin(row_values[:-1]) # discard P2P
         row_value_strings = [f"{table[method][row_name]:.2f}" 
+                if "$t_\mathrm{move}$" not in row_name
+                else f"{table[method][row_name]:.3f}"
                 if row_name != "\# infeasible cases" and row_name != "\# solver failures" 
                 else f"{table[method][row_name]}" for method in table.keys()]
         row_value_strings[min_idx] = "\\textbf{" + row_value_strings[min_idx] + "}"
@@ -445,8 +459,11 @@ def create_latex_table(results):
                 row_value_strings[i] = "-"
 
         row = [row_name] + row_value_strings
-        print("\t\t" + f" & ".join(row) + " \\\\")
-        # print("\\hline")
+        if r in [3, 5]:
+            print("\t\t" + f" & ".join(row) + " \\\\ [1em]")
+        else:
+            print("\t\t" + f" & ".join(row) + " \\\\")
+    print("\t\t\\bottomrule")
 
     print("\t\\end{tabular}")
 
@@ -488,10 +505,13 @@ def translate_method_names(method_names):
             translation.append("OCP")
         elif method == "OCP-30-FATROP":
             translation.append("OCP-F")
+        elif method == "OCP-30-EXTENDED-FATROP":
+            translation.append("OCP-F+")
         else:
             translation.append(method)
 
     return translation
+
 
 # print out all infeasible cases
 for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTools"]:
@@ -517,16 +537,27 @@ filtered_results, idx_map = filter_results_for_fair_comparison(results)
 optimality_comparison_extended_new_new(filtered_results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
                                    ["orange", "black", "royalblue"], idx_map)
-plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
-plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
+if SAVE_FIGURES:
+    plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
+    plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
 
 # plt.figure()
 # compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
 
 show_histogram_densities(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
-plt.savefig("python-benchmark/figures/densities.png", dpi=300)
-plt.savefig("python-benchmark/figures/densities.pdf")
+if SAVE_FIGURES:
+    plt.savefig("python-benchmark/figures/densities.png", dpi=300)
+    plt.savefig("python-benchmark/figures/densities.pdf")
 
 create_latex_table(results)
+
+## CORRIDOR EVALUATION
+optimality_comparison_extended_new_new(filtered_results, "OCP-30-EXTENDED-FATROP",
+                                ["P2P", "OmgTools", "ARENA", "OCP-30-FATROP"], 
+                                ["orange", "black", "royalblue", "red"], idx_map)
+filtered_results["OCP-30-FATROP"] = filtered_results["OCP-30-EXTENDED-FATROP"]
+show_histogram_densities(filtered_results, 
+    ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], 
+    ["royalblue", "royalblue", "red", "orange", "black"])
 
 plt.show()

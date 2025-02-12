@@ -89,13 +89,12 @@ def show_corridors(corridors, color='green', max_alpha=1, clip_on=False, **kwarg
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=True, facecolor=color, alpha=0.2*max_alpha, 
-                            edgecolor=None, clip_on=clip_on, 
-                            hatch=hatch))
+                            edgecolor=None, clip_on=clip_on))
         plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=False, edgecolor=color, linewidth=1,
-                            clip_on=clip_on))
+                            clip_on=clip_on, hatch=hatch))
         
 def show_waypoints(parametrization):
     for w in range(0, parametrization["nb_corridors"] + 1):
