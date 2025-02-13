@@ -24,18 +24,20 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 # ARENA infeasible cases (4): 393, 417, 484
 # 6-corridor environments: 14, 56, 104, 439
 # 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
-benchmark_idx = 83
+# OCP failures: 62, 83, 96, 169, 348, 475, 494
+benchmark_idx = 102
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
-motion_planner.SetJustInTimePreparationMode(True)
-motion_planner.SetSolver("fatrop")
+motion_planner.SetSolver("fatrop", False)
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
 
-motion_planner.SetSuboptimalityEliminationFeature(True)
+motion_planner.SetSuboptimalityEliminationFeature(False)
 motion_planner.SetPrintLevel(5)
 # motion_planner.SetMaxIter(50)
+motion_planner.SetSilentMode(False)
+motion_planner.SetJustInTimePreparationMode(False)
 
 motion_planner.SetStart(starts[benchmark_idx])
 dests[benchmark_idx].SetX(dests[benchmark_idx].x() + 0.0)

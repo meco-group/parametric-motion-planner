@@ -13,7 +13,7 @@ void OCPSolver::PrepareOptiInstances(const UpdateToken& token,
                                      casadi::Dict& opts_casadi, 
                                      casadi::Dict& opts_solver){
     std::cout << "preparing OCP opti instances..." << std::endl;
-    for (int i = 1; i < 12; i++){
+    for (int i = 1; i < 15; i++){
         PrepareSingleOptiInstance(i, solver_name_, opts_casadi, opts_solver);
     }
     std::cout << "\t\tDone!" << std::endl;
@@ -207,6 +207,7 @@ void OCPSolver::Solve(const UpdateToken&, std::string& solver_name,
         prepared_opti_instances_.find(n) == prepared_opti_instances_.end()){
         PrepareSingleOptiInstance(n, solver_name, opts_casadi, opts_solver);
     }
+    // PrepareSingleOptiInstance(n, solver_name, opts_casadi, opts_solver); // why does this resolve the OCP bug?
 
     // Prepare initialization
     std::vector<Point2D<double>> initialization_waypoints = 
@@ -276,4 +277,6 @@ void OCPSolver::Solve(const UpdateToken&, std::string& solver_name,
     // std::cout << prepared_opti_instances_[n].stats() << std::endl;
     latest_solver_time_ = prepared_opti_instances_[n].stats()["t_wall_total"];
     latest_success_status_ = prepared_opti_instances_[n].stats()["success"];
+    std::cout << "OCP solver time: " << latest_solver_time_ << std::endl;
+    std::cout << "OCP solver success: " << latest_success_status_ << std::endl;
 }

@@ -473,6 +473,9 @@ def filter_results_for_fair_comparison(results):
     # start by keeping all results
     failures = np.array([False]*len(results["OCP-30"]["t_comp_solver"]))
 
+    # print out indices where t_comp_solver < 0 for OCP-30-FATROP
+    print(np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0))
+
     for method in results.keys():
         failures = np.logical_or(failures, np.array(results[method]["t_comp_solver"]) < 0)
         failures = np.logical_or(failures, np.array(results[method]["t_comp_total"]) < 0)

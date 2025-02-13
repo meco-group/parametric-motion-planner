@@ -132,6 +132,7 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def("PrintParametrization", &MotionPlanner::PrintParametrization)
         .def("ShowInitialization", &MotionPlanner::PrintInitialization)
         .def("SetPrintLevel", &MotionPlanner::SetPrintLevel)
+        .def("SetSilentMode", &MotionPlanner::SetSilentMode)
         .def("SetMaxIter", &MotionPlanner::SetMaxIter)
         .def("SetSolver", &MotionPlanner::SetSolver)
         .def("SetOptimizationApproach", &MotionPlanner::SetParametrizationOptimizationApproach)

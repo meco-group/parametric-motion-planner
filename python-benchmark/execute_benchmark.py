@@ -17,32 +17,32 @@ file_name_appendix = "_large_double_more_obstacles_10"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
-methods = [pmp.PlannerMethod.ARENA,
-           pmp.PlannerMethod.ARENA, 
+methods = [pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.OCP, 
            pmp.PlannerMethod.OCP, 
            pmp.PlannerMethod.OCP, 
-           pmp.PlannerMethod.OCP,
-           pmp.PlannerMethod.OCP,
+           pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.P2P,
+           pmp.PlannerMethod.ARENA, 
+           pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.OCP]
-method_names = ["ARENA", 
-                "ARENA-FATROP",
+method_names = ["OCP-30",
                 "OCP-5", 
                 "OCP-10", 
                 "OCP-20", 
-                "OCP-30",
-                "OCP-30-FATROP", 
+                "ARENA", 
                 "P2P",
+                "ARENA-FATROP",
+                "OCP-30-FATROP", 
                 "OCP-30-EXTENDED-FATROP"]
-default_selection = [1, 1, 0, 0, 0, 1, 1, 1, 0]
-arena_selection = [1, 1, 0, 0, 0, 0, 0, 0, 0]
+default_selection = [1, 0, 0, 0, 1, 1, 1, 1, 1]
+arena_selection = [0, 0, 0, 0, 0, 0, 1, 0, 0]
 extended_selection = [0, 0, 0, 0, 0, 0, 0, 0, 1]
 assert len(methods) == len(method_names)
 
-# my_selection = default_selection
+my_selection = default_selection
 # my_selection = arena_selection
-my_selection = extended_selection
+# my_selection = extended_selection
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
@@ -57,13 +57,13 @@ motion_planner.SetJustInTimePreparationMode(False)
 #     results[m] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [], 
 #                   "corridor_infeasibilities_detected": []}
 try:
-    results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
+    results = json.load(open('python-benchmark/files/results_new' + file_name_appendix + '.json'))
 except FileNotFoundError:
     results = {}
-    with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
+    with open('python-benchmark/files/results_new' + file_name_appendix + '.json', 'w') as f:
         json.dump(results, f, indent=4)
     
-    results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
+    results = json.load(open('python-benchmark/files/results_new' + file_name_appendix + '.json'))
 
 
 expected_failures = []
@@ -97,13 +97,35 @@ for method, method_name in zip(methods, method_names):
 
     # set the correct solver
     if method_name.endswith("FATROP"):
-        motion_planner.SetSolver("fatrop", False)
+        motion_planner.SetSolver("fatrop", True)
     else:
-        motion_planner.SetSolver("ipopt", False)
+        motion_planner.SetSolver("ipopt", True)
+
+    for i in range(len(envs)):
+        print(f"\n\nRunning environment {i} with method {method_name}")
+
+        motion_planner.SetStart(starts[i])
+        motion_planner.SetDest(dests[i])
+
+        local_param.SetVmax(params[i].GetVmax())
+        local_param.SetAmax(params[i].GetAmax())
+        local_param.SetVehWidth(params[i].GetVehWidth())
+        local_param.SetVehHeight(params[i].GetVehHeight())
+        local_param.SetMargin(params[i].GetMargin())
+        local_env.CopyObstacles(envs[i])
+
+        if method is not None:
+            print("Planning...")
+            try:
+                motion_planner.Plan()
+            except Exception as e:
+                print("\n\n\n\n\n\n\n\nPLANNER FAILED\n\n\n\n\n\n\n\n")
+                print(e)
+
+                pass
 
     # loop over all environments
     for i in range(len(envs)):
-    # for i in range(420, 460):
         print(f"\n\nRunning environment {i} with method {method_name}")
 
         motion_planner.SetStart(starts[i])

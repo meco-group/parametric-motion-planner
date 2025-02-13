@@ -251,6 +251,8 @@ int MotionPlanner::GetCurrentSampleIdx() const {
 void MotionPlanner::SetSolver(std::string solver_name, 
                               bool update_prepared_opti_instances){
     assert (solver_name == "ipopt" || solver_name == "fatrop");
+    // update_prepared_opti_instances = update_prepared_opti_instances && 
+    //                                  solver_name != solver_name_;
 
     opts_casadi_.clear();
     opts_solver_.clear();
@@ -574,7 +576,7 @@ void MotionPlanner::PlanARENA(){
             }
             // If no modification was made, check if the parametrization is 
             // still sub-optimal
-            if (eliminate_suboptimalities_){
+            if (eliminate_suboptimalities_ && solver_time > 0){
                 made_modification = EliminateSubOptimalParametrization();
                 use_warm_start = true;
             } 
@@ -1148,10 +1150,10 @@ bool MotionPlanner::EliminateSubOptimalParametrization(){
 
         // std::cout << "w: " << w << " - x_flip: " << x_flip << " - y_flip: " << y_flip << std::endl;
         if (x_flip || y_flip){           
-            if (!silent_mode_){std::cout << "Flipping acceleration at waypoint " << w << std::endl;}
-            made_modification = made_modification ||
-                parametrization_.FlipAccelerationAtWaypoint(
-                    parametrization_update_token_, w+1, x_flip, y_flip);
+            if (!silent_mode_){std::cout << "Flipping acceleration at waypoint " << w << " (" << x_flip << "-" << y_flip << ")" << std::endl;}
+            made_modification = parametrization_.FlipAccelerationAtWaypoint(
+                    parametrization_update_token_, w+1, x_flip, y_flip) ||
+                    made_modification;
         }
     }
 
