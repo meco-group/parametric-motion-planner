@@ -184,11 +184,11 @@ for method, method_name in zip(methods, method_names):
 # print(len(expected_failures))
 # print(expected_failures)
             
-print(f"Failures: {failures}")
-avg_solver_time /= len(envs)
-print(f"Average solver time: {avg_solver_time}")
-avg_travel_time /= (len(envs) - len(failures))
-print(f"Average travel time: {avg_travel_time}")
+# print(f"Failures: {failures}")
+# avg_solver_time /= len(envs)
+# print(f"Average solver time: {avg_solver_time}")
+# avg_travel_time /= (len(envs) - len(failures))
+# print(f"Average travel time: {avg_travel_time}")
 
 # store results as a json
 import json
