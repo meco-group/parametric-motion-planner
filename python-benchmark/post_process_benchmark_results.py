@@ -20,7 +20,7 @@ def latexify():
  
 latexify()
 
-SAVE_FIGURES = False
+SAVE_FIGURES = True
 
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
@@ -53,6 +53,10 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     # sort errors in ascending order
     for i in range(len(rel_errors)):
         idx = np.argsort(rel_errors[i])
+        if methods[i] == "ARENA":
+            for j in range(len(rel_errors[i])):
+                if rel_errors[i][j] < -0.1:
+                    print(f"[{idx_map[og_idxs[i][j]]:3d}] ARENA: {Tfs[i][j]:.4f}\t-\tOCP: {Tf_baseline[j]}\t({rel_errors[i][j]:.4f})")
         rel_errors[i] = rel_errors[i][idx]
         og_idxs[i] = og_idxs[i][idx]
         my_dict = {idx_map[og_idxs[i][j]]: round(rel_errors[i][j],2) for j in range(len(rel_errors[i])-10, len(rel_errors[i]))}
@@ -95,7 +99,7 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
         # plt.ylabel("Relative\nsuboptimality [\%]")
         plt.ylabel("Relative error\non $t_{\mathrm{move}}$ [\%]")
     # plt.gcf().legend(loc='lower center', ncol = 3, frameon=False)
-    plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = 3, frameon=False)
+    plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = len(methods), frameon=False)
 
     plt.yscale('log'); 
     plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
@@ -178,6 +182,69 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
             my_xticks.sort()
 
     plt.xticks(my_xticks, my_xticks)
+
+def show_relative_difference_density(results, baseline_method, other_method, colors, idx_map, use_abs_error=False):
+    Tf_baseline = np.array(results[baseline_method]["Tf"])
+    Tf = np.array(results[other_method]["Tf"])
+
+    # get indices where all methods are succesfull
+    idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
+    idx = np.logical_and(idx, Tf >= 0)
+    Tf_baseline = Tf_baseline[idx]
+    Tf = Tf[idx]
+
+    # compute errors
+    rel_errors = 100*(Tf - Tf_baseline) / Tf_baseline
+    if use_abs_error:
+        rel_errors = Tf - Tf_baseline
+
+    # find the indices of the 3 largest rel_errors
+    idx = np.argsort(rel_errors)
+    idx = idx[-3:]
+    print([idx_map[i] for i in idx])
+    print(rel_errors[idx])
+    print(Tf_baseline[idx])
+
+    # plot a density of the relative error
+    # fig, axes = plt.subplots(1, 1, figsize=(6, 3))
+    # plt.sca(axes)
+    # plot_densities(rel_errors, colors, methods, "Relative error on $t_{\mathrm{move}}$ [\%]", "Density")
+    # plt.tight_layout(rect=[0, 0.2, 1, 1])  # Adjust layout to fit legend
+    
+    # plt.figure(figsize=(6,3))
+    # plt.hist(rel_errors, bins=50, density=True, color=colors, label=translate_method_names(methods), alpha=0.5)
+        
+    tresholds = np.linspace(1, 35, 1000)
+    percentage_of_environments = np.zeros((len(tresholds)))
+    for i in range(len(tresholds)):
+        percentage_of_environments[i] = np.sum(rel_errors > tresholds[i]) / len(rel_errors) * 100
+        if percentage_of_environments[i] > 0:
+            max_trheshold = tresholds[i]
+    
+    plt.figure(figsize=(6,3))
+    # plt.plot(tresholds, percentage_of_environments, color=colors[0], label=translate_method_names([other_method])[0], linewidth=2)
+    plt.fill_between(tresholds, 0, percentage_of_environments, color=colors[0], alpha=0.5)
+
+    # draw vertical line at 5% and 10% and horizontal lines at the corresponding value
+    percs = [1, 5, 10]
+    for perc in percs:
+        idx = np.where(tresholds > perc)[0][0]
+        plt.plot([perc, perc], [0, percentage_of_environments[idx]], color='k', linestyle='-', linewidth=1)
+        plt.plot([0, perc], [percentage_of_environments[idx], percentage_of_environments[idx]], color='k', linestyle='-', linewidth=1)
+        plt.plot(perc, percentage_of_environments[idx], 'o', color='k')
+        plt.text(perc+0.5, percentage_of_environments[idx], f"{percentage_of_environments[idx]:.1f}\%", fontsize=15, ha='left', va='bottom', color='k')
+
+    plt.xlim([tresholds[0], max_trheshold+5])
+    plt.ylim([0, 1.1*np.max(percentage_of_environments)])
+    plt.xlabel("Relative reduction on $t_{\mathrm{move}}$ [\%]")
+    plt.ylabel("Percentage of environments\nachieving the reduction [\%]")
+
+    # make sure to add 1 as an xtick
+    my_xticks = [1, 5, 10, 15, 20, 25, 30]
+    plt.xticks(my_xticks, my_xticks)
+
+    plt.tight_layout()
+    
 
 def show_histogram_densities(results, methods, colors):
     # # Travel time
@@ -367,7 +434,7 @@ def compare_travel_time_plus_total_comp_time(results, baseline_method, other_met
 
     print(idx)
 
-def create_latex_table(results):
+def create_latex_table(results, corridor_evaluation=False):
     # create a table with result.keys() (methods) as columns
     # the rows are:
     # - average t_solver
@@ -410,13 +477,13 @@ def create_latex_table(results):
                  "\# infeasible cases",
                  "\# solver failures"]
 
-    INCLUDE_CORRIDOR_EXTENSION = True
-
     # create the table
     table = {}
-    methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P"]
-    if INCLUDE_CORRIDOR_EXTENSION:
-        methods.append("OCP-30-EXTENDED-FATROP")
+    if corridor_evaluation:
+        methods = ["ARENA-FATROP", "OCP-30-FATROP", "OCP-30-EXTENDED-FATROP"]
+    else:
+        methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P"]
+    
     for method in methods:
     # for method in data.keys():
         table[method] = {
@@ -431,8 +498,9 @@ def create_latex_table(results):
         }
 
     # print the table
-    if INCLUDE_CORRIDOR_EXTENSION:
-        print("\t\\begin{tabular}{r|cccc|c|c}")
+    print("\n")
+    if corridor_evaluation:
+        print("\t\\begin{tabular}{r|cc|c}")
     else:
         print("\t\\begin{tabular}{r|cccc|c}")
     print("\t\\toprule")
@@ -446,10 +514,10 @@ def create_latex_table(results):
     for r in range(len(row_names)):
         row_name = row_names[r]
         row_values = [table[method][row_name] for method in table.keys()]
-        min_idx = np.argmin(row_values[:-1]) # discard P2P
+        min_idx = np.argmin(
+            row_values[:-2] if not corridor_evaluation else row_values
+        )
         row_value_strings = [f"{table[method][row_name]:.2f}" 
-                if "$t_\mathrm{move}$" not in row_name
-                else f"{table[method][row_name]:.3f}"
                 if row_name != "\# infeasible cases" and row_name != "\# solver failures" 
                 else f"{table[method][row_name]}" for method in table.keys()]
         row_value_strings[min_idx] = "\\textbf{" + row_value_strings[min_idx] + "}"
@@ -466,6 +534,7 @@ def create_latex_table(results):
     print("\t\t\\bottomrule")
 
     print("\t\\end{tabular}")
+    print("\n")
 
 def filter_results_for_fair_comparison(results):
     filtered_results = {}
@@ -536,7 +605,6 @@ filtered_results, idx_map = filter_results_for_fair_comparison(results)
 # plt.show()
 
 # print(f"OCP failure case: {np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0)}")
-
 optimality_comparison_extended_new_new(filtered_results, "OCP-30", 
                                    ["P2P", "OmgTools", "ARENA"], 
                                    ["orange", "black", "royalblue"], idx_map)
@@ -553,14 +621,22 @@ if SAVE_FIGURES:
     plt.savefig("python-benchmark/figures/densities.pdf")
 
 create_latex_table(results)
+create_latex_table(results, True)
 
 ## CORRIDOR EVALUATION
 optimality_comparison_extended_new_new(filtered_results, "OCP-30-EXTENDED-FATROP",
-                                ["P2P", "OmgTools", "ARENA", "OCP-30-FATROP"], 
-                                ["orange", "black", "royalblue", "red"], idx_map)
-filtered_results["OCP-30-FATROP"] = filtered_results["OCP-30-EXTENDED-FATROP"]
-show_histogram_densities(filtered_results, 
-    ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], 
-    ["royalblue", "royalblue", "red", "orange", "black"])
+                                ["ARENA-FATROP", "OCP-30-FATROP"], 
+                                ["royalblue", "red"], idx_map)
+# if SAVE_FIGURES:
+#     plt.savefig("python-benchmark/figures/optimality_comparison_corridor_extension.png", dpi=300)
+
+# filtered_results["OCP-30-FATROP"] = filtered_results["OCP-30-EXTENDED-FATROP"]
+# show_histogram_densities(filtered_results, 
+#     ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], 
+#     ["royalblue", "royalblue", "red", "orange", "black"])
+show_relative_difference_density(filtered_results, "OCP-30-EXTENDED-FATROP",
+    "OCP-30-FATROP", ["red"], idx_map)
+if SAVE_FIGURES:
+    plt.savefig("python-benchmark/figures/relative-reduction-corridor-extension.png", dpi=300)
 
 plt.show()

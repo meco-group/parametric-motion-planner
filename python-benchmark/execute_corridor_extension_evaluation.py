@@ -286,7 +286,7 @@ def visualize_results(results):
     plt.ylabel('\# of occurences\nin the benchmark')
     plt.tight_layout()
     plt.legend()
-    plt.savefig('python-benchmark/figures/corridor-evaluation/nb_corridors.png', dpi=300)
+    # plt.savefig('python-benchmark/figures/corridor-evaluation/nb_corridors.png', dpi=300)
 
     # make a histogram showing the area ratios
     # plt.figure()
@@ -425,7 +425,8 @@ create_latex_table(processed_results)
 visualize_results(processed_results)
 
 # visualize envrionments
-for i in [0, 21, 43, 154, 407, 473]:
+# for i in [0, 21, 43, 154, 407, 473]:
+for i in [260, 400, 158]:
     visualize_environment(envs[i], results["normal_corridors"][i], 
                           results["extended_corridors"][i], 
                           results["normal_ocp_trajs"][i], 

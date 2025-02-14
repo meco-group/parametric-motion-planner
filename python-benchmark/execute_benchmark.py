@@ -145,7 +145,6 @@ for method, method_name in zip(methods, method_names):
             except Exception as e:
                 print("\n\n\n\n\n\n\n\nPLANNER FAILED\n\n\n\n\n\n\n\n")
                 print(e)
-
                 pass
             # motion_planner.Plan()
             print("Done.")

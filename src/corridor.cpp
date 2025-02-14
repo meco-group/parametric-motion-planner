@@ -548,7 +548,7 @@ void CorridorSequence::InflateCorridors(){
     }
     bool made_change = true;
     int grow_counter = 0;
-    int max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 3;
+    int max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4;
 
     // grow corridors
     while (made_change && grow_counter < max_nb_grow_iterations){
@@ -569,7 +569,7 @@ void CorridorSequence::InflateCorridors(){
     }
 
     // grow first corridor even more
-    max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 3; grow_counter = 0;
+    max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4; grow_counter = 0;
     made_change = true;
     while (made_change && grow_counter < max_nb_grow_iterations){
         made_change = GrowCorridorSideways(0);
@@ -577,6 +577,19 @@ void CorridorSequence::InflateCorridors(){
         sequence_[0].FlipDirection();
         made_change = GrowCorridorSideways(0);
         sequence_[0].FlipDirection();
+        grow_counter++;
+    }
+
+    // grow last corridor even more
+    max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4; grow_counter = 0;
+    made_change = true;
+    int last_corridor_idx = nb_of_corridors_ - 1;
+    while (made_change && grow_counter < max_nb_grow_iterations){
+        made_change = GrowCorridorSideways(last_corridor_idx);
+
+        sequence_[last_corridor_idx].FlipDirection();
+        made_change = GrowCorridorSideways(last_corridor_idx);
+        sequence_[last_corridor_idx].FlipDirection();
         grow_counter++;
     }
 
