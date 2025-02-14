@@ -426,12 +426,13 @@ visualize_results(processed_results)
 
 # visualize envrionments
 # for i in [0, 21, 43, 154, 407, 473]:
-for i in [260, 400, 158]:
+for i in [158, 134, 264, 491]:
     visualize_environment(envs[i], results["normal_corridors"][i], 
                           results["extended_corridors"][i], 
                           results["normal_ocp_trajs"][i], 
                           results["extended_ocp_trajs"][i],
                           show=False)
-    plt.savefig(f'python-benchmark/figures/corridor-evaluation/env_{i}.png', dpi=300)
-    plt.close()
+    # plt.savefig(f'python-benchmark/figures/corridor-evaluation/env_{i}.png', dpi=300)
+    # plt.close()
+    plt.show()
     

@@ -184,8 +184,8 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     plt.xticks(my_xticks, my_xticks)
 
 def show_relative_difference_density(results, baseline_method, other_method, colors, idx_map, use_abs_error=False):
-    Tf_baseline = np.array(results[baseline_method]["Tf"])
-    Tf = np.array(results[other_method]["Tf"])
+    Tf_baseline = np.array(results[baseline_method]["Tf"]) + 0*np.array(results[baseline_method]["t_comp_total"]) / 1000
+    Tf = np.array(results[other_method]["Tf"]) + 0*np.array(results[other_method]["t_comp_total"]) / 1000
 
     # get indices where all methods are succesfull
     idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
@@ -200,7 +200,7 @@ def show_relative_difference_density(results, baseline_method, other_method, col
 
     # find the indices of the 3 largest rel_errors
     idx = np.argsort(rel_errors)
-    idx = idx[-3:]
+    idx = idx[-5:]
     print([idx_map[i] for i in idx])
     print(rel_errors[idx])
     print(Tf_baseline[idx])
@@ -507,6 +507,7 @@ def create_latex_table(results, corridor_evaluation=False):
     
     # print header (method names)
     method_names = list(table.keys())
+    print("\t\t& \\multicolumn{2}{c|}{$\\bm{C}$} & $\\bm{C}^+$ \\\\")
     print("\t\t" + " & ".join([""] + translate_method_names(method_names)) + " \\\\")
     print(f"\t\t\\midrule")
 
@@ -517,7 +518,9 @@ def create_latex_table(results, corridor_evaluation=False):
         min_idx = np.argmin(
             row_values[:-2] if not corridor_evaluation else row_values
         )
-        row_value_strings = [f"{table[method][row_name]:.2f}" 
+        row_value_strings = [(f"{table[method][row_name]:.2f}" 
+                if row_name != "avg $t_\mathrm{move}$ [s]"
+                else f"{table[method][row_name]:.3f}")
                 if row_name != "\# infeasible cases" and row_name != "\# solver failures" 
                 else f"{table[method][row_name]}" for method in table.keys()]
         row_value_strings[min_idx] = "\\textbf{" + row_value_strings[min_idx] + "}"
@@ -578,7 +581,7 @@ def translate_method_names(method_names):
         elif method == "OCP-30-FATROP":
             translation.append("OCP-F")
         elif method == "OCP-30-EXTENDED-FATROP":
-            translation.append("OCP-F+")
+            translation.append("OCP-F")
         else:
             translation.append(method)
 

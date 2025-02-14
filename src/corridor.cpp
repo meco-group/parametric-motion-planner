@@ -580,18 +580,18 @@ void CorridorSequence::InflateCorridors(){
         grow_counter++;
     }
 
-    // grow last corridor even more
-    max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4; grow_counter = 0;
-    made_change = true;
-    int last_corridor_idx = nb_of_corridors_ - 1;
-    while (made_change && grow_counter < max_nb_grow_iterations){
-        made_change = GrowCorridorSideways(last_corridor_idx);
+    // // grow last corridor even more
+    // max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4; grow_counter = 0;
+    // made_change = true;
+    // int last_corridor_idx = nb_of_corridors_ - 1;
+    // while (made_change && grow_counter < max_nb_grow_iterations){
+    //     made_change = GrowCorridorSideways(last_corridor_idx);
 
-        sequence_[last_corridor_idx].FlipDirection();
-        made_change = GrowCorridorSideways(last_corridor_idx);
-        sequence_[last_corridor_idx].FlipDirection();
-        grow_counter++;
-    }
+    //     sequence_[last_corridor_idx].FlipDirection();
+    //     made_change = GrowCorridorSideways(last_corridor_idx);
+    //     sequence_[last_corridor_idx].FlipDirection();
+    //     grow_counter++;
+    // }
 
     // remove irrelevant corridors
     if (!extended_corridors_mode_){ RemoveIrrelevantCorridors();}
@@ -655,7 +655,8 @@ bool CorridorSequence::GrowCorridorSideways(int idx){
     }
     // A corridor cannot become fat (wider than it's length) unless it is the 
     // first corridor (or we use extended corridors)
-    if (idx > 0 && !extended_corridors_mode_ &&
+    if (idx > 0 && idx < nb_of_corridors_-1 && 
+        !extended_corridors_mode_ &&
         (sequence_[idx-first_corridor_idx_].Direction().x() == 0 && 
             sequence_[idx].Width() >= sequence_[idx].Height() || 
         sequence_[idx].Direction().y() == 0 &&
