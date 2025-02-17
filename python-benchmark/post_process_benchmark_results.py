@@ -20,7 +20,7 @@ def latexify():
  
 latexify()
 
-SAVE_FIGURES = True
+SAVE_FIGURES = False
 
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
@@ -29,7 +29,7 @@ SAVE_FIGURES = True
 # with open('python-benchmark/files/results_large_double.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double_more_obstacles.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double_more_obstacles_10.json', 'r') as f:
-with open('python-benchmark/files/results_new_large_double_more_obstacles_10.json', 'r') as f:
+with open('python-benchmark/files/results_new_large_double_more_obstacles_25.json', 'r') as f:
     results = json.load(f)
 
 def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
@@ -445,7 +445,7 @@ def create_latex_table(results, corridor_evaluation=False):
     # - number of infeasible cases
 
     # filter out all entries where ocp fails
-    failures = np.array([False]*len(results["OCP-30"]["t_comp_solver"]))
+    failures = np.array([False]*len(results["OCP-30-FATROP"]["t_comp_solver"]))
     for method in results.keys():
         failures = np.logical_or(failures, np.array(results[method]["t_comp_solver"]) < 0)
         failures = np.logical_or(failures, np.array(results[method]["t_comp_total"]) < 0)
@@ -474,6 +474,7 @@ def create_latex_table(results, corridor_evaluation=False):
                  "max $t_\mathrm{total}$ [ms]", 
                  "avg $t_\mathrm{move}$ [s]", 
                  "total $t_\mathrm{move}$ [min]",
+                 "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]",
                  "\# infeasible cases",
                  "\# solver failures"]
 
@@ -493,6 +494,7 @@ def create_latex_table(results, corridor_evaluation=False):
             "max $t_\mathrm{total}$ [ms]": np.max(data[method]["t_total"][~failures]),
             "avg $t_\mathrm{move}$ [s]": np.mean(data[method]["Tf"][~failures]),
             "total $t_\mathrm{move}$ [min]": np.sum(data[method]["Tf"][~failures]/60.0),
+            "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]": 0.001*np.mean(data[method]["t_total"][~failures]) + np.mean(data[method]["Tf"][~failures]),
             "\# infeasible cases": np.sum(data[method]["infeasible"][~failures]),
             "\# solver failures": np.sum(data[method]["t_solver"] < 0),
         }
@@ -519,7 +521,7 @@ def create_latex_table(results, corridor_evaluation=False):
             row_values[:-2] if not corridor_evaluation else row_values
         )
         row_value_strings = [(f"{table[method][row_name]:.2f}" 
-                if row_name != "avg $t_\mathrm{move}$ [s]"
+                if row_name != "avg $t_\mathrm{move}$ [s]" and row_name != "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]"
                 else f"{table[method][row_name]:.3f}")
                 if row_name != "\# infeasible cases" and row_name != "\# solver failures" 
                 else f"{table[method][row_name]}" for method in table.keys()]
@@ -530,7 +532,7 @@ def create_latex_table(results, corridor_evaluation=False):
                 row_value_strings[i] = "-"
 
         row = [row_name] + row_value_strings
-        if r in [3, 5]:
+        if r in [3, 5, 6]:
             print("\t\t" + f" & ".join(row) + " \\\\ [1em]")
         else:
             print("\t\t" + f" & ".join(row) + " \\\\")
@@ -543,7 +545,7 @@ def filter_results_for_fair_comparison(results):
     filtered_results = {}
 
     # start by keeping all results
-    failures = np.array([False]*len(results["OCP-30"]["t_comp_solver"]))
+    failures = np.array([False]*len(results["OCP-30-FATROP"]["t_comp_solver"]))
 
     # print out indices where t_comp_solver < 0 for OCP-30-FATROP
     print(np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0))
@@ -591,9 +593,10 @@ def translate_method_names(method_names):
 # print out all infeasible cases
 for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTools"]:
     infeasibles = []
-    for i in range(len(results[method]["corridor_infeasibilities_detected"])):
-        if results[method]["corridor_infeasibilities_detected"][i]:
-            infeasibles.append(i)
+    if method in results.keys():
+        for i in range(len(results[method]["corridor_infeasibilities_detected"])):
+            if results[method]["corridor_infeasibilities_detected"][i]:
+                infeasibles.append(i)
     print(f"{method} infeasible cases ({len(infeasibles)}): {infeasibles}")
 
 import matplotlib.pyplot as plt
@@ -608,7 +611,7 @@ filtered_results, idx_map = filter_results_for_fair_comparison(results)
 # plt.show()
 
 # print(f"OCP failure case: {np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0)}")
-optimality_comparison_extended_new_new(filtered_results, "OCP-30", 
+optimality_comparison_extended_new_new(filtered_results, "OCP-30-FATROP", 
                                    ["P2P", "OmgTools", "ARENA"], 
                                    ["orange", "black", "royalblue"], idx_map)
 if SAVE_FIGURES:

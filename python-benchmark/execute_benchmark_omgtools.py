@@ -8,7 +8,7 @@ import json
 # file_name_appendix = "_double"
 # file_name_appendix = "_large"
 # file_name_appendix = "_large_double"
-file_name_appendix = "_large_double_more_obstacles_10"
+file_name_appendix = "_large_double_more_obstacles_25"
 
 # create containers for results
 results = json.load(open('python-benchmark/files/results_new' + file_name_appendix + '.json'))

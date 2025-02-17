@@ -68,8 +68,8 @@ void Parametrization::PrepareOptiInstances(const UpdateToken&,
 						  casadi::Dict& opts_solver){
 	std::cout << "preparing ARENA opti instances..." << std::endl;
 	std::string movable_points_code;
-	for (int i = 1; i < 10; i++){
-		// std::cout << "preparing opti instances for " << i << " corridors" << std::endl;
+	for (int i = 1; i < 11; i++){
+		std::cout << "preparing opti instances for " << i << " corridors" << std::endl;
 		for (int nb_movable_waypoints = 0; nb_movable_waypoints < std::pow(2,i-1); nb_movable_waypoints++){
 			movable_points_code = std::bitset<32>(nb_movable_waypoints).to_string();
 			movable_points_code = movable_points_code.substr(32 - (i-1));

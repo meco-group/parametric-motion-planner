@@ -395,7 +395,7 @@ def create_latex_table(processed_results):
 
 
 # extract data
-file_name_appendix = "_large_double_more_obstacles_10"
+file_name_appendix = "_large_double_more_obstacles_25"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # construct motion planner

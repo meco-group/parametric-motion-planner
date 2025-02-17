@@ -196,7 +196,7 @@ def plot_actual_with_colorbar(time, actual, setpoint, name, ylabel, start_time=0
     plt.figure(figsize=(6, 3))
     plt.scatter(time[ind]-time[ind][0], actual[ind], c=tracking_error[ind], cmap='plasma', marker='.')
     plt.xlim(0, time[ind][-1]-time[ind][0])
-    plt.colorbar(label='Signed tracking error [mm]')
+    plt.colorbar(label='Signed tracking\nerror [mm]')
     plt.xlabel('time [ms]')
     plt.ylabel(ylabel)
     plt.tight_layout()
@@ -219,16 +219,13 @@ def plot_actual_with_colorbar(time, actual, setpoint, name, ylabel, start_time=0
     
 # plot_actual_vs_setpoint(time, np.sqrt((actual_px-true_setpoint_px)**2 + (actual_py-true_setpoint_py)**2), 0*actual_px, 'distance', 'distance [mm]', 44280, 47100)
 tracking_error_in_plane_while_moving = np.sqrt((actual_px[4428:4710]-true_setpoint_px[4428:4710])**2 + (actual_py[4428:4710]-true_setpoint_py[4428:4710])**2)
-print(tracking_error_in_plane_while_moving)
-print(np.mean(tracking_error_in_plane_while_moving))
-exit()
 
-# plot_actual_with_colorbar(time, actual_px, true_setpoint_px, 'px', 'x position [mm]', 44000, 47200)
-# plt.savefig('experimental-validation/figures/x_position_tracking_error.png', dpi=300)
-# plot_actual_with_colorbar(time, actual_py, true_setpoint_py, 'py', 'y position [mm]', 44000, 47200)
-# plt.savefig('experimental-validation/figures/y_position_tracking_error.png', dpi=300)
-# plot_actual_with_colorbar(time, pz, 0*pz+3, 'py', 'z position [mm]', 44000, 47200)
-# plt.savefig('experimental-validation/figures/z_position_tracking_error.png', dpi=300)
+plot_actual_with_colorbar(time, actual_px, true_setpoint_px, 'px', 'x position [mm]', 44000, 47200)
+plt.savefig('experimental-validation/figures/x_position_tracking_error.png', dpi=300)
+plot_actual_with_colorbar(time, actual_py, true_setpoint_py, 'py', 'y position [mm]', 44000, 47200)
+plt.savefig('experimental-validation/figures/y_position_tracking_error.png', dpi=300)
+plot_actual_with_colorbar(time, pz, 0*pz+3, 'py', 'z position [mm]', 44000, 47200)
+plt.savefig('experimental-validation/figures/z_position_tracking_error.png', dpi=300)
 
 from matplotlib.collections import LineCollection
 actual_px = 0.001*actual_px

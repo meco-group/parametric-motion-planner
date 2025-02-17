@@ -13,7 +13,7 @@ from load_random_environments import extract_data
 # file_name_appendix = "_double"
 # file_name_appendix = "_large"
 # file_name_appendix = "_large_double"
-file_name_appendix = "_large_double_more_obstacles_10"
+file_name_appendix = "_large_double_more_obstacles_25"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)

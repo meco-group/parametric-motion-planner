@@ -23,32 +23,63 @@ USE_CELL_POSITIONS = False
 # create random parameters and environments
 N = 500
 env = pmp.Environment(15, 15, 0.12, 0.12)
-point = pmp.Point2Dd(0, 0)
-for i in range(N):
+start = pmp.Point2Dd(0, 0)
+dest = pmp.Point2Dd(0, 0)
+p = pmp.Parameters(2.0, 6.0, 0.115, 0.115, 0.001)
+mp = pmp.MotionPlanner(pmp.PlannerMethod.OCP, p, env)
+counter = 0
+max_normal_corridors = -1
+max_extended_corridors = -1
+while counter < N:
     # randomize velocity and acceleration limits
     v_max = random.uniform(v_max_lb, v_max_ub)
     a_max = random.uniform(a_max_lb, a_max_ub)
     params = pmp.Parameters(v_max, a_max, 0.115, 0.115, 0.001)
-    j['params'].append(json.loads(params.ToJson()))
 
     # randomize obstacles
-    env.AddRandomObstacles(0.10)
-    j['envs'].append(json.loads(env.ToJson()))
+    env.AddRandomObstacles(0.25)
 
     # randomize start and destination points
     if USE_CELL_POSITIONS:
-        env.GetRandomFreeCellPosition(point)
-        j['starts'].append([point.x(), point.y()])
-        env.GetRandomFreeCellPosition(point)
-        j['dests'].append([point.x(), point.y()])
+        env.GetRandomFreeCellPosition(start)
+        env.GetRandomFreeCellPosition(dest)
     else:
-        env.GetRandomFreeVehiclePosition(point, params.GetVehWidth(), 
-                                        params.GetVehHeight(), params.GetMargin())
-        j['starts'].append([point.x(), point.y()])
-        env.GetRandomFreeVehiclePosition(point, params.GetVehWidth(),
-                                        params.GetVehHeight(), params.GetMargin())
-        j['dests'].append([point.x(), point.y()])
+        env.GetRandomFreeVehiclePosition(start, params.GetVehWidth(), 
+                                    params.GetVehHeight(), params.GetMargin())
+        env.GetRandomFreeVehiclePosition(dest, params.GetVehWidth(),
+                                    params.GetVehHeight(), params.GetMargin())
 
+    # check if a path exists
+    mp.SetStart(start); mp.SetDest(dest)
+    path_exists = False
+    try:
+        mp.SetCorridorExtendedMode(True)
+        mp.UpdateCorridorSequence()
+        extended_len = len(mp.GetCorridorSequence())
+
+        mp.SetCorridorExtendedMode(False)
+        mp.UpdateCorridorSequence()
+        normal_len = len(mp.GetCorridorSequence())
+
+        assert normal_len <= 10
+
+        max_normal_corridors = max(max_normal_corridors, normal_len)
+        max_extended_corridors = max(max_extended_corridors, extended_len)
+
+        path_exists = True
+    except:
+
+        pass
+
+    if path_exists:
+        j['params'].append(json.loads(params.ToJson()))
+        j['envs'].append(json.loads(env.ToJson()))
+        j['starts'].append([start.x(), start.y()])
+        j['dests'].append([dest.x(), dest.y()])
+        counter += 1
+
+print(f"Max normal corridors:   {max_normal_corridors}")
+print(f"Max extended corridors: {max_extended_corridors}")
 
 # write to file
 # file_appendix = "_cell"
@@ -56,7 +87,7 @@ for i in range(N):
 # file_appendix = "_large"
 # file_appendix = "_large_double"
 # file_appendix = "_large_double_more_obstacles" # 0.15 obstacle probability
-file_appendix = "_large_double_more_obstacles_10"
+file_appendix = "_large_double_more_obstacles_25"
         
 with open('python-benchmark/files/random_environments' + file_appendix + '.json', 'w') as f:
     json.dump(j, f, indent=4)

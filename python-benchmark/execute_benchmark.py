@@ -13,7 +13,7 @@ from load_random_environments import extract_data
 # file_name_appendix = "_large"
 # file_name_appendix = "_large_double"
 # file_name_appendix = "_large_double_more_obstacles"
-file_name_appendix = "_large_double_more_obstacles_10"
+file_name_appendix = "_large_double_more_obstacles_25"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
@@ -35,7 +35,7 @@ method_names = ["OCP-30",
                 "ARENA-FATROP",
                 "OCP-30-FATROP", 
                 "OCP-30-EXTENDED-FATROP"]
-default_selection = [1, 0, 0, 0, 1, 1, 1, 1, 1]
+default_selection = [0, 0, 0, 0, 1, 1, 1, 1, 1]
 arena_selection = [0, 0, 0, 0, 0, 0, 1, 0, 0]
 extended_selection = [0, 0, 0, 0, 0, 0, 0, 0, 1]
 assert len(methods) == len(method_names)
@@ -46,8 +46,8 @@ my_selection = default_selection
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
+motion_planner.SetSolver("ipopt", False)
 motion_planner.SetJustInTimePreparationMode(False)
-# motion_planner.SetSolver("ipopt")
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
 
@@ -95,11 +95,14 @@ for method, method_name in zip(methods, method_names):
     else:
         motion_planner.SetCorridorExtendedMode(False)
 
-    # set the correct solver
-    if method_name.endswith("FATROP"):
+    if method_name == "ARENA-FATROP":
         motion_planner.SetSolver("fatrop", True)
-    else:
-        motion_planner.SetSolver("ipopt", True)
+
+    # set the correct solver
+    # if method_name.endswith("FATROP"):
+    #     motion_planner.SetSolver("fatrop", False)
+    # else:
+    #     motion_planner.SetSolver("ipopt", False)
 
     for i in range(len(envs)):
         print(f"\n\nRunning environment {i} with method {method_name}")
