@@ -1115,6 +1115,8 @@ void MotionPlanner::PlanConcatenatedSections(bool recursive){
     // Concatenate the two trajectories
     if (!silent_mode_){std::cout << "Planning concatenated sections: concatenating trajectories." << std::endl;}
     last_solution_.Concatenate(second_part_of_traj);
+
+    // TODO: Also concatenate tx_sol and ty_sol!
 }
 
 bool MotionPlanner::EliminateSubOptimalParametrization(){
