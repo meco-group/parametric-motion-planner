@@ -878,7 +878,7 @@ bool CorridorSequence::RemoveIrrelevantCorridors(){
     Corridor* current_corridor;
     Corridor* next_corridor;
     Corridor overlap;
-    for (int i = nb_of_corridors_ - 2; i >= 1; i--){
+    for (int i = nb_of_corridors_ - 2; i >= 0; i--){
         previous_corridor = &sequence_[i-1];
         current_corridor = &sequence_[i];
         next_corridor = &sequence_[i+1];
