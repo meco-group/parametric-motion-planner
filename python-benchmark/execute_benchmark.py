@@ -13,7 +13,7 @@ from load_random_environments import extract_data
 # file_name_appendix = "_large"
 # file_name_appendix = "_large_double"
 # file_name_appendix = "_large_double_more_obstacles"
-file_name_appendix = "_large_double_more_obstacles_25"
+file_name_appendix = "_large_double_more_obstacles_10"
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # List all methods to benchmark
@@ -23,6 +23,7 @@ methods = [pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.OCP, 
            pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.P2P,
+           pmp.PlannerMethod.ARENA,
            pmp.PlannerMethod.ARENA, 
            pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.OCP]
@@ -33,15 +34,16 @@ method_names = ["OCP-30",
                 "ARENA", 
                 "P2P",
                 "ARENA-FATROP",
+                "ARENA-EXTENDED-FATROP",
                 "OCP-30-FATROP", 
                 "OCP-30-EXTENDED-FATROP"]
-default_selection = [0, 0, 0, 0, 1, 1, 1, 1, 1]
-arena_selection = [0, 0, 0, 0, 0, 0, 1, 0, 0]
-extended_selection = [0, 0, 0, 0, 0, 0, 0, 0, 1]
+default_selection = [0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+arena_selection = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+extended_selection = [0, 0, 0, 0, 0, 0, 0, 1, 0, 1]
 assert len(methods) == len(method_names)
 
-my_selection = default_selection
-# my_selection = arena_selection
+# my_selection = default_selection
+my_selection = arena_selection
 # my_selection = extended_selection
 
 # Create motion planner
@@ -216,5 +218,5 @@ for method, method_name in zip(methods, method_names):
 
 # store results as a json
 import json
-with open('python-benchmark/files/results_new' + file_name_appendix + '.json', 'w') as f:
+with open('python-benchmark/files/results_new_new' + file_name_appendix + '.json', 'w') as f:
     json.dump(results, f, indent=4)

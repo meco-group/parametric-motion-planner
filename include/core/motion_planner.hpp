@@ -235,8 +235,8 @@ class MotionPlanner{
         Dict opts_solver_;
         int print_level_ = 0;
         int max_iter_ = 1000;//100;
-        bool just_in_time_preparation_mode_ = true;
-        bool silent_mode_ = true;
+        bool just_in_time_preparation_mode_ = false;
+        bool silent_mode_ = false;
 
         std::vector<std::vector<Point2D<double>>> emergency_trajs_1_;
         std::vector<std::vector<Point2D<double>>> emergency_trajs_2_;

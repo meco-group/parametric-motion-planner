@@ -69,10 +69,13 @@ def get_variance(time, x, y, z):
     result = {
         "x_mean" : np.mean(x_rest),
         "x_variance" : np.var(x_rest),
+        "x_std" : np.std(x_rest),
         "y_mean" : np.mean(y_rest),
         "y_variance" : np.var(y_rest),
+        "y_std" : np.std(y_rest),
         "z_mean" : np.mean(z_rest),
         "z_variance" : np.var(z_rest),
+        "z_std" : np.std(z_rest),
     }
     return result
 
@@ -80,9 +83,9 @@ def get_statistical_latex_table(stats_pos, stats_vel, stats_angle):
     # start table
     table = "\n\\begin{table}\n"
     table += "\t\\centering\n"
-    table += "\t\\caption{Variance of measurements noise for a stationary, hovering mover}\n"
+    table += "\t\\caption{Standard deviation of measurements noise for a stationary, hovering mover}\n"
     table += "\t\\label{tab:variance}\n"
-    table += "\t\\subcaption{Variance of position and velocity measurements}\n"
+    table += "\t\\subcaption{Standard deviation of position and velocity measurements}\n"
     table += "\t\\begin{tabular}{r|ccc}\n"
     table += "\t\t\\toprule\n"
 
@@ -91,17 +94,17 @@ def get_statistical_latex_table(stats_pos, stats_vel, stats_angle):
     table += "\t\t\\midrule\n"
 
     # position row
-    table += "\t\tposition [mm$^2$]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_pos["x_variance"], stats_pos["y_variance"], stats_pos["z_variance"])
+    table += "\t\tposition [mm]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_pos["x_std"], stats_pos["y_std"], stats_pos["z_std"])
 
     # velocity row
-    table += "\t\tvelocity [mm$^2/s^2$]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_vel["x_variance"], stats_vel["y_variance"], stats_vel["z_variance"])
+    table += "\t\tvelocity [mm/s]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_vel["x_std"], stats_vel["y_std"], stats_vel["z_std"])
     table += "\t\t\\bottomrule\n"
     table += "\t\\end{tabular}\n\n"
     # end first tabular
 
     # start second tabular
     table += "\t\\vspace{1em}\n"
-    table += "\t\\subcaption{Variance of attitude measurements}\n"
+    table += "\t\\subcaption{Standard deviation of attitude measurements}\n"
     table += "\t\\begin{tabular}{r|ccc}\n"
     table += "\t\t\\toprule\n"
 
@@ -110,7 +113,7 @@ def get_statistical_latex_table(stats_pos, stats_vel, stats_angle):
     table += "\t\t\\midrule\n"
 
     # angle row
-    table += "\t\tvariance on angle [degree$^2$]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_angle["x_variance"], stats_angle["y_variance"], stats_angle["z_variance"])
+    table += "\t\tStandard deviation of angle [degree]  & {:.3e} & {:.3e} & {:.3e} \\\\\n".format(stats_angle["x_std"], stats_angle["y_std"], stats_angle["z_std"])
 
     # end table
     table += "\t\t\\bottomrule\n"

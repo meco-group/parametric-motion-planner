@@ -28,8 +28,8 @@ SAVE_FIGURES = False
 # with open('python-benchmark/files/results_large.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double_more_obstacles.json', 'r') as f:
-# with open('python-benchmark/files/results_large_double_more_obstacles_10.json', 'r') as f:
-with open('python-benchmark/files/results_new_large_double_more_obstacles_25.json', 'r') as f:
+with open('python-benchmark/files/results_new_new_large_double_more_obstacles_10.json', 'r') as f:
+# with open('python-benchmark/files/results_new_large_double_more_obstacles_25.json', 'r') as f:
     results = json.load(f)
 
 def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
@@ -481,7 +481,7 @@ def create_latex_table(results, corridor_evaluation=False):
     # create the table
     table = {}
     if corridor_evaluation:
-        methods = ["ARENA-FATROP", "OCP-30-FATROP", "OCP-30-EXTENDED-FATROP"]
+        methods = ["ARENA-FATROP", "OCP-30-FATROP", "ARENA-EXTENDED-FATROP", "OCP-30-EXTENDED-FATROP"]
     else:
         methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P"]
     
@@ -589,6 +589,78 @@ def translate_method_names(method_names):
 
     return translation
 
+def visualize_avg_moving_time(results, methods, colors):
+    plt.figure(figsize=(6,3))
+
+    Tfs = [np.mean(np.array(results["ARENA-FATROP"]["Tf"])),
+           np.mean(np.array(results["OCP-30-FATROP"]["Tf"])),
+           np.mean(np.array(results["OmgTools"]["Tf"])),
+           np.mean(np.array(results["P2P"]["Tf"]))]
+    labels = ["PMP-F", "OCP-F", "OmgTools", "P2P"]
+    colors = ["royalblue", "red", "black", "orange"]
+
+    # create horizontal bar plot
+    plt.barh(labels, Tfs, color=colors)
+
+    # add the values to the bars
+    # for i in range(len(labels)):
+    #     plt.text(Tfs[i], i, f"{Tfs[i]:.2f}", ha='left', va='center')
+
+    plt.xlabel("avg $t_{\mathrm{move}}$ [s]")
+    plt.ylabel("Method")
+    plt.xlim([0, 1.1*np.max(Tfs)])
+    plt.tight_layout()
+
+    plt.savefig("python-benchmark/figures/avg_moving_time_bars.png", dpi=300)
+
+def visualize_avg_solver_and_total_time(results, methods, colors):
+    t_solvers = [np.mean(np.array(results["ARENA-FATROP"]["t_comp_solver"])),
+                 np.mean(np.array(results["OCP-30-FATROP"]["t_comp_solver"])),
+                 np.mean(np.array(results["OmgTools"]["t_comp_solver"]))]
+    t_total = [np.mean(np.array(results["ARENA-FATROP"]["t_comp_total"])),
+                np.mean(np.array(results["OCP-30-FATROP"]["t_comp_total"])),
+                np.mean(np.array(results["OmgTools"]["t_comp_total"])),
+                np.mean(np.array(results["P2P"]["t_comp_total"]))]
+    
+    labels = ["PMP-F", "OCP-F", "OmgTools", "P2P"]
+    colors = ["royalblue", "red", "black", "orange"]
+
+    # create horizontal bar plot for solver time
+    plt.figure(figsize=(6,3))
+    plt.barh(labels[:-1], t_solvers, color=colors, label="Solver")
+
+    # add the values to the bars
+    # for i in range(len(labels[:-1])):
+    #     plt.text(t_solvers[i]*1.05, i, f"{t_solvers[i]:.2f}", ha='left', va='center', fontsize=15)
+
+    plt.xlabel("avg $t_{\mathrm{solver}}$ [ms]")
+    plt.ylabel("Method")
+    plt.xlim([0, 1.2*np.max(t_solvers)])
+
+    # plt.legend(loc='upper right', ncol=2)
+    plt.tight_layout()
+
+    plt.savefig("python-benchmark/figures/avg_solver_time_bars.png", dpi=300)
+
+    # create horizontal bar plot for total time
+    plt.figure(figsize=(6,3))
+    plt.barh(labels, t_total, color=colors, label="Total")
+
+    # add the values to the bars
+    for i in range(len(labels)):
+        plt.text(t_total[i], i, f"{t_total[i]:.2f}", ha='left', va='center')
+
+    plt.xlabel("avg $t_{\mathrm{total}}$ [ms]")
+    plt.ylabel("Method")
+    plt.xlim([0, 1.1*np.max(t_total)])
+
+    plt.legend(loc='upper right', ncol=2)
+    plt.tight_layout()
+
+    plt.savefig("python-benchmark/figures/avg_total_time_bars.png", dpi=300)
+
+    # plt.show()
+
 
 # print out all infeasible cases
 for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTools"]:
@@ -645,4 +717,7 @@ show_relative_difference_density(filtered_results, "OCP-30-EXTENDED-FATROP",
 if SAVE_FIGURES:
     plt.savefig("python-benchmark/figures/relative-reduction-corridor-extension.png", dpi=300)
 
-plt.show()
+visualize_avg_moving_time(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
+visualize_avg_solver_and_total_time(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
+
+# plt.show()

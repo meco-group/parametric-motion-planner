@@ -704,12 +704,42 @@ void TestEmergencyBraking(){
     my_motion_planner.ComputeEmergencyBrakingTrajectory();
 }
 
+void TestCorridorTimeDimension(){
+    Environment environment = Environment(20, 20, 0.12, 0.12);
+    environment.AddRandomObstacles(0.25);
+    Parameters params = Parameters();
+    MotionPlanner my_motion_planner = MotionPlanner(params, environment);
+    Point2D<double> start, dest;
+    double max_obst_density = 0.25;
+
+    int nb_runs = 500;
+    for (int i = 0; i < nb_runs; i++){
+        std::cout << "setting start, dest and start vel" << std::endl;
+
+        // set the obstacle density as a random number between 0 and max_obst_density
+        environment.AddRandomObstacles(
+            ((double) rand() / (RAND_MAX)) * max_obst_density);
+        params.SetAmax(2.0 + ((double) rand() / (RAND_MAX)) * 4.0);
+        params.SetVmax(0.5 + ((double) rand() / (RAND_MAX)) * 1.5);
+
+        environment.GetRandomFreeVehiclePosition(start,
+            params.GetVehWidth(), params.GetVehHeight(), params.GetMargin());
+        environment.GetRandomFreeVehiclePosition(dest,
+            params.GetVehWidth(), params.GetVehHeight(), params.GetMargin());
+        my_motion_planner.SetStart(start);
+        my_motion_planner.SetDest(dest);
+        my_motion_planner.SetStartVel(Point2D<double>(0,0));
+        my_motion_planner.PlanSafely();
+        my_motion_planner.DumpToJson("example_trajectory" + str(i) + ".json");
+    }
+}
+
 int main(int argc, char *argv[]){
     int nb_runs = 1;
     if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
         nb_runs = std::max(1, atoi(argv[2]));
     }
-    SolveRandomProblem(nb_runs);
+    // SolveRandomProblem(nb_runs);
     // SolveDynamicProblem();
     // TestRandomVehiclePositions();
     // SolveFatropFailureCase();
@@ -719,4 +749,5 @@ int main(int argc, char *argv[]){
     // TestTrajectoryCollisionCheck();
     // TestCollisionResolution();
     // TestEmergencyBraking();
+    TestCorridorTimeDimension();
 }

@@ -24,7 +24,8 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
 	method_ = method;
 
     // SetSolver("ipopt");
-    SetSolver("fatrop", true);
+    // SetSolver("fatrop", true);
+    SetSolver(solver_name_, true);
 
 	// P2P method attributes
 	int max_nb_corridors = corridor_sequence_.MaxNbCorridors();
@@ -271,6 +272,7 @@ void MotionPlanner::SetSolver(std::string solver_name,
 	opts_solver_["max_iter"] = method_ == OCP ? 1000 : max_iter_;
     // if (silent_mode_){ opts_casadi_["print_time"] = false;}
 
+    std::cout << "jit: " << just_in_time_preparation_mode_ << std::endl;
     if (!just_in_time_preparation_mode_ && update_prepared_opti_instances){
         parametrization_.PrepareOptiInstances(parametrization_update_token_,
                                             solver_name_, opts_casadi_,
