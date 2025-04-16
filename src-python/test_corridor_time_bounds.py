@@ -56,6 +56,342 @@ def optimize_arc_1d(p0, pf, v0, v_max, a_max):
 
     return sum(t_sol_vector)
 
+def sample_const_accel(p0, v0, a, t0, tf, n=1000):
+    t_sol = np.linspace(t0, tf, n)
+    p_sol = p0 + v0 * t_sol + 0.5 * a * t_sol**2
+    v_sol = v0 + a * t_sol
+    return p_sol, v_sol, t_sol
+
+def solve_BVP_1D_min_time(p0, pf, v0, vf, v_max, a_max):
+    pf_rel = abs(pf - p0)
+    
+    if pf - p0 < 0:
+        v0 = -v0
+        vf = -vf
+
+    # assume -v_max <= v0 <= v_max
+    #   and  -v_max <= vf <= v_max
+
+    V1 = np.sqrt(2 * a_max * (pf_rel + np.abs(vf)**2/(2*a_max)))
+    V2 = np.sqrt(2 * a_max * (pf_rel + np.abs(v0)**2/(2*a_max)))
+    if v0 >= V1:
+        # we will overshoot the target
+        # print("case overshoot")
+        phat = (v0**2 - vf**2) / (4 * a_max) + pf_rel/2
+        temp = np.sqrt(2*(v0**2 + vf**2 - 2*a_max*pf_rel))
+        vhat = -temp/2
+        t1 = v0/a_max + temp/(2*a_max)
+        t2 = 0
+        t3 = (2*vf + temp)/(2*a_max)
+        
+        a1 = -a_max
+        a2 = a_max
+
+        if vhat < -v_max:
+            delta_t = -(vhat + v_max) / a_max
+            t1 = t1 - delta_t
+            vhat = v_max
+            phat = v0 * t1 - 0.5 * a_max * t1**2
+            t3 = t3 - delta_t
+            t2 = np.abs(pf_rel - vf*t3 + a_max*t3**2/2 - phat)/np.abs(vhat)
+    elif vf >= V2:
+        # we will undershoot the starting position
+        # print("case undershoot")
+        phat = (v0**2 - vf**2) / (4 * a_max) + pf_rel/2
+        temp = np.sqrt(2*(v0**2 + vf**2 - 2*a_max*pf_rel))
+        vhat = -temp/2
+        t1 = v0/a_max + temp/(2*a_max)
+        t2 = 0
+        t3 = (2*vf + temp)/(2*a_max)
+        
+        a1 = -a_max
+        a2 = a_max
+
+        if vhat < -v_max:
+            delta_t = -(vhat + v_max) / a_max
+            t1 = t1 - delta_t
+            vhat = v_max
+            phat = v0 * t1 - 0.5 * a_max * t1**2
+            t3 = t3 - delta_t
+            t2 = np.abs(pf_rel - vf*t3 + a_max*t3**2/2 - phat)/np.abs(vhat)
+
+    else:
+        # we do not overshoot or undershoot
+        # print("case basic")
+        phat = (vf**2 - v0**2) / (4 * a_max) + pf_rel/2
+        temp = np.sqrt(2*(v0**2 + vf**2 + 2*a_max*pf_rel))
+        vhat = temp/2
+        t1 = -v0/a_max + temp/(2*a_max)
+        t2 = 0
+        t3 = (-2*vf + temp)/(2*a_max)
+       
+        a1 = a_max
+        a2 = -a_max
+
+        if vhat > v_max:
+            delta_t = (vhat - v_max) / a_max
+            t1 = t1 - delta_t
+            vhat = v_max
+            phat = v0 * t1 + 0.5 * a_max * t1**2
+            t3 = t3 - delta_t
+            t2 = np.abs(pf_rel - vf*t3 - a_max*t3**2/2 - phat)/np.abs(vhat)
+
+    if pf < p0:
+        a1 = -a1
+        a2 = -a2
+        v0 = -v0
+        vf = -vf
+        vhat = -vhat
+        phat = -phat
+    phat = p0 + phat
+        
+    return {
+        'T': t1 + t2 + t3,
+        'tt': [t1, t2, t3],
+        'aa': [a1, 0, a2],
+        'phat': phat,
+        'vhat': vhat,
+        'p0': p0,
+        'pf': pf,
+        'v0': v0,
+        'vf': vf,
+        'v_max': v_max,
+        'a_max': a_max,
+    }
+
+def solve_BVP_1D_fixed_time(p0, pf, v0, vf, T, v_max, a_max):
+    # solve minimum-time problem
+    result_min_time = solve_BVP_1D_min_time(p0, pf, v0, vf, v_max, a_max)
+
+    if result_min_time['T'] > T:
+        raise ValueError("Infeasible fixed-time problem: T < T*")
+
+    # solve fixed-time problem
+    # if we reach zero velocity, insert a waiting time there
+    if np.sign(v0) != np.sign(result_min_time['vhat']):
+        # insert waiting time in first arc
+        t1 = -v0/result_min_time['aa'][0]
+        t2 = T - result_min_time['T']
+        t3 = result_min_time['tt'][0] - t1
+
+        return {
+            'T': T,
+            'tt': [t1, t2, t3] + result_min_time['tt'][1:],
+            'aa': [result_min_time['aa'][0], 0, result_min_time['aa'][0]] + result_min_time['aa'][1:],
+            'phat': result_min_time['phat'],
+            'vhat': result_min_time['vhat'],
+            'p0': p0,
+            'pf': pf,
+            'v0': v0,
+            'vf': vf,
+            'v_max': v_max,
+            'a_max': a_max,
+        }
+    
+    if np.sign(vf) != np.sign(result_min_time['vhat']):
+        # insert waiting time in last arc
+        t3 = np.abs(-vf/result_min_time['aa'][-1])
+        assert t3 >= 0
+        t2 = T - result_min_time['T']
+        t1 = result_min_time['tt'][-1] - t3
+
+        return {
+            'T': T,
+            'tt': result_min_time['tt'][:-1] + [t1, t2, t3],
+            'aa': result_min_time['aa'][:-1] + [result_min_time['aa'][-1], 0, result_min_time['aa'][-1]],
+            'phat': result_min_time['phat'],
+            'vhat': result_min_time['vhat'],
+            'p0': p0,
+            'pf': pf,
+            'v0': v0,
+            'vf': vf,
+            'v_max': v_max,
+            'a_max': a_max,
+        }
+    
+    # decrease a_max
+    a_max_lower = 0
+    a_max_upper = result_min_time['a_max']
+    a_values = []
+    T_values = []
+    while np.abs(result_min_time['T'] - T) > 1.0e-6 and a_max_upper - a_max_lower > 1.0e-10:
+        # print(f"refining value of a_max: {a_max_lower:.3f} - {a_max_upper:.3f} ({result_min_time['T'] - T:.4f})")
+        a_max = (a_max_lower + a_max_upper) / 2
+        result_min_time = solve_BVP_1D_min_time(p0, pf, v0, vf, v_max, a_max)
+        a_values.append(a_max)
+        T_values.append(result_min_time['T'])
+        if result_min_time['T'] > T:
+            a_max_lower = a_max
+        else:
+            a_max_upper = a_max
+
+    if np.abs(result_min_time['T'] - T) > 1.0e-6:
+        a_max = a_max_lower
+        result_min_time = solve_BVP_1D_min_time(p0, pf, v0, vf, v_max, a_max)
+
+    # # create a scatter plot where color shows index in the list
+    # plt.scatter(a_values, T_values, c=range(len(a_values)), cmap='viridis')
+
+    return result_min_time
+
+def get_intermediate_points(traj):
+    pp_intermediate = [traj['p0']]
+    vv_intermediate = [traj['v0']]
+    pp_traj = []; vv_traj = []; tt_traj = []
+    for k in range(len(traj['tt'])):
+        p_curr = pp_intermediate[-1]
+        v_curr = vv_intermediate[-1]
+        t_curr = sum(traj['tt'][:k])
+        pp, vv, tt = sample_const_accel(p_curr, v_curr, traj['aa'][k], 0, traj['tt'][k])
+        pp_traj += list(pp)
+        vv_traj += list(vv)
+        for t in tt:
+            tt_traj.append(t + t_curr)
+        pp_intermediate.append(pp[-1])
+        vv_intermediate.append(vv[-1])
+    
+    return pp_traj, vv_traj, tt_traj
+
+
+def visualize_traj(traj, PHASE_PLOT=True, TIME_PLOT=True, BLOCK=True):
+    # get intermediate points
+    pp_traj, vv_traj, tt_traj = get_intermediate_points(traj)
+    
+    if PHASE_PLOT:
+        plt.figure()
+
+        plt.axvline(0, color='k')
+        plt.axhline(0, color='k')
+        plt.axhline(-traj['v_max'], color='k', linestyle='--')
+        plt.axhline(traj['v_max'], color='k', linestyle='--')
+
+        plt.plot(pp_traj, vv_traj, 'b')
+
+        plt.plot([traj['p0']], [traj['v0']], 'ro')
+        plt.plot([traj['pf']], [traj['vf']], 'ro', markerfacecolor='none')
+        plt.xlim([-25, 25])
+        plt.ylim([-15, 15])
+        
+        # set equal data aspect
+        plt.gca().set_aspect('equal', adjustable='box')
+
+    if TIME_PLOT:
+        plt.figure()
+        plt.plot(tt_traj, pp_traj, 'b', label='position')
+        plt.plot(tt_traj, vv_traj, 'r', label='velocity')
+        plt.legend()
+
+    if PHASE_PLOT or TIME_PLOT:
+        plt.show(block=BLOCK)
+
+def visualize_traj_2D(traj_2d, TIME_PLOT=True, SHOW=True, fig=None):
+    # get intermediate points
+    pp_traj_x, vv_traj_x, tt_traj_x = get_intermediate_points(traj_2d['x'])
+    pp_traj_y, vv_traj_y, tt_traj_y = get_intermediate_points(traj_2d['y'])
+
+    tt = np.linspace(0, traj_2d['x']['T'], 500)
+    px = np.interp(tt, tt_traj_x, pp_traj_x)
+    py = np.interp(tt, tt_traj_y, pp_traj_y)
+    vx = np.interp(tt, tt_traj_x, vv_traj_x)
+    vy = np.interp(tt, tt_traj_y, vv_traj_y)
+
+    if fig is None:
+        plt.figure()
+    else:
+        plt.figure(fig.number)
+    plt.plot(px, py, 'b')
+    plt.plot(traj_2d['x']['p0'], traj_2d['y']['p0'], 'ro')
+    plt.plot(traj_2d['x']['pf'], traj_2d['y']['pf'], 'ro', markerfacecolor='none')
+    plt.quiver(traj_2d['x']['p0'], traj_2d['y']['p0'],
+                traj_2d['x']['v0'], traj_2d['y']['v0'],
+                angles='xy', scale_units='xy', scale=1, color='r')
+    plt.quiver(traj_2d['x']['pf'], traj_2d['y']['pf'],
+                traj_2d['x']['vf'], traj_2d['y']['vf'],
+                angles='xy', scale_units='xy', scale=1, color='r')
+    plt.gca().set_aspect('equal', adjustable='box')
+
+    if TIME_PLOT:
+        _, axs = plt.subplots(2,1)
+        axs[0].plot(tt, px, 'b', label='x position')
+        axs[0].plot(tt, py, 'r', label='y position')
+        axs[0].legend()
+        axs[1].plot(tt, vx, 'b', label='x velocity')
+        axs[1].plot(tt, vy, 'r', label='y velocity')
+        axs[1].legend()
+        axs[1].set_xlabel('time (s)')
+    
+    if SHOW:
+        plt.show()
+
+def solve_BVP_2D(p0x, poy, pfx,pfy,  v0x, v0y, vfx, vfy, v_max, a_max):
+    # compute the time-optimal trajectory in 2D, adhering to a_max and v_max
+    # moving from p0 with velocity v0 to pf with velocity vf
+    traj_x = solve_BVP_1D_min_time(p0x, pfx, v0x, vfx, v_max, a_max)
+    traj_y = solve_BVP_1D_min_time(poy, pfy, v0y, vfy, v_max, a_max)
+
+    ready = np.abs(traj_x['T'] - traj_y['T']) < 1.0e-6
+    while not ready:
+        # print(f"Trying to solve BVP_2D with fixed time {traj_x['T']:.3f} - {traj_y['T']:.3f}")
+        if traj_x['T'] > traj_y['T']:
+            traj_y = solve_BVP_1D_fixed_time(poy, pfy, v0y, vfy, traj_x['T'], v_max, a_max)
+        else:
+            traj_x = solve_BVP_1D_fixed_time(p0x, pfx, v0x, vfx, traj_y['T'], v_max, a_max)
+        ready = np.abs(traj_x['T'] - traj_y['T']) < 1.0e-6
+    # print("We did it!\n")
+    return {'x': traj_x, 'y': traj_y}
+
+def test_solve_BVP_2D():
+    def get_p0x(t):
+        return -4*np.sin(0.5*t)
+    
+    def get_v0x(t):
+        return np.sin(t)
+    
+    def get_pfx(t):
+        return 5 - 2*np.exp(-t)
+    
+    def get_vfx(t):
+        return 2*np.sin(2*t)
+    
+    def get_p0y(t):
+        return -1 - 3*np.exp(-(t-1.5)**2)
+    
+    def get_v0y(t):
+        return 1
+    
+    def get_pfy(t):
+        return 4 + 0.1*(t-3)**3
+    
+    def get_vfy(t):
+        return 2*np.cos(2*t)
+
+    v_max = 2
+    a_max = 5
+
+    from matplotlib import animation
+
+    my_fig = plt.figure()
+
+    def update(t):
+        my_fig.clf()
+        p0x = get_p0x(t)
+        p0y = get_p0y(t)
+        pfx = get_pfx(t)
+        pfy = get_pfy(t)
+        v0x = get_v0x(t)
+        v0y = get_v0y(t)
+        vfx = get_vfx(t)
+        vfy = get_vfy(t)
+
+        traj_2d = solve_BVP_2D(p0x, p0y, pfx, pfy, v0x, v0y, vfx, vfy, v_max, a_max)
+        visualize_traj_2D(traj_2d, TIME_PLOT=False, SHOW=False, fig=my_fig)
+        plt.xlim([-10, 10])
+        plt.ylim([-10, 10])
+        plt.title(f"T = {traj_2d['x']['T']:.3f} s")
+
+    anim = animation.FuncAnimation(my_fig, update, frames=np.linspace(0, 5, 100), interval=10)
+    plt.show()
+
 def point_inside_corridor(px, py, corridor):
     return corridor['x_min'] <= px and \
            corridor['x_max'] >= px and \
@@ -450,7 +786,87 @@ def visualize_corridors_with_time(seq1, lb1, ub1, seq2, lb2, lb3):
     # Show the plot
     plotter.show()
 
+import random
+# test the minimum-time BVP solver
+# for i in range(20):
+#     p0 = 0*random.uniform(-10, 10)
+#     pf = random.uniform(-10, 10)
+#     v0 = random.uniform(-10, 10)
+#     vf = random.uniform(-10, 10)
+#     v_max = max(np.abs(random.uniform(0, 10)), np.abs(v0), np.abs(vf))
+#     a_max = random.uniform(0, 10)
+#     traj = solve_BVP_1D_min_time(p0, pf, v0, vf, v_max, a_max)
+#     if np.any(np.array(traj['tt']) < 0):
+#         print(f"Negative time found!: {traj}")
+#     visualize_traj(traj)
 
+# test the fixed-time BVP solver
+# for i in range(20):
+#     p0 = random.uniform(-10, 10)
+#     pf = random.uniform(-10, 10)
+#     v0 = random.uniform(-10, 10)
+#     vf = random.uniform(-10, 10)
+#     v_max = max(np.abs(random.uniform(0, 10)), np.abs(v0), np.abs(vf))
+#     a_max = random.uniform(0, 10)
+#     traj = solve_BVP_1D_fixed_time(p0, pf, v0, vf, 100, v_max, a_max)
+#     # print(f"a_max: {traj['a_max']}")
+#     # print(f"aa: {traj['aa']}")
+#     visualize_traj(traj)
+
+# visualize dependency of T* on a_max
+# for i in range(20):
+#     T_values = []
+#     a_max_values = []
+#     p0 = random.uniform(-10, 10)
+#     pf = random.uniform(-10, 10)
+#     v0 = random.uniform(-10, 10)
+#     vf = random.uniform(-10, 10)
+#     v_max = max(np.abs(random.uniform(0, 10)), np.abs(v0), np.abs(vf))
+#     a_max = random.uniform(0.2, 10)
+#     for i in range(1000):
+#         traj = solve_BVP_1D_min_time(p0, pf, v0, vf, v_max, a_max)
+#         T_values.append(traj['T'])
+#         a_max_values.append(a_max)
+#         a_max = random.uniform(0.2, 10)
+
+#     plt.figure()
+#     plt.plot(a_max_values, T_values, '.')
+#     plt.xlabel('a_max')
+#     plt.ylabel('T*')
+#     plt.ylim([0, 100])
+
+#     print(traj)
+#     plt.show()
+    
+# debugging
+# problematic_traj = {'T': np.float64(1.2223110367773882), 'tt': [np.float64(0.6968002441227598), np.float64(0.5255107926546285), np.float64(0.0)], 'aa': [5.194186636936474, 0, -5.194186636936474], 'phat': np.float64(-2.919644461351359), 'vhat': np.float64(9.536162300271386), 'p0': -8.303476454400522, 'pf': 2.0917117479474427, 'v0': 5.916851783634874, 'vf': 9.536162300271386, 'v_max': np.float64(9.536162300271386), 'a_max': 5.194186636936474}
+# import time
+# for a_max in np.linspace(2.6, 2.8, 10):
+#     traj = solve_BVP_1D_min_time(problematic_traj['p0'], problematic_traj['pf'],
+#                                  problematic_traj['v0'], problematic_traj['vf'],
+#                                  problematic_traj['v_max'], a_max)
+#     plt.close()
+#     visualize_traj(traj, TIME_PLOT=False, BLOCK=True)
+#     # time.sleep(1.5)
+
+# test 2D case
+# for i in range(20):
+#     p0x = random.uniform(-10, 10)
+#     pfx = random.uniform(-10, 10)
+#     v0x = random.uniform(-10, 10)
+#     vfx = random.uniform(-10, 10)
+#     p0y = random.uniform(-10, 10)
+#     pfy = random.uniform(-10, 10)
+#     v0y = random.uniform(-10, 10)
+#     vfy = random.uniform(-10, 10)
+#     v_max = max(np.abs(random.uniform(0, 10)), np.abs(v0x), np.abs(vfx), np.abs(v0y), np.abs(vfy))
+#     a_max = random.uniform(0, 10)
+#     traj_2d = solve_BVP_2D(p0x, p0y, pfx, pfy, v0x, v0y, vfx, vfy, v_max, a_max)
+#     visualize_traj_2D(traj_2d)
+
+test_solve_BVP_2D()
+
+exit()
 
 # load the example_trajectory.json file from build/output
 data_files = []
