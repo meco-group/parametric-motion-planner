@@ -108,7 +108,6 @@ void Parametrization::Solve(const UpdateToken&, std::string& solver_name,
 		active_opti_code_ = code;
 
 		// apply initial guess
-		std::cout << "here" << std::endl;
 		InitializeOptimization();
 		int var_ptr = 0;
 		for (int i = 0; i < n; i++){

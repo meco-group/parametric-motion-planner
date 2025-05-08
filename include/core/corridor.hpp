@@ -35,7 +35,7 @@ class Corridor{
         // overlap
         // Function returns a boolean indicating if there is overlap. If not, 
         // overlap is not modified
-        bool GetOverlap(Corridor &other, Corridor &overlap) const;
+        bool GetOverlap(Corridor const &other, Corridor &overlap) const;
 
         // Check if this corridor is completely within another corridor
         bool IsCompletelyWithin(Corridor* const &other) const;
@@ -217,6 +217,11 @@ class CorridorSequence{
         double GetCorridorSequenceConstructionTime() const { return corridor_sequence_construction_time_;};
 
         std::vector<Point2D<double>> GetCorridorOverlapCenters() const;
+
+        std::vector<Corridor> GetOverlap(CorridorSequence& other);
+
+        Point2D<double> GetWaitingPosition(Corridor& intersection, 
+            Parameters const &params, double cell_width, double cell_height) const;
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, CorridorSequence const &sequence) {

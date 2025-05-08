@@ -2,6 +2,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Rectangle
+import time
 
 def optimize_arc_1d(p0, pf, v0, v_max, a_max):
     pf_rel = abs(pf - p0)
@@ -252,6 +253,9 @@ def get_intermediate_points(traj):
     
     return pp_traj, vv_traj, tt_traj
 
+def get_extreme_positions(traj):
+    pp_traj, _, _ = get_intermediate_points(traj)
+    return min(pp_traj), max(pp_traj)
 
 def visualize_traj(traj, PHASE_PLOT=True, TIME_PLOT=True, BLOCK=True):
     # get intermediate points
@@ -517,13 +521,13 @@ def get_upper_bounds(data):
         distances = [max(np.abs(start['x'] - dest['x']), 
                          np.abs(start['y'] - dest['y']))]
     else:
-        print(f"start: {start}")
-        print(f"overlapping corridor: {get_overlapping_corridor(corridors[0], corridors[1])}")
-        print(f"first distance: {get_maximum_travel_distance_from_corridor_to_point(
-                get_overlapping_corridor(corridors[0], corridors[1]), start)}")
-        print(f"time in first corridor: {sum(data['parametrization']['t_x_sol'][0])}")
-        print(f"total trajectory time: {data['trajectory']['t'][-1]}")
-        print(f"parameters: {data['parameters']}")
+        # print(f"start: {start}")
+        # print(f"overlapping corridor: {get_overlapping_corridor(corridors[0], corridors[1])}")
+        # print(f"first distance: {get_maximum_travel_distance_from_corridor_to_point(
+        #         get_overlapping_corridor(corridors[0], corridors[1]), start)}")
+        # print(f"time in first corridor: {sum(data['parametrization']['t_x_sol'][0])}")
+        # print(f"total trajectory time: {data['trajectory']['t'][-1]}")
+        # print(f"parameters: {data['parameters']}")
         distances = \
             [get_maximum_travel_distance_from_corridor_to_point(
                 get_overlapping_corridor(corridors[0], corridors[1]), start)] + \
@@ -543,6 +547,78 @@ def get_upper_bounds(data):
                             data['parameters']['a_max'])
             for k in range(nb_corridors)]
 
+def get_bounds_by_sampling(data):
+    lower_bounds = []
+    upper_bounds = []
+
+    nb_corridors = data['parametrization']['nb_corridors']
+    corridors = data['corridor_sequence']['sequence']
+    vw = data['parameters']['veh_width']
+    vh = data['parameters']['veh_height']
+
+    nb_samples_per_corridor = 100
+
+    start_time = time.time()
+    for k in range(nb_corridors):
+        curr_T_min = 10
+        curr_T_max = 0
+        for j in range(nb_samples_per_corridor):
+            if k == 0:
+                p0x = data['corridor_sequence']['start']['x']
+                p0y = data['corridor_sequence']['start']['y']
+                v0x = 0
+                v0y = 0
+            else:
+                # pick a random starting position in the overlapping region of
+                # corridor k and corridor k-1
+                o = get_overlapping_corridor(corridors[k-1], corridors[k])
+                p0x = np.random.uniform(o['x_min'] + vw/2, o['x_max'] - vw/2)
+                p0y = np.random.uniform(o['y_min'] + vh/2, o['y_max'] - vh/2)
+                v0x = random.uniform(-data['parameters']['v_max'], data['parameters']['v_max'])
+                v0y = random.uniform(-data['parameters']['v_max'], data['parameters']['v_max'])
+            
+            if k == nb_corridors - 1:
+                pfx = data['corridor_sequence']['dest']['x']
+                pfy = data['corridor_sequence']['dest']['y']
+                vfx = 0
+                vfy = 0
+            else:
+                # pick a random destination position in the overlapping region of
+                # corridor k and corridor k+1
+                o = get_overlapping_corridor(corridors[k], corridors[k+1])
+                pfx = np.random.uniform(o['x_min'] + vw/2, o['x_max'] - vw/2)
+                pfy = np.random.uniform(o['y_min'] + vh/2, o['y_max'] - vh/2)
+                vfx = random.uniform(-data['parameters']['v_max'], data['parameters']['v_max'])
+                vfy = random.uniform(-data['parameters']['v_max'], data['parameters']['v_max'])
+
+            # traj_2D = solve_BVP_2D(p0x, p0y, pfx, pfy, v0x, v0y, vfx, vfy,
+            #                     data['parameters']['v_max'],
+            #                     data['parameters']['a_max'])
+            traj_2D = {'x':solve_BVP_1D_min_time(p0x, pfx, v0x, vfx,
+                                                    data['parameters']['v_max'],
+                                                data['parameters']['a_max']),
+                        'y':solve_BVP_1D_min_time(p0y, pfy, v0y, vfy,
+                                                data['parameters']['v_max'],
+                                                data['parameters']['a_max'])}
+            x_min, x_max = get_extreme_positions(traj_2D['x'])
+            y_min, y_max = get_extreme_positions(traj_2D['y'])
+
+            if x_min < corridors[k]["x_min"] - vw or \
+               x_max > corridors[k]["x_max"] + vw or \
+               y_min < corridors[k]["y_min"] - vh or \
+               y_max > corridors[k]["y_max"] + vh:
+                continue
+            else:
+                curr_T_min = min(curr_T_min, max(traj_2D['x']['T'], traj_2D['y']['T']))
+                curr_T_max = max(curr_T_max, max(traj_2D['x']['T'], traj_2D['y']['T']))
+            
+        lower_bounds.append(curr_T_min)
+        upper_bounds.append(curr_T_max)            
+
+    end_time = time.time()
+    print(f"Sampling took {end_time - start_time:.2f} seconds")
+    return lower_bounds, upper_bounds
+
 def get_corridor_times(data):
     # extract the time spent in every corridor
     corridor_times = get_actual_corridor_time(data)
@@ -553,6 +629,8 @@ def get_corridor_times(data):
 
     # get the upper bounds
     upper_bounds = get_upper_bounds(data)
+
+    lower_bounds, upper_bounds = get_bounds_by_sampling(data)
 
     return np.array(corridor_times), np.array(lower_bounds), np.array(upper_bounds)
 
@@ -864,9 +942,9 @@ import random
 #     traj_2d = solve_BVP_2D(p0x, p0y, pfx, pfy, v0x, v0y, vfx, vfy, v_max, a_max)
 #     visualize_traj_2D(traj_2d)
 
-test_solve_BVP_2D()
+# test_solve_BVP_2D()
 
-exit()
+# exit()
 
 # load the example_trajectory.json file from build/output
 data_files = []

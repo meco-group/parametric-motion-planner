@@ -105,6 +105,7 @@ class MotionPlanner{
         void SetJustInTimePreparationMode(bool set);
         void SetSilentMode(bool set){ silent_mode_ = set; SetSolver(solver_name_);};
         void SetCorridorExtendedMode(bool set){ corridor_sequence_.SetCorridorExtendedMode(set);};
+        void SetTrajectoryT0(double t0){ last_solution_.SetT0(t0);};
 
         // Printing
         void PrintEnvironment(){

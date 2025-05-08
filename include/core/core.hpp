@@ -11,5 +11,6 @@
 #include "moving_obstacle.hpp"
 #include "dynamic_simulator.hpp"
 #include "dynamic_sampler.hpp"
+#include "dynamic_intersection_manager.hpp"
 
 #endif

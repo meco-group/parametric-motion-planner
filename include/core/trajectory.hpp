@@ -119,6 +119,7 @@ class Trajectory{
         // Basic getters
         double Dt() const { return dt_;};
         double Tf() const { return tf_;};
+        double T0() const { return t0_;};
         int NbSamples() const { return curr_nb_samples_;};
         std::vector<double> T() const { return t_;};
         std::vector<double> Px() const { return px_;};
@@ -141,6 +142,7 @@ class Trajectory{
         void SetSamplingTime(double sampling_time){ 
             trajectory_sampling_time_ = sampling_time;
         };
+        void SetT0(double t0){ t0_ = t0;};
 
         json ToJson() const;
 
@@ -163,6 +165,8 @@ class Trajectory{
         std::vector<double> ax_ = {};
         std::vector<double> ay_ = {};
         double tf_ = 0;
+        double t0_ = 0; // attribute that can be used to store a planning time
+                        // (does not affect the time vector of this trajectory)
 
         double total_computation_time_ = 0;     // expressed in ms
         double solver_time_ = 0;                // expressed in ms

@@ -25,6 +25,7 @@ enum WaypointLocation{
 };
 
 class Parametrization{
+    friend class MotionPlanner;
     public:
         Parametrization(CorridorSequence const &corridor_sequence,
                         Parameters const &params);
