@@ -69,7 +69,8 @@ void MotionPlanner::SetRandomDest(){
 void MotionPlanner::UpdateCorridorSequence(){
     logger_.LogEvent(UpdatedCorridorsEvent(corridor_sequence_));
     corridor_sequence_.UpdateSequence(start_, dest_, start_vel_, params_,
-                                      sequence_update_token_);
+                                      sequence_update_token_,
+                                      max_nb_corridor_growing_iterations_);
 }
 
 void MotionPlanner::UpdateCorridorSequence(const Point2D<double> &start,

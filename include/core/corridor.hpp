@@ -80,12 +80,17 @@ class Corridor{
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, Corridor corridor) {
-            // out << "[" << corridor.Xmin() << ", " << 
-            //         corridor.Xmax() << "] x [" << corridor.Ymin() << 
-            //         ", " << corridor.Ymax() << "]";
-            out << "[" << corridor.Xmin() << ", " << 
-                    corridor.Xmax() << ", " << corridor.Ymin() << 
-                    ", " << corridor.Ymax() << "]";
+            bool print_cell_dimensions = true; // Only to be used for DEBUGGING
+            double cell_size = 0.12;
+            if (print_cell_dimensions){
+                out << "[" << corridor.Xmin()/cell_size << ", " << 
+                        corridor.Xmax()/cell_size << ", " << corridor.Ymin()/cell_size << 
+                        ", " << corridor.Ymax()/cell_size << "]";
+            } else {
+                out << "[" << corridor.Xmin() << ", " << 
+                        corridor.Xmax() << ", " << corridor.Ymin() << 
+                        ", " << corridor.Ymax() << "]";
+            }
             return out;
         }
 
@@ -184,7 +189,8 @@ class CorridorSequence{
                             Point2D<double> const &dest,
                             Point2D<double> const &start_vel,
                             Parameters const &params,
-                            UpdateToken const &token);
+                            UpdateToken const &token,
+                            int max_nb_grow_iterations=4);
 
         // Function to check if a given point is within the current corridor
         // sequence
@@ -251,7 +257,7 @@ class CorridorSequence{
         void AddFinalFootprint(std::vector<Point2D<int>> &path) const;
 
         // Inflate corridors as much as possible
-        void InflateCorridors();
+        void InflateCorridors(int max_nb_grow_iterations=4);
 
         // Add a corridor to the sequence
         void AddCorridor(double x_min, double x_max, double y_min, double y_max);

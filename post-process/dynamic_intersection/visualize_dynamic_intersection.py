@@ -31,7 +31,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
 
     # show environment
     for i in range(len(environments)):
-        show_environment(environments[i], obstacle_color=vehicle_colors[i], obstacles_alpha=0)
+        show_environment(environments[i], obstacle_color=vehicle_colors[i], obstacles_alpha=1.0)
         plt.plot(final_destinations[i]["x"], final_destinations[i]["y"], color=vehicle_colors[i], markersize=5, label="goal")
 
     # show corridors

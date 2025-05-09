@@ -738,59 +738,62 @@ void TestDynamicIntersections(){
     double cw = 0.12;
     double ch = 0.12;
 
+    // // first mover
+    // Environment env1 = Environment(8, 8, cw, ch);
+    // std::vector<int> xx1 = {3, 4, 6, 6, 6, 6, 6, 7, 7};
+    // std::vector<int> yy1 = {0, 1, 3, 4, 0, 1, 6, 4, 7};
+    // for (int i = 0; i < xx1.size(); i++){
+    //     env1.AddObstacle(Point2D<int>(xx1[i], yy1[i]));
+    // }
+    // Parameters params1 = Parameters();
+    // // params1.SetAmax(1.1);
+    // MotionPlanner planner1 = MotionPlanner(params1, env1);
+    // planner1.SetMaxNbCorridorGrowingIterations(0);
+    // Point2D<double> start1 = Point2D<int>(4, 0).ConvertCellToWorld(cw, ch);
+    // Point2D<double> dest1 = Point2D<int>(7, 6).ConvertCellToWorld(cw, ch);
+    // Point2D<double> start_vel1 = Point2D<double>(0, 0);
+
+    // // second mover
+    // Environment env2 = Environment(8, 8, cw, ch);
+    // std::vector<int> xx2 = {3, 3, 4, 5, 5, 5, 6, 6, 7, 7};
+    // std::vector<int> yy2 = {7, 6, 5, 7, 4, 3, 6, 2, 4, 1};
+    // for (int i = 0; i < xx2.size(); i++){
+    //     env2.AddObstacle(Point2D<int>(xx2[i], yy2[i]));
+    // }
+    // Parameters params2 = Parameters();
+    // MotionPlanner planner2 = MotionPlanner(params2, env2);
+    // planner2.SetMaxNbCorridorGrowingIterations(0);
+    // std::cout << "env2: " << env2 << std::endl;
+    // Point2D<double> start2 = Point2D<int>(4, 7).ConvertCellToWorld(cw, ch);
+    // Point2D<double> dest2 = Point2D<int>(7, 2).ConvertCellToWorld(cw, ch);
+    // Point2D<double> start_vel2 = Point2D<double>(0, 0);
+
     // first mover
-    Environment env1 = Environment(4, 4, cw, ch);
-    std::vector<int> xx1 = {0, 0, 1, 1, 2, 2, 3, 3};
-    std::vector<int> yy1 = {0, 3, 0, 3, 0, 2, 0, 2};
-    for (int i = 0; i < xx1.size(); i++){
-        env1.AddObstacle(Point2D<int>(xx1[i], yy1[i]));
-    }
-    Parameters params1 = Parameters();
-    MotionPlanner planner1 = MotionPlanner(params1, env1);
-    Point2D<double> start1 = Point2D<int>(0, 2).ConvertCellToWorld(cw, ch);
-    Point2D<double> dest1 = Point2D<int>(3, 1).ConvertCellToWorld(cw, ch);
-    Point2D<double> start_vel1 = Point2D<double>(0, 0);
+    Environment env = Environment(8, 8, cw, ch);
+    env.AddRandomObstacles(0.05);
+    Parameters params = Parameters();
+    
+    MotionPlanner planner1 = MotionPlanner(params, env);
+    planner1.SetMaxNbCorridorGrowingIterations(1);
 
-    // second mover
-    Environment env2 = Environment(4, 4, cw, ch);
-    std::vector<int> xx2 = {0, 1, 1, 3, 3};
-    std::vector<int> yy2 = {1, 1, 2, 0, 1};
-    for (int i = 0; i < xx2.size(); i++){
-        env2.AddObstacle(Point2D<int>(xx2[i], yy2[i]));
-    }
-    Parameters params2 = Parameters();
-    MotionPlanner planner2 = MotionPlanner(params2, env2);
-    std::cout << "env2: " << env2 << std::endl;
-    Point2D<double> start2 = Point2D<int>(0, 0).ConvertCellToWorld(cw, ch);
-    Point2D<double> dest2 = Point2D<int>(3, 2).ConvertCellToWorld(cw, ch);
-    Point2D<double> start_vel2 = Point2D<double>(0, 0);
+    MotionPlanner planner2 = MotionPlanner(params, env);
+    planner2.SetMaxNbCorridorGrowingIterations(1);
 
-    // // plan each
-    // planner1.PlanSafely();
-    // planner2.SetStart(start2);
-    // planner2.SetDest(dest2);
-    // planner2.SetStartVel(start_vel2);
-    // planner2.PlanSafely();
-    // std::cout << planner2.GetLastSolution().ToJson() << std::endl;
+    Point2D<double> start1, dest1, start_vel1;
+    Point2D<double> start2, dest2, start_vel2;
 
-    // // check the intersection
-    // Corridor intersection = Corridor(2*cw, 3*cw, 1*ch, 2*ch);
-    // double time_out_of_intersection1 = 0;
-    // double time_out_of_intersection2 = 0;
-    // int sample_ptr = 0;
-    // Point2D<double> pos, vel, acc;
-    // planner1.GetSample(time_out_of_intersection1, pos, vel, acc);
-    // while (pos.x() <= )    
+    env.GetRandomFreeCellPosition(start1);
+    env.GetRandomFreeCellPosition(dest1);
+    env.GetRandomFreeCellPosition(start2);
+    env.GetRandomFreeCellPosition(dest2);
+    start_vel1 = Point2D<double>(0, 0);
+    start_vel2 = Point2D<double>(0, 0);   
 
+    // Simulate movers and store results
     DynamicIntersectionManager intersection_manager = 
         DynamicIntersectionManager(planner1, planner2);
     intersection_manager.SimulateSafely(start1, dest1, start_vel1, 
         start2, dest2, start_vel2);
-    // DynamicIntersectionManager intersection_manager = 
-    //     DynamicIntersectionManager(planner2, planner1);
-    // intersection_manager.SimulateSafely(start2, dest2, start_vel2, 
-    //     start1, dest1, start_vel1);
-
     intersection_manager.DumpToJson("output/dynamic_intersection.json");
 }
 

@@ -3,6 +3,14 @@
 
 #include "motion_planner.hpp"
 
+enum IntersectionCase{
+    VEHICLE_1_MUST_WAIT,
+    VEHICLE_2_MUST_WAIT,
+    NO_TRUE_OVERLAP, // corridors overlap, but not both vehicles enter the intersecion
+    NO_OVERLAP_IN_TIME, // vehicles only enter intersection at different times
+    INVALID_CASE,
+};
+
 class DynamicIntersectionManager {
     public:
         DynamicIntersectionManager(MotionPlanner& planner1, 
@@ -26,8 +34,8 @@ class DynamicIntersectionManager {
         int TimeToNbTimeSteps(double time);
 
         // find first vehicle leaving the intersection
-        int GetFirstVehicleLeavingIntersection(double& first_leaving_time);
-        double GetTimeLeavingIntersection(MotionPlanner& planner);
+        void GetIntersectionCase();
+        std::map<std::string, double> GetTimeEnteringAndLeavingIntersection(MotionPlanner& planner);
 
         MotionPlanner& planner_1_;
         Point2D<double> final_dest_1_;
@@ -49,6 +57,8 @@ class DynamicIntersectionManager {
 
         Corridor intersection_;
         double additional_intersection_waiting_time_ = 0.0;
+        IntersectionCase intersection_case_;
+        std::map<std::string, std::map<std::string, double>> intersection_times_;
 
         int nb_simulated_samples_ = 0;
         double simulation_time_step_ = 0.01;

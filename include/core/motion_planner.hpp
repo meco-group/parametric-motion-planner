@@ -106,6 +106,8 @@ class MotionPlanner{
         void SetSilentMode(bool set){ silent_mode_ = set; SetSolver(solver_name_);};
         void SetCorridorExtendedMode(bool set){ corridor_sequence_.SetCorridorExtendedMode(set);};
         void SetTrajectoryT0(double t0){ last_solution_.SetT0(t0);};
+        void SetMaxNbCorridorGrowingIterations(int max_nb_grow_iterations){
+            max_nb_corridor_growing_iterations_ = max_nb_grow_iterations;};
 
         // Printing
         void PrintEnvironment(){
@@ -236,8 +238,9 @@ class MotionPlanner{
         Dict opts_solver_;
         int print_level_ = 0;
         int max_iter_ = 1000;//100;
-        bool just_in_time_preparation_mode_ = false;
+        bool just_in_time_preparation_mode_ = true;
         bool silent_mode_ = false;
+        int max_nb_corridor_growing_iterations_ = 4;
 
         std::vector<std::vector<Point2D<double>>> emergency_trajs_1_;
         std::vector<std::vector<Point2D<double>>> emergency_trajs_2_;

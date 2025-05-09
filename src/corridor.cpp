@@ -180,7 +180,8 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
                                       Point2D<double> const &dest,
                                       Point2D<double> const &start_vel,
                                       Parameters const &params,
-                                      UpdateToken const &token){
+                                      UpdateToken const &token,
+                                      int max_nb_grow_iterations){
     if (!CurrentlyConsideringFullSequence()){
         throw InvalidCorridorSequenceOperationException("Cannot update corridor sequence when not considering full sequence");
     }
@@ -274,7 +275,7 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     }
 
     // Inflate the corridors
-    InflateCorridors();
+    InflateCorridors(max_nb_grow_iterations);
 
     sequence_available_ = true;
     latest_envrionment_version_ = environment_.GetVersion();
@@ -468,7 +469,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(Corridor& intersection,
     for (int i = -1; i < corridor_cell_width + 1; i++){
         candidate.SetX(intersection.Xmin() + i*cell_width + cell_width/2);
         candidate.SetY(intersection.Ymin() - cell_height/2);
-        std::cout << "checking candidate: " << candidate << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
@@ -476,7 +476,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(Corridor& intersection,
         }
 
         candidate.SetY(intersection.Ymax() + cell_height/2);
-        std::cout << "checking candidate: " << candidate << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
@@ -486,7 +485,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(Corridor& intersection,
     for (int i = 0; i < corridor_cell_height; i++){
         candidate.SetX(intersection.Xmin() - cell_width/2);
         candidate.SetY(intersection.Ymin() + i*cell_height + cell_height/2);
-        std::cout << "checking candidate: " << candidate << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
@@ -494,7 +492,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(Corridor& intersection,
         }
 
         candidate.SetX(intersection.Xmax() + cell_width/2);
-        std::cout << "checking candidate: " << candidate << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
@@ -648,13 +645,13 @@ void CorridorSequence::AddFinalFootprint(std::vector<Point2D<int>> &path) const 
     }
 }
 
-void CorridorSequence::InflateCorridors(){
+void CorridorSequence::InflateCorridors(int max_nb_grow_iterations){
     if (!CurrentlyConsideringFullSequence()){
         throw InvalidCorridorSequenceOperationException("Cannot inflate a subset of the sequence");
     }
     bool made_change = true;
     int grow_counter = 0;
-    int max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4;
+    if (extended_corridors_mode_) {max_nb_grow_iterations = 100;}
 
     // grow corridors
     while (made_change && grow_counter < max_nb_grow_iterations){
@@ -675,7 +672,7 @@ void CorridorSequence::InflateCorridors(){
     }
 
     // grow first corridor even more
-    max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4; grow_counter = 0;
+    // max_nb_grow_iterations = extended_corridors_mode_ ? 100 : 4; grow_counter = 0;
     made_change = true;
     while (made_change && grow_counter < max_nb_grow_iterations){
         made_change = GrowCorridorSideways(0);
