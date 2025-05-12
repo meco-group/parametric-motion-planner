@@ -226,7 +226,8 @@ class CorridorSequence{
 
         std::vector<Corridor> GetOverlap(CorridorSequence& other);
 
-        Point2D<double> GetWaitingPosition(Corridor& intersection, 
+        Point2D<double> GetWaitingPosition(
+            Point2D<double> const &curr_pos, Corridor const &intersection, 
             Parameters const &params, double cell_width, double cell_height) const;
 
         // printing

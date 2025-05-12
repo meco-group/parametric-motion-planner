@@ -47,7 +47,7 @@ class Point2D {
             return sqrt(pow(x_ - other.x(), 2) + pow(y_ - other.y(), 2));
         }
         T ManhattanDistance(const Point2D<T> &other) const {
-            return abs(x_ - other.x()) + abs(y_ - other.y());
+            return std::abs(x_ - other.x()) + std::abs(y_ - other.y());
         }
         double DistanceToLine(const Point2D<T> &line_start, 
                               const Point2D<T> &line_end) const {

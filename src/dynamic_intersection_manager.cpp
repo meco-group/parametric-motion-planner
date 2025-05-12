@@ -77,10 +77,12 @@ void DynamicIntersectionManager::SimulateSafely(const Point2D<double>& start1,
         std::cout << "Vehicle 1 must wait" << std::endl;
         
         // replan
-        planner_1_.SetDest(planner_1_.GetCorridorSequence().GetWaitingPosition(
+        waiting_position_ = planner_1_.GetCorridorSequence().GetWaitingPosition(
+                            planner_1_.GetStart(),
                             intersection_, planner_1_.GetParameters(), 
                             planner_1_.GetEnvironment().CellWidth(),
-                            planner_1_.GetEnvironment().CellHeight()));
+                            planner_1_.GetEnvironment().CellHeight());
+        planner_1_.SetDest(waiting_position_);
         planner_1_.PlanSafely();
         planner_2_.SetTrajectoryT0(0);
         planned_trajectories_1.push_back(planner_1_.GetLastSolution());
@@ -91,10 +93,12 @@ void DynamicIntersectionManager::SimulateSafely(const Point2D<double>& start1,
         std::cout << "Vehicle 2 must wait" << std::endl;
         
         // replan
-        planner_2_.SetDest(planner_2_.GetCorridorSequence().GetWaitingPosition(
+        waiting_position_ = planner_2_.GetCorridorSequence().GetWaitingPosition(
+                            planner_2_.GetStart(),
                             intersection_, planner_2_.GetParameters(), 
                             planner_2_.GetEnvironment().CellWidth(),
-                            planner_2_.GetEnvironment().CellHeight()));
+                            planner_2_.GetEnvironment().CellHeight());
+        planner_2_.SetDest(waiting_position_);
         planner_2_.PlanSafely();
         planner_1_.SetTrajectoryT0(0);
         planned_trajectories_2.push_back(planner_2_.GetLastSolution());
@@ -103,8 +107,22 @@ void DynamicIntersectionManager::SimulateSafely(const Point2D<double>& start1,
         first_leaving_time = intersection_times_["vehicle_1"]["leaving_time"];
     }
 
-    // Simulate until the first vehicle leaves the intersection
-    Simulate(TimeToNbTimeSteps(first_leaving_time + additional_intersection_waiting_time_));
+    if (!wait_for_clear_intersection_){
+        // simulate impatiently
+        bool succeeded = SimulateImpatiently(
+            TimeToNbTimeSteps(first_leaving_time), 
+            intersection_case_ == VEHICLE_1_MUST_WAIT ? 1 : 2);
+        if (succeeded){
+            double time_left = VEHICLE_1_MUST_WAIT ? 
+                planner_1_.GetLastSolution().Tf() :
+                planner_2_.GetLastSolution().Tf();
+            Simulate(TimeToNbTimeSteps(time_left));
+            return;
+        }
+    } else {
+        // Simulate until the first vehicle leaves the intersection
+        Simulate(TimeToNbTimeSteps(first_leaving_time + additional_intersection_waiting_time_));
+    }
 
     // Make the vehicle continue
     double time_left = 0;
@@ -239,6 +257,127 @@ void DynamicIntersectionManager::Simulate(int nb_time_steps){
     }
 };
 
+bool DynamicIntersectionManager::SimulateImpatiently(int nb_time_steps, 
+                                                     int waiting_veh_idx){
+    if (wait_for_clear_intersection_){
+        throw std::runtime_error("Cannot simulate impatiently when waiting for clear intersection");
+    }
+
+    Point2D<double> pos, vel, acc;
+    double simulated_time = 0;
+    double temp;
+    bool collision_found = false;
+
+    for (int i = 0; i < nb_time_steps; i++){
+        planner_1_.GetSample(temp, pos, vel, acc);
+        travelled_trajectory_1_.Append(nb_simulated_samples_*simulation_time_step_, 
+                                       pos.x(), pos.y(), vel.x(), vel.y(), 
+                                       acc.x(), acc.y());
+        latest_simulated_pos_1_ = pos;
+        latest_simulated_vel_1_ = vel;
+
+        planner_2_.GetSample(temp, pos, vel, acc);
+        travelled_trajectory_2_.Append(nb_simulated_samples_*simulation_time_step_, 
+                                       pos.x(), pos.y(), vel.x(), vel.y(), 
+                                       acc.x(), acc.y());
+        latest_simulated_pos_2_ = pos;
+        latest_simulated_vel_2_ = vel;
+
+        nb_simulated_samples_++;
+
+        // Attempt to let the waiting vehicle go
+        if (waiting_veh_idx == 1){
+            planner_1_.SetStart(latest_simulated_pos_1_);
+            planner_1_.SetStartVel(latest_simulated_vel_1_);
+            planner_1_.SetDest(final_dest_1_);
+            planner_1_.PlanSafely();
+
+            collision_found = CheckForCollision();
+
+            if (collision_found){
+                // revert to the last solution
+                planner_1_.SetDest(waiting_position_);
+                planner_1_.PlanSafely();
+            } else {
+                // abort simulation
+                planned_corridor_sequences_1.push_back(planner_1_.GetCorridorSequence());
+                planned_trajectories_1.push_back(planner_1_.GetLastSolution());
+                planned_times_1.push_back(nb_simulated_samples_*simulation_time_step_);
+                return true;
+            }
+        } else {
+            planner_2_.SetStart(latest_simulated_pos_2_);
+            planner_2_.SetStartVel(latest_simulated_vel_2_);
+            planner_2_.SetDest(final_dest_2_);
+            planner_2_.PlanSafely();
+
+            collision_found = CheckForCollision();
+
+            if (collision_found){
+                // revert to the last solution
+                planner_2_.SetDest(waiting_position_);
+                planner_2_.PlanSafely();
+            } else {
+                // abort simulation
+                planned_corridor_sequences_2.push_back(planner_2_.GetCorridorSequence());
+                planned_trajectories_2.push_back(planner_2_.GetLastSolution());
+                planned_times_2.push_back(nb_simulated_samples_*simulation_time_step_);
+                return true;
+            }
+        }
+    }
+
+    return false;
+};
+
+bool DynamicIntersectionManager::CheckForCollision(){
+    std::vector<double> px1 = planner_1_.GetLastSolution().Px();
+    std::vector<double> py1 = planner_1_.GetLastSolution().Py();
+    int sample_ptr_1 = planner_1_.GetCurrentSampleIdx();
+    int nb_samples_1 = planner_1_.GetLastSolution().NbSamples();
+    double wo_1 = planner_1_.GetParameters().GetWidthOffset();
+    double ho_1 = planner_1_.GetParameters().GetHeightOffset();
+
+    std::vector<double> px2 = planner_2_.GetLastSolution().Px();
+    std::vector<double> py2 = planner_2_.GetLastSolution().Py();
+    int sample_ptr_2 = planner_2_.GetCurrentSampleIdx();
+    int nb_samples_2 = planner_2_.GetLastSolution().NbSamples();
+    double wo_2 = planner_2_.GetParameters().GetWidthOffset();
+    double ho_2 = planner_2_.GetParameters().GetHeightOffset();
+
+    Corridor footprint_1;
+    Corridor footprint_2;
+    Corridor o;
+    while (sample_ptr_1 < nb_samples_1 || sample_ptr_2 < nb_samples_2){
+        footprint_1.SetXmin(px1[std::min(nb_samples_1-1, sample_ptr_1)] - wo_1);
+        footprint_1.SetXmax(px1[std::min(nb_samples_1-1, sample_ptr_1)] + wo_1);
+        footprint_1.SetYmin(py1[std::min(nb_samples_1-1, sample_ptr_1)] - ho_1);
+        footprint_1.SetYmax(py1[std::min(nb_samples_1-1, sample_ptr_1)] + ho_1);
+
+        footprint_2.SetXmin(px2[std::min(nb_samples_2-1, sample_ptr_2)] - wo_2);
+        footprint_2.SetXmax(px2[std::min(nb_samples_2-1, sample_ptr_2)] + wo_2);
+        footprint_2.SetYmin(py2[std::min(nb_samples_2-1, sample_ptr_2)] - ho_2);
+        footprint_2.SetYmax(py2[std::min(nb_samples_2-1, sample_ptr_2)] + ho_2);
+
+        if (footprint_1.GetOverlap(footprint_2, o)){
+            std::cout << "Collision detected" << std::endl;
+            return true;
+        }
+
+        sample_ptr_1++;
+        sample_ptr_2++;
+    }
+
+    return false;
+};
+
+double DynamicIntersectionManager::GetTimeLeftToSimulate(){
+    return std::max(
+        planner_1_.GetLastSolution().Tf() - planner_1_.GetLastSolution().T()[planner_1_.GetCurrentSampleIdx()],
+        planner_2_.GetLastSolution().Tf() - planner_2_.GetLastSolution().T()[planner_2_.GetCurrentSampleIdx()]
+    );
+}
+
 int DynamicIntersectionManager::TimeToNbTimeSteps(double time){
     return std::ceil(time/simulation_time_step_);
 }
@@ -249,21 +388,31 @@ void DynamicIntersectionManager::GetIntersectionCase(){
     intersection_times_["vehicle_2"] = GetTimeEnteringAndLeavingIntersection(planner_2_);   
 
     std::cout << "intersection_times: " << intersection_times_ << std::endl; 
+    std::cout << "intersection_times[vehicle_1]: " << intersection_times_["vehicle_1"] << std::endl;
+    std::cout << "intersection_times[vehicle_2]: " << intersection_times_["vehicle_2"] << std::endl;
+    std::cout << "intersection_times[vehicle_1][entering_time]: " << intersection_times_["vehicle_1"]["entering_time"] << std::endl;
+    std::cout << "intersection_times[vehicle_2][entering_time]: " << intersection_times_["vehicle_2"]["entering_time"] << std::endl;
+    std::cout << intersection_times_["vehicle_1"]["entering_time"] << " " << intersection_times_["vehicle_2"]["entering_time"] << std::endl;
+    std::cout << (intersection_times_["vehicle_1"]["entering_time"]  < 0) << " " << (intersection_times_["vehicle_2"]["entering_time"] < 0) << std::endl;
 
     // check if both vehicles actually enter the intersection
     if (intersection_times_["vehicle_1"]["entering_time"]  < 0 ||
             intersection_times_["vehicle_2"]["entering_time"] < 0){
+        std::cout << "NO TRUE OVERLAP" << std::endl;
         intersection_case_ = NO_TRUE_OVERLAP;
     
     // if both vehicles stay in the intersection, we're in trouble
     } else if (intersection_times_["vehicle_1"]["leaving_time"] < 0 &&
                 intersection_times_["vehicle_2"]["leaving_time"] < 0){
+        std::cout << "INVALID CASE" << std::endl;
         intersection_case_ = INVALID_CASE;
 
     // if one vehicle never leaves, that one must wait
     } else if (intersection_times_["vehicle_1"]["leaving_time"] < 0){
+        std::cout << "VEHICLE 1 MUST WAIT" << std::endl;
         intersection_case_ = VEHICLE_1_MUST_WAIT;
     } else if (intersection_times_["vehicle_2"]["leaving_time"] < 0){
+        std::cout << "VEHICLE 2 MUST WAIT" << std::endl;
         intersection_case_ = VEHICLE_2_MUST_WAIT;
 
     // check if vehicles plan to be in intersection at the same time
@@ -271,13 +420,16 @@ void DynamicIntersectionManager::GetIntersectionCase(){
                 intersection_times_["vehicle_2"]["entering_time"] ||
                intersection_times_["vehicle_2"]["leaving_time"] < 
                 intersection_times_["vehicle_1"]["entering_time"]){
+        std::cout << "NO OVERLAP IN TIME" << std::endl;
         intersection_case_ = NO_OVERLAP_IN_TIME;
 
     // determine which vehicle must wait
     } else if (intersection_times_["vehicle_1"]["leaving_time"] < 
                intersection_times_["vehicle_2"]["leaving_time"]){
+        std::cout << "VEHICLE 2 MUST WAIT" << std::endl;
         intersection_case_ = VEHICLE_2_MUST_WAIT;
     } else {
+        std::cout << "VEHICLE 1 MUST WAIT" << std::endl;
         intersection_case_ = VEHICLE_1_MUST_WAIT;
     }
 };
@@ -294,10 +446,16 @@ std::map<std::string, double> DynamicIntersectionManager::GetTimeEnteringAndLeav
 
     std::map<std::string, double> result;
 
-    // wait until the vehicle is in the intersection
+    // wait until a part of the vehicle is in the intersection
     int sample_ptr = 0;
-    pos.SetValues(px[sample_ptr], py[sample_ptr]);
-    while (!intersection_.ContainsPoint(pos)){
+    Corridor o;
+    Corridor vehicle_footprint(px[sample_ptr]-planner.GetParameters().GetVehWidth()/2,
+                               px[sample_ptr]+planner.GetParameters().GetVehWidth()/2,
+                               py[sample_ptr]-planner.GetParameters().GetVehHeight()/2,
+                               py[sample_ptr]+planner.GetParameters().GetVehHeight()/2);
+    // pos.SetValues(px[sample_ptr], py[sample_ptr]);
+    // while (!intersection_.ContainsPoint(pos)){
+    while (!intersection_.GetOverlap(vehicle_footprint, o)){
         sample_ptr++;
         if (sample_ptr >= nb_samples){
             std::cout << "Cannot find time for vehicle to enter intersection" << std::endl;
@@ -305,21 +463,22 @@ std::map<std::string, double> DynamicIntersectionManager::GetTimeEnteringAndLeav
             break;
         }
         pos.SetValues(px[sample_ptr], py[sample_ptr]);
+        vehicle_footprint.SetXmin(px[sample_ptr]-planner.GetParameters().GetVehWidth()/2);
+        vehicle_footprint.SetXmax(px[sample_ptr]+planner.GetParameters().GetVehWidth()/2);
+        vehicle_footprint.SetYmin(py[sample_ptr]-planner.GetParameters().GetVehHeight()/2);
+        vehicle_footprint.SetYmax(py[sample_ptr]+planner.GetParameters().GetVehHeight()/2);
     }
 
     if (sample_ptr >= nb_samples){
-        result["entering_time "] = -1;
-        result["leaving_time "] = -1;
+        result["entering_time"] = -1;
+        result["leaving_time"] = -1;
         return result;
+    } else {
+        std::cout << "entered intersection at t[" << sample_ptr << "]: " << t[sample_ptr] << std::endl;
     }
     result["entering_time"] = t[sample_ptr];
 
-    // wait until the vehicle is out of the intersection
-    Corridor vehicle_footprint(px[sample_ptr]-planner.GetParameters().GetWidthOffset(),
-                               px[sample_ptr]+planner.GetParameters().GetWidthOffset(),
-                               py[sample_ptr]-planner.GetParameters().GetHeightOffset(),
-                               py[sample_ptr]+planner.GetParameters().GetHeightOffset());
-    Corridor o;
+    // wait until the vehicle is fully out of the intersection
     while (intersection_.GetOverlap(vehicle_footprint, o)){
         sample_ptr++;
         if (sample_ptr >= nb_samples){
@@ -327,15 +486,17 @@ std::map<std::string, double> DynamicIntersectionManager::GetTimeEnteringAndLeav
             // throw std::runtime_error("Cannot find time for vehicle to leave intersection");
         }
         pos.SetValues(px[sample_ptr], py[sample_ptr]);
-        vehicle_footprint.SetXmin(px[sample_ptr]-planner.GetParameters().GetWidthOffset());
-        vehicle_footprint.SetXmax(px[sample_ptr]+planner.GetParameters().GetWidthOffset());
-        vehicle_footprint.SetYmin(py[sample_ptr]-planner.GetParameters().GetHeightOffset());
-        vehicle_footprint.SetYmax(py[sample_ptr]+planner.GetParameters().GetHeightOffset());
+        vehicle_footprint.SetXmin(px[sample_ptr]-planner.GetParameters().GetVehWidth()/2);
+        vehicle_footprint.SetXmax(px[sample_ptr]+planner.GetParameters().GetVehWidth()/2);
+        vehicle_footprint.SetYmin(py[sample_ptr]-planner.GetParameters().GetVehHeight()/2);
+        vehicle_footprint.SetYmax(py[sample_ptr]+planner.GetParameters().GetVehHeight()/2);
     }
 
     if (sample_ptr >= nb_samples){
         result["leaving_time"] = -1;
         return result;
+    } else {
+        std::cout << "left intersection at t[" << sample_ptr << "]: " << t[sample_ptr] << std::endl;
     }
 
     result["leaving_time"] = t[sample_ptr];

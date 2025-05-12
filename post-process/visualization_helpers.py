@@ -172,11 +172,11 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
     
     if with_footprints:
         # show vehicle footprint
-        if show_initial_footprint_if_showing_footprints:
+        if show_initial_footprint_if_showing_footprints and len(trajectory["px"]) > 0:
             plot_vehicle_footprint(plt.gca(), trajectory["px"][start_index], 
                                 trajectory["py"][start_index], width, height, 
                                 virtual_position=virtual_initial_footprint)
-        if show_final_footprint_if_showing_footprints:
+        if show_final_footprint_if_showing_footprints and len(trajectory["px"]) > 0:
             final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
             plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
                                 trajectory["py"][final_ind], width, height,

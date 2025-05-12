@@ -792,8 +792,13 @@ void TestDynamicIntersections(){
     // Simulate movers and store results
     DynamicIntersectionManager intersection_manager = 
         DynamicIntersectionManager(planner1, planner2);
-    intersection_manager.SimulateSafely(start1, dest1, start_vel1, 
-        start2, dest2, start_vel2);
+    try{
+        intersection_manager.SimulateSafely(start1, dest1, start_vel1, 
+            start2, dest2, start_vel2);
+    } catch (std::exception &e){
+        std::cout << "something went wrong: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
+    }
     intersection_manager.DumpToJson("output/dynamic_intersection.json");
 }
 

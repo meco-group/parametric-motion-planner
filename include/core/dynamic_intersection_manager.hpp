@@ -31,12 +31,20 @@ class DynamicIntersectionManager {
         // simulate some amount of time
         void Simulate(int nb_time_Steps);
 
+        // simulate some amount of time but abort if safe trajectory is found
+        // (return true in that case)
+        bool SimulateImpatiently(int nb_time_Steps, int waiting_veh_idx);
+
+        bool CheckForCollision();
+
+        double GetTimeLeftToSimulate();
         int TimeToNbTimeSteps(double time);
 
         // find first vehicle leaving the intersection
         void GetIntersectionCase();
         std::map<std::string, double> GetTimeEnteringAndLeavingIntersection(MotionPlanner& planner);
 
+        // attributes for first vehicle
         MotionPlanner& planner_1_;
         Point2D<double> final_dest_1_;
         Trajectory travelled_trajectory_1_;
@@ -46,6 +54,7 @@ class DynamicIntersectionManager {
         Point2D<double> latest_simulated_pos_1_;
         Point2D<double> latest_simulated_vel_1_;
 
+        // attributes for second vehicle
         MotionPlanner& planner_2_;
         Point2D<double> final_dest_2_;
         Trajectory travelled_trajectory_2_;
@@ -55,14 +64,20 @@ class DynamicIntersectionManager {
         Point2D<double> latest_simulated_pos_2_;
         Point2D<double> latest_simulated_vel_2_;
 
+        // attributes for the intersection
         Corridor intersection_;
-        double additional_intersection_waiting_time_ = 0.0;
         IntersectionCase intersection_case_;
         std::map<std::string, std::map<std::string, double>> intersection_times_;
+        bool intersection_present_;
+        Point2D<double> waiting_position_;
 
+        // options
+        double additional_intersection_waiting_time_ = 0.0;
+        bool wait_for_clear_intersection_ = false;
+
+        // scratch space
         int nb_simulated_samples_ = 0;
         double simulation_time_step_ = 0.01;
-        bool intersection_present_;
 
 };
 

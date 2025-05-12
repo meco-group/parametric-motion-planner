@@ -66,14 +66,17 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
                         unfaded_nb_samples=nb_of_unfaded_samples, 
                         show_initial_footprint_if_showing_footprints=False,
                         trace_alpha=0.1)
-        plt.plot(travelled_trajectories[i]["px"][0], travelled_trajectories[i]["py"][0], 'o', 
-                 color=vehicle_colors[i], markersize=5)
-        plt.plot(travelled_trajectories[i]["px"][-1], travelled_trajectories[i]["py"][-1], 'o', 
-                 color=vehicle_colors[i], markersize=5)
+        if len(travelled_trajectories[i]['px']) > 0:
+            plt.plot(travelled_trajectories[i]["px"][0], travelled_trajectories[i]["py"][0], 'o', 
+                    color=vehicle_colors[i], markersize=5)
+            plt.plot(travelled_trajectories[i]["px"][-1], travelled_trajectories[i]["py"][-1], 'o', 
+                    color=vehicle_colors[i], markersize=5)
 
     set_env_plot_limits(environments[0])
     plt.xticks([])
     plt.yticks([])
+
+    plt.title(f"t = {original_T:.3f} s")
 
     return
 
