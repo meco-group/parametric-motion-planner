@@ -32,7 +32,7 @@ void DynamicIntersectionManager::SimulateSafely(const Point2D<double>& start1,
 
     // check if an intersection is needed
     intersection_present_ = GetIntersection();
-    if (intersection_present_){
+    if (intersection_present_ && CheckForCollision()){
         std::cout << "Intersection found: " << intersection_ << std::endl;
     } else {
         std::cout << "No intersection found" << std::endl;
@@ -113,10 +113,7 @@ void DynamicIntersectionManager::SimulateSafely(const Point2D<double>& start1,
             TimeToNbTimeSteps(first_leaving_time), 
             intersection_case_ == VEHICLE_1_MUST_WAIT ? 1 : 2);
         if (succeeded){
-            double time_left = VEHICLE_1_MUST_WAIT ? 
-                planner_1_.GetLastSolution().Tf() :
-                planner_2_.GetLastSolution().Tf();
-            Simulate(TimeToNbTimeSteps(time_left));
+            Simulate(TimeToNbTimeSteps(GetTimeLeftToSimulate()));
             return;
         }
     } else {
@@ -157,7 +154,7 @@ void DynamicIntersectionManager::SimulateSafely(const Point2D<double>& start1,
     }
 
     // Simulate until the end of the trajectory
-    Simulate(TimeToNbTimeSteps(time_left));
+    Simulate(TimeToNbTimeSteps(GetTimeLeftToSimulate()));
 };
 
 void DynamicIntersectionManager::DumpToJson(std::string const &filename) const {
@@ -335,15 +332,15 @@ bool DynamicIntersectionManager::CheckForCollision(){
     std::vector<double> py1 = planner_1_.GetLastSolution().Py();
     int sample_ptr_1 = planner_1_.GetCurrentSampleIdx();
     int nb_samples_1 = planner_1_.GetLastSolution().NbSamples();
-    double wo_1 = planner_1_.GetParameters().GetWidthOffset();
-    double ho_1 = planner_1_.GetParameters().GetHeightOffset();
+    double wo_1 = planner_1_.GetParameters().GetWidthOffset() + collision_check_margin_/2;
+    double ho_1 = planner_1_.GetParameters().GetHeightOffset() + collision_check_margin_/2;
 
     std::vector<double> px2 = planner_2_.GetLastSolution().Px();
     std::vector<double> py2 = planner_2_.GetLastSolution().Py();
     int sample_ptr_2 = planner_2_.GetCurrentSampleIdx();
     int nb_samples_2 = planner_2_.GetLastSolution().NbSamples();
-    double wo_2 = planner_2_.GetParameters().GetWidthOffset();
-    double ho_2 = planner_2_.GetParameters().GetHeightOffset();
+    double wo_2 = planner_2_.GetParameters().GetWidthOffset() + collision_check_margin_/2;
+    double ho_2 = planner_2_.GetParameters().GetHeightOffset() + collision_check_margin_/2;
 
     Corridor footprint_1;
     Corridor footprint_2;

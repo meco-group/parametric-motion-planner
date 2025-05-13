@@ -74,6 +74,7 @@ class DynamicIntersectionManager {
         // options
         double additional_intersection_waiting_time_ = 0.0;
         bool wait_for_clear_intersection_ = false;
+        double collision_check_margin_ = 0.01;
 
         // scratch space
         int nb_simulated_samples_ = 0;
