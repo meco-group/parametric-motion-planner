@@ -802,21 +802,67 @@ void TestDynamicIntersections(){
     intersection_manager.DumpToJson("output/dynamic_intersection.json");
 }
 
-int main(int argc, char *argv[]){
-    int nb_runs = 1;
-    if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
-        nb_runs = std::max(1, atoi(argv[2]));
+void TestMultiMoverSimulator(){
+    // Set the stage
+    Environment env = Environment(8, 8, 0.12, 0.12);
+    env.AddRandomObstacles(0.05);
+    Parameters params = Parameters();
+
+    int nb_movers = 4;
+
+    std::vector<Point2D<double>> starting_positions(nb_movers);
+    std::vector<Point2D<double>> final_destinations(nb_movers);
+    for (int i = 0; i < nb_movers; i++){
+        env.GetRandomFreeCellPosition(starting_positions[i]);
+        env.GetRandomFreeCellPosition(final_destinations[i]);
     }
-    // SolveRandomProblem(nb_runs);
-    // SolveDynamicProblem();
-    // TestRandomVehiclePositions();
-    // SolveFatropFailureCase();
-    // SwitchDestinationCarrotStyle();
-    // SwitchDestinationCarrotStyleUsingSampler();
-    // AvoidSuddenAndLateObstacle();
-    // TestTrajectoryCollisionCheck();
-    // TestCollisionResolution();
-    // TestEmergencyBraking();
-    // TestCorridorTimeDimension();
-    TestDynamicIntersections();
+
+    // Create simulator
+    std::vector<Parameters> params_list;
+    for (int i = 0; i < nb_movers; i++){
+        params_list.push_back(Parameters());
+    }
+    MultiMoverSimulator mms = MultiMoverSimulator(env, params_list, 
+                                                  starting_positions, 
+                                                  final_destinations);
+    
+    // Simulate for a bit
+    mms.SimulateSteps(1);
+    // try{
+    // } catch (std::exception &e){
+    //     std::cout << "something went wrong: " << e.what() << std::endl;
+    //     std::cerr << e.what() << std::endl;
+    // }
+
+    // // Dump to json
+    // mms.DumpToJson("output/multi_mover_simulator.json");
+}
+
+// int main(int argc, char *argv[]){
+//     int nb_runs = 1;
+//     if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
+//         nb_runs = std::max(1, atoi(argv[2]));
+//     }
+//     // SolveRandomProblem(nb_runs);
+//     // SolveDynamicProblem();
+//     // TestRandomVehiclePositions();
+//     // SolveFatropFailureCase();
+//     // SwitchDestinationCarrotStyle();
+//     // SwitchDestinationCarrotStyleUsingSampler();
+//     // AvoidSuddenAndLateObstacle();
+//     // TestTrajectoryCollisionCheck();
+//     // TestCollisionResolution();
+//     // TestEmergencyBraking();
+//     // TestCorridorTimeDimension();
+//     // TestDynamicIntersections();
+//     TestMultiMoverSimulator();
+// }
+
+int main() {
+    std::cout << "testing new MotionPlanner creation" << std::endl;
+    Environment new_env;
+    Parameters new_params;  // ensure constructor logs values
+    MotionPlanner new_planner(new_params, new_env);
+    json new_j = new_planner.ToJson();  // check where this fails
+    std::cout << new_j.dump(2) << std::endl;
 }

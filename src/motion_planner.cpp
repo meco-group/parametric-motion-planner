@@ -18,9 +18,9 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
                              Environment &environment) :
         params_(params),
         environment_(environment),
-        corridor_sequence_(environment_, params),
-        parametrization_(corridor_sequence_, params),
-        ocp_solver_(corridor_sequence_, params){
+        corridor_sequence_(environment_, params_),
+        parametrization_(corridor_sequence_, params_),
+        ocp_solver_(corridor_sequence_, params_){
 	method_ = method;
 
     // SetSolver("ipopt");
@@ -273,7 +273,6 @@ void MotionPlanner::SetSolver(std::string solver_name,
 	opts_solver_["max_iter"] = method_ == OCP ? 1000 : max_iter_;
     // if (silent_mode_){ opts_casadi_["print_time"] = false;}
 
-    std::cout << "jit: " << just_in_time_preparation_mode_ << std::endl;
     if (!just_in_time_preparation_mode_ && update_prepared_opti_instances){
         parametrization_.PrepareOptiInstances(parametrization_update_token_,
                                             solver_name_, opts_casadi_,
@@ -520,6 +519,9 @@ void MotionPlanner::PlanARENA(){
     // Try to solve a single arc
     double solver_time = 0.0;
     double sampling_time = 0.0;
+    std::cout << "my start: " << start_ << std::endl;
+    std::cout << "corridor sequence start: " << corridor_sequence_.GetStart() << std::endl;
+
     parametrization_.OptimizeSingleArc(parametrization_update_token_);
     std::set<int> problematic_corridors = CheckOutOfCorridor(solver_time);
     sampling_time += last_solution_.SamplingTime();

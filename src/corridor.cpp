@@ -551,6 +551,7 @@ json CorridorSequence::ToJson() const {
     corridor_sequence_json["original_path"] = path_json;
     corridor_sequence_json["corridor_sequence_construction_time"] = 
         corridor_sequence_construction_time_;
+    corridor_sequence_json["parameters"] = params_.ToJson();
 
     return corridor_sequence_json;
 }

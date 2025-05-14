@@ -28,6 +28,15 @@ class MotionPlanner{
 
         MotionPlanner(PlannerMethod method, Parameters const &params, 
                       Environment &environment);
+
+        // This copy is needed to maintain references
+        // MotionPlanner(const MotionPlanner& other) 
+        //     : params_(other.params_),
+        //       environment_(other.environment_),
+        //       corridor_sequence_(other.environment_, params_),
+        //       parametrization_(corridor_sequence_, params_),
+        //       ocp_solver_(corridor_sequence_, params_){};
+        MotionPlanner(const MotionPlanner& other) = delete;
             
 
         void SetMethod(PlannerMethod method){

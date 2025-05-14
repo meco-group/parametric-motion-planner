@@ -1090,6 +1090,7 @@ bool Parametrization::AddOvershootingConstraints(std::set<int> &add_list,
 
 
 void Parametrization::OptimizeSingleArc(const UpdateToken&){
+	std::cout << "parametrization start: " << corridor_sequence_.GetStart() << std::endl;
 	waypoints_[0].CopyValues(corridor_sequence_.GetStart());
 	waypoints_[1].CopyValues(corridor_sequence_.GetDest());
 	waypoints_sol_[0].CopyValues(corridor_sequence_.GetStart());

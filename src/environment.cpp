@@ -425,6 +425,11 @@ void Environment::GetRandomFreeVehiclePosition(Point2D<double> &pos,
                                                double vehicle_length,
                                                double margin) const {
     bool upper = pos.y() < 0.5*(nb_cell_rows_*cell_height_);
+
+    std::random_device rd;
+    std::mt19937 gen_(rd());
+    std::uniform_real_distribution<double> dis_x_(0, nb_cell_cols_);
+    std::uniform_real_distribution<double> dis_y_(0, nb_cell_rows_);
     
     // Initialize the position
     if (nb_cell_rows_ == 10 && nb_cell_cols_ == 12){
@@ -454,6 +459,12 @@ void Environment::GetRandomFreeVehiclePosition(Point2D<double> &pos,
 void Environment::GetRandomFreeCellPosition(Point2D<double> &pos) const {
     // Initialize the position
     Point2D<int> cell;
+
+    std::random_device rd;
+    std::mt19937 gen_(rd());
+    std::uniform_real_distribution<double> dis_x_(0, nb_cell_cols_);
+    std::uniform_real_distribution<double> dis_y_(0, nb_cell_rows_);
+
     cell.SetX(nb_cell_cols_*dis_x_(gen_));
     cell.SetY(nb_cell_rows_*dis_y_(gen_));
 

@@ -61,7 +61,10 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def(pybind11::init<int, int, double, double>())
         .def("AddObstacle", &Environment::AddObstacle)
         .def("AddRandomObstacles", &Environment::AddRandomObstacles)
-        .def("GetRandomFreeVehiclePosition", &Environment::GetRandomFreeVehiclePosition)
+        .def("GetRandomFreeVehiclePosition", [](Environment& self, Point2D<double>& pos,
+            double vehicle_width, double vehicle_height, double margin){
+                self.GetRandomFreeVehiclePosition(pos, vehicle_width, vehicle_height, margin);
+            })
         .def("GetRandomFreeCellPosition", &Environment::GetRandomFreeCellPosition)
         .def("ToJson", [](const Environment& self){
             return self.ToJson().dump();

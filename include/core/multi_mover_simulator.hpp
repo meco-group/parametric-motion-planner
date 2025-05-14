@@ -4,6 +4,8 @@
 #include "core/motion_planner.hpp"
 #include "core/corridor.hpp"
 
+#include <vector>
+
 enum AgentState {
     MOVING_TO_FINAL_DESTINATION,    // moving towards the final destination
     MOVING_TO_WAITING_POINT,        // moving towards the waiting point
@@ -23,8 +25,10 @@ enum CollisionResolutionDecision {
 // function in a multi-mover environment
 class Agent {
     public:
-        Agent(){Agent(nullptr);};
-        Agent(MotionPlanner* planner);
+        // Agent() : Agent(0.01, Point2D<double>(0, 0)) {};
+        Agent(Environment& env, Parameters& params, 
+              double collision_check_margin, 
+              Point2D<double> starting_position);
 
         // Basic Setters
         void SetFinalDestination(const Point2D<double>& final_dest);
@@ -35,16 +39,20 @@ class Agent {
         const AgentState& GetState() const;
         const Point2D<double>& GetWaitingPosition() const;
         const Agent& GetBlockingAgent() const;
+        int GetBlockingAgentIdx() const {
+            return blocking_agent_idx_;
+        }
         const Corridor& GetIntersection() const;
         int GetRemainingTimeSteps() const;
         const CorridorSequence& GetCorridorSequence() const {
-            return planner_->GetCorridorSequence();
+            return planner_.GetCorridorSequence();
         }
         double GetTimeAtTimeStep(int future_time_step) const;
         
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
-        void WaitForAgent(Agent* blocking_agent, Corridor& intersection);
+        void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_, 
+                          Corridor& intersection);
 
         // Simulate a time-step and potentially update the current state
         void SimulateStep();
@@ -57,23 +65,52 @@ class Agent {
                                  Corridor& footprint, 
                                  double collision_check_margin);
 
-    private:
-        void Plan();
+        json ToJson() const;
 
-        MotionPlanner* planner_;
+    private:
+        void PlanToDestination();
+
+        // Environment my_env_;
+        // Parameters my_params_;
+        MotionPlanner planner_;
         AgentState state_;
         Point2D<double> final_dest_;
 
         // attributes related to waiting
         Point2D<double> waiting_position_;
-        Agent* blocking_agent_;
+        std::shared_ptr<Agent> blocking_agent_;
+        int blocking_agent_idx_;
         Corridor intersection_;
 
         // Storing info
+        //  every simulation step
         Trajectory travelled_trajectory_;
+        std::vector<AgentState> travelled_states_;
+        std::vector<int> travelled_blocking_agent_idx_;
+        std::vector<Point2D<double>> travelled_final_destinations_;
+
+        //  every time a trajectory is planned
         std::vector<Trajectory> planned_trajectories_;
         std::vector<CorridorSequence> planned_corridor_sequences_;
         std::vector<double> planned_times_;
+
+        // current info
+        Point2D<double> curr_pos_;
+        Point2D<double> curr_vel_;
+        Point2D<double> curr_acc_;
+        double curr_time_;
+        int nb_simulated_samples_ = 0;
+
+        // options
+        int replanning_frequency_ = 1; // in number of time-steps
+        int replanning_step_counter_ = 0;
+        bool wait_for_clear_intersection_ = true;
+        double collision_check_margin_ = 0.01;
+
+        // scratch space
+        double t;
+        Corridor blocking_footprint_;
+        Corridor o;
 };
 
 
@@ -81,12 +118,17 @@ class Agent {
 // Class to simulate multiple movers preventing collisions
 class MultiMoverSimulator {
     public:
-        MultiMoverSimulator(std::vector<MotionPlanner>& planners);
+        MultiMoverSimulator(Environment& environment,
+                            std::vector<Parameters> params,
+                            std::vector<Point2D<double>> starting_positions,
+                            std::vector<Point2D<double>> final_destinations);
 
         void InstructAgentToDestination(int agent_idx, 
-                                        const Point2D<double>& final_dest);
+                                        const Point2D<double> final_dest);
 
         void SimulateSteps(int nb_steps);
+
+        void DumpToJson(std::string const &filename) const;
 
     private:
         // Update positions of all agents for a single time-step
@@ -110,7 +152,9 @@ class MultiMoverSimulator {
         // Check if agents are waiting for each other
         bool CheckIfDeadlockPresent();
 
-        std::vector<Agent> agents_;
+        Environment& env_;
+        std::vector<Parameters> params_;
+        std::vector<std::shared_ptr<Agent>> agents_;
 
         // simulation attributes
         double current_time_;

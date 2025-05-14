@@ -89,6 +89,12 @@ class Environment{
                                           double vehicle_width,
                                           double vehicle_height,
                                           double margin) const;
+        Point2D<double> GetRandomFreeVehiclePosition(double vehicle_width,
+                                double vehicle_height, double margin) const{
+            Point2D<double> pos;
+            GetRandomFreeVehiclePosition(pos, vehicle_width, vehicle_height, margin);
+            return pos;
+        };
 
         void GetRandomFreeCellPosition(Point2D<double> &pos) const;
 
@@ -112,10 +118,10 @@ class Environment{
         int version_ = 0;
 
         // random position generator
-        mutable std::random_device rd_;
-        mutable std::mt19937 gen_{rd_()};
-        mutable std::uniform_real_distribution<double> dis_x_;
-        mutable std::uniform_real_distribution<double> dis_y_;
+        // mutable std::random_device rd_;
+        // mutable std::mt19937 gen_{rd_()};
+        // mutable std::uniform_real_distribution<double> dis_x_;
+        // mutable std::uniform_real_distribution<double> dis_y_;
 };
 
 #endif
