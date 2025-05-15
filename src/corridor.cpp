@@ -245,7 +245,10 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     // Add cells to ensure final footprint of the vehicle is included
     AddFinalFootprint(path_);
 
-    if (extended_corridors_mode_){
+    if (path_.size() == 1){
+        std::cout << "NOTE: path size is 1" << std::endl;
+        AddCorridorFromCells(path_[0], path_[0]);
+    } else if (extended_corridors_mode_){
         // add a new corridor for all neighbouring cells
         for (int i = 2; i < path_.size(); i++){
             AddCorridorFromCells(path_[i-1], path_[i]);

@@ -116,6 +116,53 @@ class Agent {
         Corridor o;
 };
 
+class MoverTask{
+    public:
+        MoverTask(int agent_idx, const Point2D<double>& destination, 
+                  double time_to_reveal_task) :
+            agent_idx_(agent_idx), destination_(destination), 
+            time_to_reveal_task_(time_to_reveal_task) {};
+        
+        // check if now is the time to reveal the task
+        bool RevealTask(double current_time) {
+            if (current_time >= (time_to_reveal_task_ + task_delay_)){
+                has_been_revealed_ = true;
+                return true;
+            }
+            return false;
+        }
+
+        // if a task cannot be processed because the agent is not yet ready,
+        // postpone the task
+        void PostponeTask(double time_to_wait) {
+            task_delay_ += time_to_wait;
+            has_been_revealed_ = false;
+        }
+
+        // Basic getters
+        int GetAgentIdx() const { return agent_idx_;}
+        const Point2D<double>& GetDestination() const { return destination_; }
+        bool HasBeenRevealed() const { return has_been_revealed_; }
+
+        // printing
+        friend std::ostream& operator<<(std::ostream& os, const MoverTask& task) {
+            os << "MoverTask(agent_idx: " << task.agent_idx_ 
+               << ", destination: " << task.destination_ 
+               << ", time_to_reveal_task: " << task.time_to_reveal_task_ 
+               << ", task_delay: " << task.task_delay_ 
+               << ", has_been_revealed: " << task.has_been_revealed_ << ")";
+            return os;
+        }
+
+    private:
+        int agent_idx_ = -1;
+        Point2D<double> destination_;
+        double time_to_reveal_task_;
+        double task_delay_ = 0;
+        bool has_been_revealed_ = false;
+};
+
+// Class to store intersection information (for debugging and visualization)
 class IntersectionLog {
     public:
         IntersectionLog(int agent_idx_1, int agent_idx_2,
@@ -150,22 +197,36 @@ class MultiMoverSimulator {
                             std::vector<const Parameters*> params,
                             std::vector<Point2D<double>> starting_positions,
                             std::vector<Point2D<double>> final_destinations);
+        MultiMoverSimulator(Environment& environment,
+                            std::vector<const Parameters*> params,
+                            std::vector<Point2D<double>> starting_positions,
+                            std::vector<MoverTask> tasks);
 
         void InstructAgentToDestination(int agent_idx, 
                                         const Point2D<double> final_dest);
 
         void SimulateSteps(int nb_steps, bool stop_when_all_idling=true);
+        void SimulateAllTasks();
 
         void DumpToJson(std::string const &filename) const;
 
     private:
+        MultiMoverSimulator(Environment& environment,
+                            std::vector<const Parameters*> params,
+                            std::vector<Point2D<double>> starting_positions);
+
+        // Function to capture all that needs to happen to simulate a single
+        // time-step (update trajectories, process potential collisions, 
+        // check for deadlock and update agent positions/velocities)
+        void SimulateSingleStep();
+
         // Update positions of all agents for a single time-step
         void UpdateSingleStep();
 
         // If any new trajectories introduce collisions
         // (already existing trajectories are assumed to be collision-free)
         // Deal with the collision by instructing agents to wait
-        bool ProcessPotentialNewCollsions(std::vector<bool>& new_trajectories);
+        bool ProcessPotentialNewCollsions();
 
         bool CheckForCollision(int agent_idx_1, int agent_idx_2);
         void DealWithCollision(int agent_idx_1, int agent_idx_2);
@@ -183,6 +244,12 @@ class MultiMoverSimulator {
         // Check if all agents are idling
         bool AllAgentsIdling() const;
 
+        // 
+        void ProcessPotentialNewTasks();
+
+        // Check if all provided tasks are revealed
+        bool AllTasksRevealed() const;
+
         Environment& env_;
         std::vector<const Parameters*> params_;
         std::vector<std::shared_ptr<Agent>> agents_;
@@ -190,12 +257,16 @@ class MultiMoverSimulator {
         // simulation attributes
         int nb_simulated_samples_ = 0;
         double simulation_time_step_ = 0.01;
+        std::vector<MoverTask> tasks_;
 
         // options
         double collision_check_margin_ = 0.01;
 
         // stored information
         std::vector<IntersectionLog> intersection_logs_;
+
+        // scratch space
+        std::vector<bool> new_trajectories_;
 };
 
 

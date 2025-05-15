@@ -65,7 +65,9 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
             double vehicle_width, double vehicle_height, double margin){
                 self.GetRandomFreeVehiclePosition(pos, vehicle_width, vehicle_height, margin);
             })
-        .def("GetRandomFreeCellPosition", &Environment::GetRandomFreeCellPosition)
+        .def("GetRandomFreeCellPosition", [](Environment& self, Point2D<double>&pos){
+                self.GetRandomFreeCellPosition(pos);
+            })
         .def("ToJson", [](const Environment& self){
             return self.ToJson().dump();
         })

@@ -840,6 +840,50 @@ void TestMultiMoverSimulator(){
     }
 }
 
+void TestMultiMoverTasks(){
+    // Set the stage
+    Environment env = Environment(8, 8, 0.12, 0.12);
+    env.AddRandomObstacles(0.1);
+    Parameters params = Parameters();
+
+    int nb_movers = 3;
+
+    std::vector<Point2D<double>> starting_positions(nb_movers);
+    for (int i = 0; i < nb_movers; i++){
+        env.GetRandomFreeCellPosition(starting_positions[i]);
+    }
+
+    // Create tasks
+    std::vector<MoverTask> tasks = {
+        MoverTask(0, env.GetRandomFreeCellPosition(), 0.01),
+        MoverTask(1, env.GetRandomFreeCellPosition(), 0.08),
+        MoverTask(2, env.GetRandomFreeCellPosition(), 0.12),
+        // MoverTask(0, env.GetRandomFreeCellPosition(), 1.2),
+    };
+
+    // Create simulator
+    std::vector<Parameters> params_list(nb_movers);
+    std::vector<const Parameters*> params_ptr_list;
+    for (int i = 0; i < nb_movers; i++){
+        params_list[i] = Parameters();
+        params_ptr_list.push_back(&params_list[i]);
+    }
+    MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
+                                                  starting_positions, 
+                                                  tasks);
+    
+    try{
+        // Simulate for a bit
+        std::cout << "Simulating..." << std::endl;
+        mms.SimulateAllTasks();
+        // Dump to json
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    } catch (std::exception &e){
+        std::cout << "something went wrong: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
+    }
+}
+
 int main(int argc, char *argv[]){
     int nb_runs = 1;
     if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
@@ -857,7 +901,8 @@ int main(int argc, char *argv[]){
     // TestEmergencyBraking();
     // TestCorridorTimeDimension();
     // TestDynamicIntersections();
-    TestMultiMoverSimulator();
+    // TestMultiMoverSimulator();
+    TestMultiMoverTasks();
 }
 
 // int main() {

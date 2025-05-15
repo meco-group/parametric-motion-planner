@@ -519,8 +519,6 @@ void MotionPlanner::PlanARENA(){
     // Try to solve a single arc
     double solver_time = 0.0;
     double sampling_time = 0.0;
-    std::cout << "my start: " << start_ << std::endl;
-    std::cout << "corridor sequence start: " << corridor_sequence_.GetStart() << std::endl;
 
     parametrization_.OptimizeSingleArc(parametrization_update_token_);
     std::set<int> problematic_corridors = CheckOutOfCorridor(solver_time);

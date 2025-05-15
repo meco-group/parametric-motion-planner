@@ -110,8 +110,6 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
     intersection_ = intersection;
 
     PlanToDestination(true);
-
-    std::cout << "exiting WaitForAgent" << std::endl;
 }
 
 void Agent::SimulateStep(){
@@ -292,27 +290,48 @@ bool Agent::CheckForCollisionWithBlockingAgent(){
 
 MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
                 std::vector<const Parameters*> params,
-                std::vector<Point2D<double>> starting_positions,
-                std::vector<Point2D<double>> final_destinations)
+                std::vector<Point2D<double>> starting_positions)
                 : agents_(), env_(environment), params_(params){
     // check arguments
     if (params.size() != starting_positions.size()){
         throw std::invalid_argument("Number of planners and starting positions must match");
     }
-    if (final_destinations.size() != params.size()){
-        throw std::invalid_argument("Number of final destinations must match number of agents");
-    }
-
+    
     // initialize agents
     for (int i = 0; i < params.size(); i++){
         agents_.emplace_back(std::make_shared<Agent>(env_, *params_[i], 
                             collision_check_margin_, starting_positions[i]));
-        // agents_.emplace_back(env_, params_[i], collision_check_margin_, starting_positions[i]);
+    }
+
+    new_trajectories_ = std::vector<bool>(agents_.size(), false);
+}
+
+MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
+                std::vector<const Parameters*> params,
+                std::vector<Point2D<double>> starting_positions,
+                std::vector<Point2D<double>> final_destinations)
+                : MultiMoverSimulator(environment, params, starting_positions){
+    // check arguments
+    if (params.size() != final_destinations.size()){
+        throw std::invalid_argument("Number of planners and final destinations must match");
     }
 
     // set final destinations
     for (int i = 0; i < agents_.size(); i++){
         agents_[i]->SetFinalDestination(final_destinations[i]);
+    }
+}
+
+MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
+                std::vector<const Parameters*> params,
+                std::vector<Point2D<double>> starting_positions,
+                std::vector<MoverTask> tasks)
+                : MultiMoverSimulator(environment, params, starting_positions){   
+    tasks_ = tasks;
+
+    // set final destinations as current destinations
+    for (int i = 0; i < agents_.size(); i++){
+        agents_[i]->SetFinalDestination(starting_positions[i]);
     }
 }
 
@@ -325,25 +344,8 @@ void MultiMoverSimulator::InstructAgentToDestination(int agent_idx,
 }
 
 void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling){
-    std::vector<bool> new_trajectories(agents_.size(), false);
     for (int i = 0; i < nb_steps; i++){
-        // Update trajectories if needed
-        for (int j = 0; j < agents_.size(); j++){
-            new_trajectories[j] = agents_[j]->UpdateTrajectory();
-        }
-        // std::cout << "updated trajectories: " << new_trajectories << std::endl;
-
-        // Check for new collisions
-        ProcessPotentialNewCollsions(new_trajectories);
-
-        // Check for deadlocks
-        if (CheckIfDeadlockPresent()){
-            std::cout << "Deadlock detected" << std::endl;
-            throw std::runtime_error("Deadlock detected");
-        }
-
-        // Update positions of all agents
-        UpdateSingleStep();
+        SimulateSingleStep();
 
         // Check if all agents are idling
         if (AllAgentsIdling()){
@@ -352,6 +354,26 @@ void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling)
         }
 
         nb_simulated_samples_++;
+    }
+}
+
+void MultiMoverSimulator::SimulateAllTasks(){
+    bool all_tasks_completed = false;
+    int max_nb_steps = 10000;
+    int step_counter = 0;
+    while (!all_tasks_completed && step_counter < max_nb_steps){
+        // check if new tasks are available
+        ProcessPotentialNewTasks();
+
+        SimulateSingleStep();
+
+        // check if all tasks are completed
+        if (AllTasksRevealed() && AllAgentsIdling()){
+            all_tasks_completed = true;
+        }
+
+        nb_simulated_samples_++;
+        step_counter++;
     }
 }
 
@@ -369,13 +391,33 @@ void MultiMoverSimulator::DumpToJson(std::string const &filename) const {
     o << std::setw(4) << j << std::endl;
 }
 
+void MultiMoverSimulator::SimulateSingleStep(){
+    // Update trajectories if needed
+    for (int j = 0; j < agents_.size(); j++){
+        new_trajectories_[j] = agents_[j]->UpdateTrajectory();
+    }
+    // std::cout << "updated trajectories: " << new_trajectories << std::endl;
+
+    // Check for new collisions
+    ProcessPotentialNewCollsions();
+
+    // Check for deadlocks
+    if (CheckIfDeadlockPresent()){
+        std::cout << "Deadlock detected" << std::endl;
+        throw std::runtime_error("Deadlock detected");
+    }
+
+    // Update positions of all agents
+    UpdateSingleStep();
+}
+
 void MultiMoverSimulator::UpdateSingleStep(){
     for (auto& agent : agents_){
         agent->SimulateStep();
     }
 }
 
-bool MultiMoverSimulator::ProcessPotentialNewCollsions(std::vector<bool>& new_trajectories){
+bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     // TODO: improve the implementation below to make sure you always deal 
     // with the correct collisions
     // for example: if veh1 will first collide with veh2 and then with veh3, 
@@ -385,7 +427,7 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(std::vector<bool>& new_tr
     // important. Otherwise veh3 might be waiting for veh1 while veh1 is 
     // waiting for veh2.
     for (int i = 0; i < agents_.size(); i++){
-        if (new_trajectories[i]){
+        if (new_trajectories_[i]){
             for (int j = i + 1; j < agents_.size(); j++){
                 if (CheckForCollision(i, j)){
                     DealWithCollision(i, j);
@@ -595,6 +637,32 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(){
 bool MultiMoverSimulator::AllAgentsIdling() const{
     for (int i = 0; i < agents_.size(); i++){
         if (agents_[i]->GetState() != IDLING){
+            return false;
+        }
+    }
+    return true;
+}
+
+void MultiMoverSimulator::ProcessPotentialNewTasks(){
+    for (MoverTask& task : tasks_){
+        if (!task.HasBeenRevealed() && 
+                task.RevealTask(nb_simulated_samples_*simulation_time_step_)){
+            // check if the agent is ready for the new task
+            if (agents_[task.GetAgentIdx()]->GetState() == IDLING){
+                // set the final destination
+                agents_[task.GetAgentIdx()]->SetFinalDestination(task.GetDestination());
+            } else {
+                // postpone the task
+                task.PostponeTask(agents_[task.GetAgentIdx()]->GetRemainingTimeSteps()*
+                    simulation_time_step_);
+            }
+        }
+    }
+}
+
+bool MultiMoverSimulator::AllTasksRevealed() const{
+    for (int i = 0; i < tasks_.size(); i++){
+        if (!tasks_[i].HasBeenRevealed()){
             return false;
         }
     }

@@ -97,6 +97,11 @@ class Environment{
         };
 
         void GetRandomFreeCellPosition(Point2D<double> &pos) const;
+        Point2D<double> GetRandomFreeCellPosition() const{
+            Point2D<double> pos;
+            GetRandomFreeCellPosition(pos);
+            return pos;
+        };
 
         json ToJson() const;
 

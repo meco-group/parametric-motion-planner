@@ -16,6 +16,12 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     environments = [planner["environment"] for planner in planners]
     corridor_sequences = [d["planned_corridor_sequences"] for d in data["agents"]]
 
+    # for planned_seq in corridor_sequences:
+    #     for seq in planned_seq:
+    #         print(seq["nb_of_corridors"])
+    # exit()
+            
+
     max_T = max([traj["Tf"] for traj in travelled_trajectories])
 
     tt = travelled_trajectories[0]["t"]
@@ -37,7 +43,14 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
 
     # show corridors
     for i in range(len(corridor_sequences)):
-        corridors = corridor_sequences[i][0]
+        if (travelled_states[i][min(len(travelled_states[i])-1, traj_sample_idx)] == "IDLING"):
+            continue
+
+        replan_idx = 0
+        while replan_idx < len(planned_times[i]) - 1 and \
+                T > planned_times[i][replan_idx+1]:
+            replan_idx += 1
+        corridors = corridor_sequences[i][replan_idx]
         show_corridors(corridors, color=vehicle_colors[i], max_alpha=0.5)
 
     # show intersections
