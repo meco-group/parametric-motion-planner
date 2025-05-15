@@ -18,9 +18,9 @@ MotionPlanner::MotionPlanner(PlannerMethod method, Parameters const &params,
                              Environment &environment) :
         params_(params),
         environment_(environment),
-        corridor_sequence_(environment_, params_),
-        parametrization_(corridor_sequence_, params_),
-        ocp_solver_(corridor_sequence_, params_){
+        corridor_sequence_(environment_, params),
+        parametrization_(corridor_sequence_, params),
+        ocp_solver_(corridor_sequence_, params){
 	method_ = method;
 
     // SetSolver("ipopt");

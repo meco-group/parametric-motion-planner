@@ -101,7 +101,8 @@ else()
     include_directories(include ${CASADI_INCLUDE_DIRS}/casadi)
 
     # find Pybind11 package
-    find_package(pybind11 REQUIRED PATHS ~/.local/lib/python3.10/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake)
+    # find_package(pybind11 REQUIRED PATHS ~/.local/lib/python3.10/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake)
+    find_package(pybind11 REQUIRED PATHS ~/.local/lib/python3.10/site-packages/pybind11/share/cmake/pybind11)
 
     # Collect source files
     file(GLOB SOURCES "src/*.cpp")

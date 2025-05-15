@@ -463,8 +463,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
         GetCorridor(idx - 1).GetOverlap(GetCorridor(idx), o);
         o.GetCenter(reference_point);
     }
-    std::cout << "reference point: " << reference_point.ConvertWorldToCell(
-        cell_width, cell_height) << std::endl;
 
     // Construct candidates around the intersection
     int corridor_cell_width = std::round((intersection.Xmax() - intersection.Xmin())/cell_width);
@@ -478,8 +476,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
     for (int i = -1; i < corridor_cell_width + 1; i++){
         candidate.SetX(intersection.Xmin() + i*cell_width + cell_width/2);
         candidate.SetY(intersection.Ymin() - cell_height/2);
-        std::cout << "checking " << candidate.ConvertWorldToCell(cell_width, cell_height) 
-            << "(" << c.ContainsVehicle(candidate, params) << ") (dist: " << candidate.ManhattanDistance(reference_point) << ")" << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
@@ -487,8 +483,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
         }
 
         candidate.SetY(intersection.Ymax() + cell_height/2);
-        std::cout << "checking " << candidate.ConvertWorldToCell(cell_width, cell_height) 
-            << "(" << c.ContainsVehicle(candidate, params) << ") (dist: " << candidate.ManhattanDistance(reference_point) << ")" << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
@@ -498,8 +492,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
     for (int i = 0; i < corridor_cell_height; i++){
         candidate.SetX(intersection.Xmin() - cell_width/2);
         candidate.SetY(intersection.Ymin() + i*cell_height + cell_height/2);
-        std::cout << "checking " << candidate.ConvertWorldToCell(cell_width, cell_height) 
-            << "(" << c.ContainsVehicle(candidate, params) << ") (dist: " << candidate.ManhattanDistance(reference_point) << ")" << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
@@ -507,8 +499,6 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
         }
 
         candidate.SetX(intersection.Xmax() + cell_width/2);
-        std::cout << "checking " << candidate.ConvertWorldToCell(cell_width, cell_height) 
-            << "(" << c.ContainsVehicle(candidate, params) << ") (dist: " << candidate.ManhattanDistance(reference_point) << ")" << std::endl;
         if (c.ContainsVehicle(candidate, params) && 
                 candidate.ManhattanDistance(reference_point) < current_best_distance){
             waiting_position.CopyValues(candidate);
