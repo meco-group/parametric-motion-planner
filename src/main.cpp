@@ -1008,6 +1008,7 @@ void TestMultiMoverTasksWithStations(){
             }
             newly_selected[station_idx] = true;
             tasks.push_back(MoverTask(j, std::to_string(station_idx), 1.0 * i + 0.05 * j));
+            
         }
         occupied = newly_selected;
         newly_selected = std::vector<bool>(nb_stations, false);        
