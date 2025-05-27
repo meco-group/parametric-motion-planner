@@ -14,6 +14,55 @@ using json = nlohmann::json;
 
 class CorridorSequence;
 
+// Class representing a "lockable" destination in the environment
+// This location is considered an obstacle for all vehicles but can be 
+class ClaimableDestination {
+    public:
+        ClaimableDestination() = default;
+        ClaimableDestination(Point2D<int> location) : 
+            location_(location) {};
+
+        bool DestinationIsAt(int x, int y) const {
+            return location_.x() == x && location_.y() == y;
+        }
+
+        const Point2D<int>& GetLocation() const {return location_;}
+
+        bool ClaimedByCaller(const void* caller) const {
+            return claimed_ && claimed_by_ == caller;
+        }
+
+        bool Claim(const void* caller) {
+            if (claimed_){
+                return false;
+            }
+            claimed_ = true;
+            claimed_by_ = caller;
+            return true;
+        }
+
+        void Release(const void* caller){
+            if (!claimed_ || claimed_by_ != caller){
+                throw InvalidEnvironmentOperationException("Destination not claimed by this caller");
+            }
+            claimed_ = false;
+            claimed_by_ = nullptr;
+        }
+
+        json ToJson() const {
+            json j;
+            j["location"] = location_.ToJson();
+            j["claimed"] = claimed_;
+            j["claimed_by"] = std::to_string(reinterpret_cast<std::uintptr_t>(claimed_by_));
+            return j;
+        };
+
+    private:
+        Point2D<int> location_;
+        bool claimed_ = false;
+        const void* claimed_by_ = nullptr;
+};
+
 // Class representing the environment
 // Environments are always time-invariant. All obstacles are static.
 class Environment{
@@ -38,6 +87,8 @@ class Environment{
         }
         bool IsFree(Point2D<int> const &cell) const;
         bool IsFree(int x, int y) const;
+        bool IsClaimable(int x, int y) const;
+        bool IsClaimedByClaimingObject(int x, int y) const;
 
         // Environment operations
         void DeleteCell(Point2D<int> cell);
@@ -48,6 +99,19 @@ class Environment{
         void RemoveVirtualObstacle(Point2D<int> cell);
         void ClearAllObstacles();
         void AddRandomObstacles(double obstacle_probability);
+        void AddClaimableDestination(
+            const std::string &name, const Point2D<int> location);
+        Point2D<double> GetClaimableDestinationLocation(
+            const std::string &name) const;
+        bool ClaimDestination(
+            const std::string &name, const void* caller);
+        void ReleaseDestination(
+            const std::string &name, const void* caller);
+        void SetClaimingObject(const void* claiming_object) {
+            claiming_object_ = claiming_object;
+        }
+        void ClearClaimingObject() { claiming_object_ = nullptr;}
+        const void* GetClaimingObject() const { return claiming_object_;}
 
         // Moving obstacle operations
         class MovingObstacleOperationsToken {
@@ -102,8 +166,11 @@ class Environment{
             GetRandomFreeCellPosition(pos);
             return pos;
         };
+        Point2D<int> GetRandomFreeCellPositionAtEnvironmentEdge() const;
 
         json ToJson() const;
+
+        json ClaimableDestinationsToJson() const;
 
     private:
         // Function to be called whenever a modification is made to the 
@@ -117,16 +184,17 @@ class Environment{
 
         // Occupancy grid representing the environment
         std::vector<std::vector<CellOccupancy>> occupancy_grid_;
+        std::map<std::string, ClaimableDestination> claimable_destinations_;
 
         // version tracker such that CorridorSequence knows if it needs 
         // updating
         int version_ = 0;
 
-        // random position generator
-        // mutable std::random_device rd_;
-        // mutable std::mt19937 gen_{rd_()};
-        // mutable std::uniform_real_distribution<double> dis_x_;
-        // mutable std::uniform_real_distribution<double> dis_y_;
+        // pointer to an object that might claim destinations. If this pointer
+        // points to an actual object, the environment will consider the
+        // destinations claimed by that object as free (and all others as
+        // occupied)
+        const void* claiming_object_ = nullptr;
 };
 
 #endif

@@ -12,6 +12,9 @@ enum AgentState {
     WAITING_AT_INTERSECTION,        // waiting for another agent to pass
     IDLING,                         // reached final destination
     READY_TO_PLAN,                  // attempting to plan to final destination
+    FAILED_TO_PLAN_TO_DEST,         // planner failed, trying emergency stop
+    FAILED_TO_PLAN_TO_WAITING_POINT,// planner failed, trying emergency stop
+    WAITING_FOR_FREE_DESTINATION,   // destination is not free so needs to wait
 };
 
 enum CollisionResolutionDecision {
@@ -31,11 +34,15 @@ class Agent {
               Point2D<double> starting_position);
 
         // Basic Setters
-        void SetFinalDestination(const Point2D<double>& final_dest);
+        // Instruct this agent to move to a destination. Returns false if the
+        // destination could not be claimed.
+        bool InstructToDestination(const std::string& destination_name,
+                                   const Point2D<double>& final_dest);
 
         // Basic Getters
         const Point2D<double>& GetFinalDestination() const;
         const Point2D<double> GetCurrentPosition() const;
+        bool Stationary() const { return curr_vel_.Norm() <= 1.0e-2; }
         const AgentState& GetState() const;
         const Point2D<double>& GetWaitingPosition() const;
         const Agent& GetBlockingAgent() const;
@@ -72,17 +79,25 @@ class Agent {
 
         bool CheckForCollisionWithBlockingAgent();
 
-        // Environment my_env_;
-        // Parameters my_params_;
+        Environment& env_;
         MotionPlanner planner_;
         AgentState state_;
         Point2D<double> final_dest_;
 
-        // attributes related to waiting
+        // attributes related to waiting for agent
         Point2D<double> waiting_position_;
         std::shared_ptr<Agent> blocking_agent_;
         int blocking_agent_idx_ = -1;
         Corridor intersection_;
+
+        // attributes related to claiming a destination
+        bool currently_claiming_ = false; // should actually always be true 
+                                          // because either the agent is
+                                          // moving towards a claimed 
+                                          // destination or it is idling on a
+                                          // claimed position
+        std::string claimed_destination_name_;
+        std::vector<std::string> destinations_to_be_released_;
 
         // Storing info
         //  every simulation step
@@ -104,7 +119,7 @@ class Agent {
         int nb_simulated_samples_ = 0;
 
         // options
-        int replanning_frequency_ = 1; // in number of time-steps
+        int replanning_frequency_ = 5; // in number of time-steps
         int replanning_step_counter_ = 0;
         bool wait_for_clear_intersection_ = false;
         double collision_check_margin_ = 0.01;
@@ -118,9 +133,9 @@ class Agent {
 
 class MoverTask{
     public:
-        MoverTask(int agent_idx, const Point2D<double>& destination, 
+        MoverTask(int agent_idx, const std::string& destination, 
                   double time_to_reveal_task) :
-            agent_idx_(agent_idx), destination_(destination), 
+            agent_idx_(agent_idx), destination_name_(destination), 
             time_to_reveal_task_(time_to_reveal_task) {};
         
         // check if now is the time to reveal the task
@@ -141,13 +156,13 @@ class MoverTask{
 
         // Basic getters
         int GetAgentIdx() const { return agent_idx_;}
-        const Point2D<double>& GetDestination() const { return destination_; }
+        const std::string& GetDestinationName() const { return destination_name_; }
         bool HasBeenRevealed() const { return has_been_revealed_; }
 
         // printing
         friend std::ostream& operator<<(std::ostream& os, const MoverTask& task) {
             os << "MoverTask(agent_idx: " << task.agent_idx_ 
-               << ", destination: " << task.destination_ 
+               << ", destination: " << task.destination_name_ 
                << ", time_to_reveal_task: " << task.time_to_reveal_task_ 
                << ", task_delay: " << task.task_delay_ 
                << ", has_been_revealed: " << task.has_been_revealed_ << ")";
@@ -156,7 +171,7 @@ class MoverTask{
 
     private:
         int agent_idx_ = -1;
-        Point2D<double> destination_;
+        std::string destination_name_;
         double time_to_reveal_task_;
         double task_delay_ = 0;
         bool has_been_revealed_ = false;
@@ -195,15 +210,12 @@ class MultiMoverSimulator {
     public:
         MultiMoverSimulator(Environment& environment,
                             std::vector<const Parameters*> params,
-                            std::vector<Point2D<double>> starting_positions,
-                            std::vector<Point2D<double>> final_destinations);
-        MultiMoverSimulator(Environment& environment,
-                            std::vector<const Parameters*> params,
-                            std::vector<Point2D<double>> starting_positions,
+                            std::map<std::string, Point2D<int>> possible_destinations,
+                            std::vector<std::string> starting_positions,
                             std::vector<MoverTask> tasks);
 
         void InstructAgentToDestination(int agent_idx, 
-                                        const Point2D<double> final_dest);
+                                        const std::string& destination_name);
 
         void SimulateSteps(int nb_steps, bool stop_when_all_idling=true);
         void SimulateAllTasks();
@@ -211,10 +223,6 @@ class MultiMoverSimulator {
         void DumpToJson(std::string const &filename) const;
 
     private:
-        MultiMoverSimulator(Environment& environment,
-                            std::vector<const Parameters*> params,
-                            std::vector<Point2D<double>> starting_positions);
-
         // Function to capture all that needs to happen to simulate a single
         // time-step (update trajectories, process potential collisions, 
         // check for deadlock and update agent positions/velocities)
@@ -253,6 +261,7 @@ class MultiMoverSimulator {
         Environment& env_;
         std::vector<const Parameters*> params_;
         std::vector<std::shared_ptr<Agent>> agents_;
+        std::map<std::string, Point2D<int>> possible_destinations_;
 
         // simulation attributes
         int nb_simulated_samples_ = 0;
@@ -264,6 +273,7 @@ class MultiMoverSimulator {
 
         // stored information
         std::vector<IntersectionLog> intersection_logs_;
+        std::vector<json> claimed_destinations_info_;
 
         // scratch space
         std::vector<bool> new_trajectories_;

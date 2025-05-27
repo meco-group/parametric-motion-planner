@@ -16,11 +16,15 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     environments = [planner["environment"] for planner in planners]
     corridor_sequences = [d["planned_corridor_sequences"] for d in data["agents"]]
 
-    # for planned_seq in corridor_sequences:
-    #     for seq in planned_seq:
-    #         print(seq["nb_of_corridors"])
-    # exit()
-            
+    agent_addresses = [d["memory_address"] for d in data["agents"]]
+    claimable_destinations_info = data["claimed_destinations_info"]
+
+    SHOW_CORRIDORS = 0
+    SHOW_INTERSECTIONS = 0
+    SHOW_CLAIMED_CELLS = 1
+    SHOW_CURRENT_PLANS = 0
+    SHOW_TRAVELLED_TRAJECTORIES = 1
+
 
     max_T = max([traj["Tf"] for traj in travelled_trajectories])
 
@@ -42,51 +46,78 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
                  color=vehicle_colors[i], markersize=5, label="goal")
 
     # show corridors
-    for i in range(len(corridor_sequences)):
-        if (travelled_states[i][min(len(travelled_states[i])-1, traj_sample_idx)] == "IDLING"):
-            continue
+    if SHOW_CORRIDORS:
+        for i in range(len(corridor_sequences)):
+            if (travelled_states[i][min(len(travelled_states[i])-1, traj_sample_idx)] == "IDLING"):
+                continue
 
-        replan_idx = 0
-        while replan_idx < len(planned_times[i]) - 1 and \
-                T > planned_times[i][replan_idx+1]:
-            replan_idx += 1
-        corridors = corridor_sequences[i][replan_idx]
-        show_corridors(corridors, color=vehicle_colors[i], max_alpha=0.5)
+            replan_idx = 0
+            while replan_idx < len(planned_times[i]) - 1 and \
+                    T > planned_times[i][replan_idx+1]:
+                replan_idx += 1
+            corridors = corridor_sequences[i][replan_idx]
+            show_corridors(corridors, color=vehicle_colors[i], max_alpha=0.2)
 
     # show intersections
-    for log in data["intersection_logs"]:
-        if T >= log["time_entering"] and T <= log["time_leaving"]:
-            show_corridors({"sequence":[log["intersection"]]}, color='red')
+    if SHOW_INTERSECTIONS:
+        for log in data["intersection_logs"]:
+            if T >= log["time_entering"] and T <= log["time_leaving"]:
+                show_corridors({"sequence":[log["intersection"]]}, color='red')
+
+    # show claimed cells
+    if SHOW_CLAIMED_CELLS:
+        for (dest_name, destination) in claimable_destinations_info[min(len(claimable_destinations_info)-1, traj_sample_idx)].items():
+            cell = destination["location"]
+            color = 'lightgray'
+            if destination["claimed"]:
+                agent_memory_address = destination["claimed_by"]
+                if agent_memory_address in agent_addresses:
+                    agent_idx = agent_addresses.index(agent_memory_address)
+                    color = vehicle_colors[agent_idx]
+            
+            cell_width = environments[0]["cell_width"]
+            cell_height = environments[0]["cell_height"]
+            corridor = {"x_min":cell["x"]*cell_width,
+                        "x_max":(cell["x"]+1)*cell_width,
+                        "y_min":cell["y"]*cell_height,
+                        "y_max":(cell["y"]+1)*cell_height}    
+            show_corridors({"sequence":[corridor]}, color=color, max_alpha=0.5)
+
 
     # show current plans completely
-    for i in range(len(planners)):
-        curr_plan_idx = 0
-        while curr_plan_idx < len(planned_times[i]) - 1 and T > planned_times[i][curr_plan_idx+1]:
-            curr_plan_idx += 1
+    if SHOW_CURRENT_PLANS:
+        for i in range(len(planners)):
+            curr_plan_idx = 0
+            while curr_plan_idx < len(planned_times[i]) - 1 and T > planned_times[i][curr_plan_idx+1]:
+                curr_plan_idx += 1
 
-        show_trajectory(planned_trajectories[i][curr_plan_idx], 'gray', show_markers=False)
+            show_trajectory(planned_trajectories[i][curr_plan_idx], 'gray', show_markers=False)
 
     # show travelled trajectories
-    for i in range(len(planners)):
-        nb_of_unfaded_samples = 100*1.0e5
-        if original_T > travelled_trajectories[i]["Tf"]:
-            normal_unfaded_time = nb_of_unfaded_samples*travelled_trajectories[i]["dt"]
-            unfaded_time = max(0, normal_unfaded_time - (original_T - travelled_trajectories[i]["Tf"]))
-            nb_of_unfaded_samples = int(unfaded_time/travelled_trajectories[i]["dt"])
-        show_trajectory(travelled_trajectories[i], vehicle_colors[i], with_trace=True,
-                        width=planners[i]["parameters"]["veh_width"],
-                        height=planners[i]["parameters"]["veh_height"],
-                        with_footprints=True, 
-                        nb_samples_to_show=min(traj_sample_idx, len(travelled_trajectories[i]["px"])),
-                        virtual_final_footprint=False, 
-                        unfaded_nb_samples=nb_of_unfaded_samples, 
-                        show_initial_footprint_if_showing_footprints=False,
-                        trace_alpha=0.1)
-        if len(travelled_trajectories[i]['px']) > 0:
-            plt.plot(travelled_trajectories[i]["px"][0], travelled_trajectories[i]["py"][0], 'o', 
-                    color=vehicle_colors[i], markersize=5)
-            plt.plot(travelled_trajectories[i]["px"][-1], travelled_trajectories[i]["py"][-1], 'o', 
-                    color=vehicle_colors[i], markersize=5)
+    if SHOW_TRAVELLED_TRAJECTORIES:
+        for i in range(len(planners)):
+            nb_of_unfaded_samples = 100
+            if original_T > travelled_trajectories[i]["Tf"]:
+                normal_unfaded_time = nb_of_unfaded_samples*travelled_trajectories[i]["dt"]
+                unfaded_time = max(0, normal_unfaded_time - (original_T - travelled_trajectories[i]["Tf"]))
+                nb_of_unfaded_samples = int(unfaded_time/travelled_trajectories[i]["dt"])
+            show_trajectory(travelled_trajectories[i], vehicle_colors[i], with_trace=True,
+                            width=planners[i]["parameters"]["veh_width"],
+                            height=planners[i]["parameters"]["veh_height"],
+                            with_footprints=True, 
+                            nb_samples_to_show=min(traj_sample_idx, len(travelled_trajectories[i]["px"])),
+                            virtual_final_footprint=False, 
+                            unfaded_nb_samples=nb_of_unfaded_samples, 
+                            show_initial_footprint_if_showing_footprints=False,
+                            trace_alpha=0.1)
+            if len(travelled_trajectories[i]['px']) > 0:
+                # plt.plot(travelled_trajectories[i]["px"][0], travelled_trajectories[i]["py"][0], 'o', 
+                #         color=vehicle_colors[i], markersize=5)
+                # plt.plot(travelled_trajectories[i]["px"][-1], travelled_trajectories[i]["py"][-1], 'o', 
+                #         color=vehicle_colors[i], markersize=5)
+                plt.plot(travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["x"],
+                        travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["y"], 'o',
+                        color=vehicle_colors[i], markersize=5)
 
     # show vehicle numbers and states
     for i in range(len(planners)):
@@ -118,7 +149,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
 def create_multi_mover_motion_video(data, **kwargs):
     fps = kwargs.get('fps', 25)
     mp4_dt = 1.0/fps
-    total_time = max([d["travelled_trajectory"]["Tf"] for d in data["agents"]]) + 0.5
+    total_time = max([d["travelled_trajectory"]["Tf"] for d in data["agents"]]) + 1.0
 
     start_time = 0.0
     stop_time = total_time

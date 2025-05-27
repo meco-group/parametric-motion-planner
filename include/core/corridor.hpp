@@ -51,6 +51,8 @@ class Corridor{
         bool ContainsVehicle(const Point2D<double> &vehicle_position, 
                              const Parameters &params) const;
 
+        double GetArea() const {return (x_max_ - x_min_) * (y_max_ - y_min_);};
+
         // Getters
         double Xmin() const { return x_min_;};
         double Xmax() const { return x_max_;};

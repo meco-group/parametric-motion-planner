@@ -79,11 +79,18 @@ bool Environment::isValidVehiclePosition(Point2D<double> pos,
     return true;
 };
 
-bool Environment::IsFree(Point2D<int> const  &cell) const {
+bool Environment::IsFree(Point2D<int> const &cell) const {
     if (!isValidCell(cell)){
         // throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
         return false;
     }
+
+    // Check if the cell is claimed by an object other than claiming_object_
+    if (IsClaimable(cell.x(), cell.y()) && 
+            !IsClaimedByClaimingObject(cell.x(), cell.y())){
+        return false;
+    }
+
     return occupancy_grid_[cell.x()][cell.y()] == FREE;
 }
 
@@ -92,7 +99,44 @@ bool Environment::IsFree(int x, int y) const {
         // throw InvalidEnvironmentOperationException("Cannot check occupancy of a cell outside of the environment");
         return false;
     }
+
+    // Check if the cell is claimed by an object other than claiming_object_
+    if (IsClaimable(x, y) && !IsClaimedByClaimingObject(x, y)){
+        return false;
+    }
+
     return occupancy_grid_[x][y] == FREE;
+}
+
+bool Environment::IsClaimable(int x, int y) const {
+    if (!isValidCell(x, y)){
+        return false;
+    }
+
+    // Check if the cell is a possible destination
+    for (const auto &pair : claimable_destinations_){
+        if (pair.second.DestinationIsAt(x, y)){
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool Environment::IsClaimedByClaimingObject(int x, int y) const {
+    if (!isValidCell(x, y)){
+        return false;
+    }
+
+    // Check if the cell is claimed by the claiming_object_
+    for (const auto &pair : claimable_destinations_){
+        if (pair.second.DestinationIsAt(x, y) && 
+                pair.second.ClaimedByCaller(claiming_object_)){
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void Environment::DeleteCell(Point2D<int> cell){
@@ -186,6 +230,56 @@ void Environment::AddRandomObstacles(double obstacle_probability){
             }
         }
     }
+    UpdateVersion();
+}
+
+void Environment::AddClaimableDestination(
+        const std::string &name, const Point2D<int> location){
+    if (!isValidCell(location)){
+        throw InvalidEnvironmentOperationException("Cannot add a claimable destination outside of the environment");
+    }
+    if (occupancy_grid_[location.x()][location.y()] != FREE){
+        throw InvalidEnvironmentOperationException("Cannot add a claimable destination in an occupied cell");
+    }
+
+    claimable_destinations_[name] = ClaimableDestination(location);
+    UpdateVersion();
+}
+
+Point2D<double> Environment::GetClaimableDestinationLocation(
+        const std::string &name) const {
+    if (claimable_destinations_.count(name) == 0){
+        throw InvalidEnvironmentOperationException("Claimable destination " + name + " does not exist");
+    }
+    
+    Point2D<int> cell = claimable_destinations_.at(name).GetLocation();
+    return cell.ConvertCellToWorld(cell_width_, cell_height_);
+}
+
+bool Environment::ClaimDestination(
+        const std::string &name, const void* caller){
+    if (claimable_destinations_.count(name) == 0){
+        std::cout << "\t\t\tClaimable destination " << name 
+                  << " does not exist" << std::endl;
+        std::cout << claimable_destinations_.size() << " destinations exist" << std::endl;
+        
+        throw InvalidEnvironmentOperationException("Claimable destination " + name + " does not exist");
+    }
+    
+    bool successfully_claimed = 
+        claimable_destinations_[name].Claim(caller);
+
+    if (successfully_claimed){ UpdateVersion();}
+    return successfully_claimed;
+}
+
+void Environment::ReleaseDestination(
+        const std::string &name, const void* caller){
+    if (claimable_destinations_.count(name) == 0){
+        throw InvalidEnvironmentOperationException("Claimable destination " + name + " does not exist");
+    }
+    
+    claimable_destinations_[name].Release(caller);
     UpdateVersion();
 }
 
@@ -343,7 +437,13 @@ std::ostream& operator<<(std::ostream &out, Environment const &environment){
         for (int i = 0; i < environment.NbCellCols() ; i++){
             switch(environment.GetOccupancy(i, j)){
                 case FREE:
-                    out << ". ";
+                    if (environment.IsClaimedByClaimingObject(i, j)){
+                        out << "O ";
+                    } else if (environment.IsClaimable(i, j)){
+                        out << "#";
+                    } else {
+                        out << ". ";
+                    }
                     break;
                 case DELETED:
                     out << "X ";
@@ -476,6 +576,27 @@ void Environment::GetRandomFreeCellPosition(Point2D<double> &pos) const {
     pos = cell.ConvertCellToWorld(cell_width_, cell_height_);
 }
 
+Point2D<int> Environment::GetRandomFreeCellPositionAtEnvironmentEdge() const {
+    Point2D<int> cell;
+
+    std::random_device rd;
+    std::mt19937 gen_(rd());
+    std::uniform_real_distribution<double> dis_x_(0, nb_cell_cols_);
+    std::uniform_real_distribution<double> dis_y_(0, nb_cell_rows_);
+
+    cell.SetX(nb_cell_cols_*dis_x_(gen_));
+    cell.SetY(nb_cell_rows_*dis_y_(gen_));
+
+    while (!isValidCell(cell) || !IsFree(cell) || 
+           (cell.x() != 0 && cell.x() != nb_cell_cols_ - 1 && 
+            cell.y() != 0 && cell.y() != nb_cell_rows_ - 1)){
+        cell.SetX(nb_cell_cols_*dis_x_(gen_));
+        cell.SetY(nb_cell_rows_*dis_y_(gen_));
+    }
+
+    return cell;
+}
+
 json Environment::ToJson() const {
     json j;
 
@@ -484,6 +605,16 @@ json Environment::ToJson() const {
     j["cell_width"] = cell_width_;
     j["cell_height"] = cell_height_;
     j["occupancy_grid"] = occupancy_grid_;
+
+    return j;
+}
+
+json Environment::ClaimableDestinationsToJson() const {
+    json j;
+
+    for (const auto &pair : claimable_destinations_){
+        j[pair.first] = pair.second.ToJson();
+    }
 
     return j;
 }

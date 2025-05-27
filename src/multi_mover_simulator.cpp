@@ -26,6 +26,12 @@ std::string AgentStateToString(AgentState s){
         return "IDLING";
     } else if (s == READY_TO_PLAN){
         return "READY_TO_PLAN";
+    } else if (s == FAILED_TO_PLAN_TO_DEST){
+        return "FAILED_TO_PLAN_TO_DEST";
+    } else if (s == FAILED_TO_PLAN_TO_WAITING_POINT){
+        return "FAILED_TO_PLAN_TO_WAITING_POINT";
+    } else if (s == WAITING_FOR_FREE_DESTINATION){
+        return "WAITING_FOR_FREE_DESTINATION";
     } else {
         return "?";
     }
@@ -35,7 +41,7 @@ std::string AgentStateToString(AgentState s){
 Agent::Agent(Environment& env, const Parameters& params,
              double collision_check_margin, 
              Point2D<double> starting_position) : 
-        planner_(params, env), blocking_agent_(nullptr){
+        env_(env), planner_(params, env), blocking_agent_(nullptr){
     state_ = IDLING;
     final_dest_ = starting_position;
     curr_pos_ = starting_position;
@@ -45,12 +51,37 @@ Agent::Agent(Environment& env, const Parameters& params,
     travelled_trajectory_.Reset(starting_position);
 }
 
-void Agent::SetFinalDestination(const Point2D<double>& final_dest){
-    if (state_ != IDLING){
+bool Agent::InstructToDestination(const std::string& destination_name,
+                                  const Point2D<double>& final_dest){
+    if (state_ != IDLING && state_ != WAITING_FOR_FREE_DESTINATION){
         throw std::runtime_error("Cannot change final destination when not in IDLING state");
     }
+
+    // Check if we can claim the destination in the environment
+    if (!env_.ClaimDestination(destination_name, this)){
+        // if we were unable to claim the destination, update the state and
+        // return false
+        state_ = WAITING_FOR_FREE_DESTINATION;
+        return false;
+    }
+
+    // check if we were already claiming a destination, if so store it such
+    // that we can release it after replanning
+    // we cannot release it yet because that would cause an invalid starting 
+    // point in the environment
+    if (currently_claiming_){
+        destinations_to_be_released_.push_back(claimed_destination_name_);
+    }
+
+    // if we were able to claim the destination, take note of this such that
+    // we can release it later
+    currently_claiming_ = true;
+    claimed_destination_name_ = destination_name;
+
     final_dest_ = final_dest;
     state_ = READY_TO_PLAN;
+
+    return true;
 }
 
 const Point2D<double>& Agent::GetFinalDestination() const{
@@ -92,9 +123,12 @@ double Agent::GetTimeAtTimeStep(int future_time_step) const{
 void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent, 
                          int blocking_agent_idx, 
                          Corridor& intersection){
-    if (state_ == IDLING || state_ == WAITING_AT_INTERSECTION ||
-            state_ == MOVING_TO_WAITING_POINT){
-        throw std::runtime_error("Agent cannot wait for another agent when idling or already waiting");
+    if (state_ == IDLING){
+        throw std::runtime_error("Agent cannot wait for another agent when idling");
+    }
+    if (state_ == WAITING_AT_INTERSECTION || state_ == MOVING_TO_WAITING_POINT){
+        std::cout << "WARNING: This agent was already waiting for another agent" << std::endl;
+        // throw std::runtime_error("Agent cannot wait for another agent when idling or already waiting");
     }
     if (blocking_agent_idx < 0){
         throw std::runtime_error("Invalid blocking agent index");
@@ -133,6 +167,28 @@ void Agent::SimulateStep(){
         state_ = WAITING_AT_INTERSECTION;
     }
 
+    // Check if we can release a destination
+    std::vector<int> indices_to_be_released;
+    Point2D<double> destination;
+    Corridor cell;
+    for (int i = 0; i < destinations_to_be_released_.size(); i++){
+        destination = env_.GetClaimableDestinationLocation(destinations_to_be_released_[i]);
+        cell.SetXmin(destination.x() - planner_.GetParameters().GetWidthOffset());
+        cell.SetXmax(destination.x() + planner_.GetParameters().GetWidthOffset());
+        cell.SetYmin(destination.y() - planner_.GetParameters().GetHeightOffset());
+        cell.SetYmax(destination.y() + planner_.GetParameters().GetHeightOffset());
+        if (!cell.ContainsVehicle(curr_pos_, planner_.GetParameters())){
+            // we can release the destination
+            indices_to_be_released.push_back(i);
+            env_.ReleaseDestination(destinations_to_be_released_[i], this);
+        }
+    }
+    // remove the destinations that can be released
+    for (int i = indices_to_be_released.size() - 1; i >= 0; i--){
+        destinations_to_be_released_.erase(destinations_to_be_released_.begin() + 
+                                           indices_to_be_released[i]);
+    }
+
     // store logging info
     travelled_states_.push_back(state_);
     travelled_blocking_agent_idx_.push_back(blocking_agent_idx_);
@@ -141,9 +197,21 @@ void Agent::SimulateStep(){
 
 bool Agent::UpdateTrajectory(){
     // Check if we need to replan
-    if (state_ == MOVING_TO_FINAL_DESTINATION || state_ == IDLING){
+    if (state_ == MOVING_TO_FINAL_DESTINATION || state_ == IDLING || 
+            state_ == WAITING_FOR_FREE_DESTINATION){
         // nothing to be done
         return false;
+    }
+
+    // if we're in emergency state but came to a stop, we can plan again
+    if (state_ == FAILED_TO_PLAN_TO_WAITING_POINT || 
+            state_ == FAILED_TO_PLAN_TO_DEST){
+        if (Stationary()){
+            state_ = READY_TO_PLAN;
+        } else {
+            // wait until vehicle stops completely
+            return false;
+        }
     }
 
     // if we've been given a destination and are ready to plan, plan a new
@@ -237,22 +305,43 @@ json Agent::ToJson() const {
     for (const auto& time : planned_times_){
         j["planned_times"].push_back(time);
     }
+    j["memory_address"] = std::to_string(reinterpret_cast<std::uintptr_t>(this));
     return j;
 }
 
 void Agent::PlanToDestination(bool to_waiting_point){
     // plan
+    // std::cout << "environment before setting claiming object: " << std::endl;
+    // std::cout << env_ << std::endl;
+    env_.SetClaimingObject(this);
+    // std::cout << "environment after setting claiming object: " << std::endl;
+    // std::cout << env_ << std::endl;
     state_ = to_waiting_point ? MOVING_TO_WAITING_POINT : MOVING_TO_FINAL_DESTINATION;
     planner_.SetStart(curr_pos_);
     planner_.SetStartVel(curr_vel_);
     planner_.SetDest(to_waiting_point ? waiting_position_ : final_dest_);
-
     planner_.PlanSafely();
+    
+    // check if something went wrong
+    if (planner_.EmergencyMode()){
+        state_ = to_waiting_point ? FAILED_TO_PLAN_TO_WAITING_POINT : 
+            FAILED_TO_PLAN_TO_DEST;
+    }
+
+    // // if we planned succesfully, release destinations to be released
+    // if (state_ != FAILED_TO_PLAN_TO_WAITING_POINT && 
+    //         state_ != FAILED_TO_PLAN_TO_DEST){
+    //     for (const auto& dest_name : destinations_to_be_released_){
+    //         env_.ReleaseDestination(dest_name, this);
+    //     }
+    //     destinations_to_be_released_.clear();
+    // }
 
     // update stored info
     planned_trajectories_.push_back(planner_.GetLastSolution());
     planned_corridor_sequences_.push_back(planner_.GetCorridorSequence());
     planned_times_.push_back(curr_time_);
+    env_.ClearClaimingObject();
 }
 
 bool Agent::CheckForCollisionWithBlockingAgent(){
@@ -290,57 +379,61 @@ bool Agent::CheckForCollisionWithBlockingAgent(){
 
 MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
                 std::vector<const Parameters*> params,
-                std::vector<Point2D<double>> starting_positions)
-                : agents_(), env_(environment), params_(params){
+                std::map<std::string, Point2D<int>> possible_destinations,
+                std::vector<std::string> starting_positions,
+                std::vector<MoverTask> tasks)
+                : agents_(), env_(environment), params_(params),
+                  possible_destinations_(possible_destinations){   
     // check arguments
     if (params.size() != starting_positions.size()){
         throw std::invalid_argument("Number of planners and starting positions must match");
     }
+    if (possible_destinations.size() <= starting_positions.size()){
+        throw std::invalid_argument("Number of starting positions must match number of possible destinations");
+    }
     
     // initialize agents
     for (int i = 0; i < params.size(); i++){
-        agents_.emplace_back(std::make_shared<Agent>(env_, *params_[i], 
-                            collision_check_margin_, starting_positions[i]));
+        agents_.emplace_back(
+            std::make_shared<Agent>(env_, *params_[i], collision_check_margin_, 
+                possible_destinations_[starting_positions[i]].ConvertCellToWorld(
+                                        env_.CellWidth(), env_.CellHeight())
+            )
+        );
     }
-
     new_trajectories_ = std::vector<bool>(agents_.size(), false);
-}
-
-MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
-                std::vector<const Parameters*> params,
-                std::vector<Point2D<double>> starting_positions,
-                std::vector<Point2D<double>> final_destinations)
-                : MultiMoverSimulator(environment, params, starting_positions){
-    // check arguments
-    if (params.size() != final_destinations.size()){
-        throw std::invalid_argument("Number of planners and final destinations must match");
-    }
-
-    // set final destinations
-    for (int i = 0; i < agents_.size(); i++){
-        agents_[i]->SetFinalDestination(final_destinations[i]);
-    }
-}
-
-MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
-                std::vector<const Parameters*> params,
-                std::vector<Point2D<double>> starting_positions,
-                std::vector<MoverTask> tasks)
-                : MultiMoverSimulator(environment, params, starting_positions){   
+    
+    // initialize tasks
     tasks_ = tasks;
 
-    // set final destinations as current destinations
+    // add all possible destinations to the environment
+    for (const auto& [name, pos] : possible_destinations){
+        env_.AddClaimableDestination(name, pos);
+    }
+
+    // set final destinations as current positions
+    bool success = false;
     for (int i = 0; i < agents_.size(); i++){
-        agents_[i]->SetFinalDestination(starting_positions[i]);
+        success = agents_[i]->InstructToDestination(starting_positions[i],
+            possible_destinations[starting_positions[i]].ConvertCellToWorld(
+                env_.CellWidth(), env_.CellHeight()
+            )
+        );
+        if (!success){
+            std::cout << "Failed to set initial destination for agent " 
+                + std::to_string(i) + " to " + starting_positions[i] << std::endl;
+            throw std::runtime_error("Failed to set initial destination for agent " 
+                                     + std::to_string(i) + " to " 
+                                     + starting_positions[i]);
+        }
     }
 }
 
-void MultiMoverSimulator::InstructAgentToDestination(int agent_idx, 
-                                                      const Point2D<double> final_dest){
-    if (agent_idx < 0 || agent_idx >= agents_.size()){
-        throw std::out_of_range("Agent index out of range");
-    }
-    agents_[agent_idx]->SetFinalDestination(final_dest);
+void MultiMoverSimulator::InstructAgentToDestination(int agent_idx,
+                                        const std::string& destination_name){
+    agents_[agent_idx]->InstructToDestination(destination_name,
+        possible_destinations_[destination_name].ConvertCellToWorld(
+                                        env_.CellWidth(), env_.CellHeight()));
 }
 
 void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling){
@@ -387,6 +480,10 @@ void MultiMoverSimulator::DumpToJson(std::string const &filename) const {
     for (int i = 0; i < intersection_logs_.size(); i++){
         j["intersection_logs"].push_back(intersection_logs_[i].ToJson());
     }
+    j["claimed_destinations_info"] = json::array();
+    for (const auto& info : claimed_destinations_info_){
+        j["claimed_destinations_info"].push_back(info);
+    }
     std::ofstream o(filename);
     o << std::setw(4) << j << std::endl;
 }
@@ -406,6 +503,8 @@ void MultiMoverSimulator::SimulateSingleStep(){
         std::cout << "Deadlock detected" << std::endl;
         throw std::runtime_error("Deadlock detected");
     }
+
+    claimed_destinations_info_.push_back(env_.ClaimableDestinationsToJson());
 
     // Update positions of all agents
     UpdateSingleStep();
@@ -428,7 +527,10 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     // waiting for veh2.
     for (int i = 0; i < agents_.size(); i++){
         if (new_trajectories_[i]){
-            for (int j = i + 1; j < agents_.size(); j++){
+            for (int j = 0; j < agents_.size(); j++){
+                if (i == j){
+                    continue;
+                }
                 if (CheckForCollision(i, j)){
                     DealWithCollision(i, j);
                 }
@@ -469,8 +571,11 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
     Corridor intersection;
     bool intersection_present = GetIntersection(agent_idx_1, agent_idx_2, intersection);
     if (!intersection_present){
-        throw std::runtime_error("No intersection found between agent " + 
-            std::to_string(agent_idx_1) + " and agent " + std::to_string(agent_idx_2));
+        std::cout << "no intersection found between agents " << agent_idx_1;
+        std::cout << " and " << agent_idx_2 << std::endl;
+        return;
+        // throw std::runtime_error("No intersection found between agent " + 
+        //     std::to_string(agent_idx_1) + " and agent " + std::to_string(agent_idx_2));
     }
 
     // get the intersection case
@@ -482,7 +587,8 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
     std::cout << "Decision: " << DecisionToString(intersection_case) << std::endl; 
     
     if (intersection_case == INVALID){
-        throw std::runtime_error("Invalid intersection case");
+        // throw std::runtime_error("Invalid intersection case");
+        std::cout << "Invalid intersection case" << std::endl;
 
     } else if (intersection_case == NO_OVERLAP){
         // no action needed
@@ -518,6 +624,16 @@ bool MultiMoverSimulator::GetIntersection(int agent_idx_1, int agent_idx_2,
         intersection.SetXmax(std::max(intersection.Xmax(), overlaps[i].Xmax()));
         intersection.SetYmin(std::min(intersection.Ymin(), overlaps[i].Ymin()));
         intersection.SetYmax(std::max(intersection.Ymax(), overlaps[i].Ymax()));
+    }
+
+    // intersections can never cover edges of the environment
+    double cell_width = env_.CellWidth();
+    intersection.SetXmin(std::max(intersection.Xmin(), cell_width));
+    intersection.SetXmax(std::min(intersection.Xmax(), env_.NbCellCols() - cell_width));
+    intersection.SetYmin(std::max(intersection.Ymin(), cell_width));
+    intersection.SetYmax(std::min(intersection.Ymax(), env_.NbCellRows() - cell_width));
+    if (intersection.GetArea() == 0){
+        return false;
     }
 
     return true;
@@ -565,10 +681,27 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
     }
 
     // Determine which vehicle must wait
-    if (times_1["leaving_time"] < times_2["leaving_time"]){
+    if (agents_[agent_idx_1]->Stationary() && 
+            agents_[agent_idx_2]->Stationary()){
+        if (times_1["leaving_time"] < times_2["leaving_time"]){
+            return AGENT_2_MUST_WAIT;
+        } else {
+            return AGENT_1_MUST_WAIT;
+        }
+    } else if (agents_[agent_idx_1]->Stationary()){
+        // only agent_1 is not moving
+        return AGENT_1_MUST_WAIT;
+    } else if (agents_[agent_idx_2]->Stationary()){
         return AGENT_2_MUST_WAIT;
     } else {
-        return AGENT_1_MUST_WAIT;
+        // TODO: if both vehicles are moving, determine which one can safely
+        // brake (actually, this is not allowed to happen)
+        std::cout << "\tWARNING: Both vehicles are moving" << std::endl;
+        if (times_1["leaving_time"] < times_2["leaving_time"]){
+            return AGENT_2_MUST_WAIT;
+        } else {
+            return AGENT_1_MUST_WAIT;
+        }
     }
 }
 
@@ -591,7 +724,9 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
         }
         agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
     }
-    result["entering_time"] = agents_[agent_idx]->GetTimeAtTimeStep(nb_time_steps_from_now);
+    // result["entering_time"] = agents_[agent_idx]->GetTimeAtTimeStep(nb_time_steps_from_now);
+    result["entering_time"] = (nb_simulated_samples_ + nb_time_steps_from_now)*
+        simulation_time_step_;
 
     // find the time when the vehicle leaves the intersection
     agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
@@ -602,7 +737,9 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
         }
         agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
     }
-    result["leaving_time"] = agents_[agent_idx]->GetTimeAtTimeStep(nb_time_steps_from_now);
+    // result["leaving_time"] = agents_[agent_idx]->GetTimeAtTimeStep(nb_time_steps_from_now);
+    result["leaving_time"] = (nb_simulated_samples_ + nb_time_steps_from_now)*
+        simulation_time_step_;
 
     return result;
 }
@@ -648,12 +785,26 @@ void MultiMoverSimulator::ProcessPotentialNewTasks(){
         if (!task.HasBeenRevealed() && 
                 task.RevealTask(nb_simulated_samples_*simulation_time_step_)){
             // check if the agent is ready for the new task
-            if (agents_[task.GetAgentIdx()]->GetState() == IDLING){
+            if (agents_[task.GetAgentIdx()]->GetState() == IDLING || 
+                    agents_[task.GetAgentIdx()]->GetState() == WAITING_FOR_FREE_DESTINATION){
                 // set the final destination
-                agents_[task.GetAgentIdx()]->SetFinalDestination(task.GetDestination());
+                std::string name = task.GetDestinationName();
+                Point2D<double> dest = possible_destinations_[name].
+                    ConvertCellToWorld(env_.CellWidth(), env_.CellHeight());
+                bool success = agents_[task.GetAgentIdx()]->
+                                            InstructToDestination(name, dest);
+                if (!success){
+                    // unable to claim destination, try again later
+                    std::cout << "agent " << task.GetAgentIdx() << " unable to claim destination " 
+                        << name << std::endl;
+                    std::cout << "agents state: " << AgentStateToString(
+                        agents_[task.GetAgentIdx()]->GetState()) << std::endl;
+                    task.PostponeTask(0.1);
+                }
             } else {
                 // postpone the task
-                task.PostponeTask(agents_[task.GetAgentIdx()]->GetRemainingTimeSteps()*
+                task.PostponeTask(
+                    agents_[task.GetAgentIdx()]->GetRemainingTimeSteps()*
                     simulation_time_step_);
             }
         }
