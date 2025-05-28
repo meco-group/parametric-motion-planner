@@ -49,7 +49,7 @@ class Agent {
         int GetBlockingAgentIdx() const {
             return blocking_agent_idx_;
         }
-        const Corridor& GetIntersection() const;
+        const CorridorUnion& GetIntersection() const;
         int GetRemainingTimeSteps() const;
         const CorridorSequence& GetCorridorSequence() const {
             return planner_.GetCorridorSequence();
@@ -59,7 +59,7 @@ class Agent {
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
         void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_, 
-                          Corridor& intersection);
+                          CorridorUnion const &intersection);
 
         // Simulate a time-step and potentially update the current state
         void SimulateStep();
@@ -88,7 +88,7 @@ class Agent {
         Point2D<double> waiting_position_;
         std::shared_ptr<Agent> blocking_agent_;
         int blocking_agent_idx_ = -1;
-        Corridor intersection_;
+        CorridorUnion intersection_;
 
         // attributes related to claiming a destination
         bool currently_claiming_ = false; // should actually always be true 
@@ -182,7 +182,7 @@ class IntersectionLog {
     public:
         IntersectionLog(int agent_idx_1, int agent_idx_2,
                         double time_entering, double time_leaving,
-                        Corridor intersection) :
+                        CorridorUnion intersection) :
             agent_idx_1_(agent_idx_1), agent_idx_2_(agent_idx_2),
             time_entering_(time_entering), time_leaving_(time_leaving),
             intersection_(intersection) {};
@@ -202,7 +202,36 @@ class IntersectionLog {
         int agent_idx_2_ = -1;
         double time_entering_ = -1;
         double time_leaving_ = -1;
-        Corridor intersection_;
+        CorridorUnion intersection_;
+};
+
+// Class to log vehicle actions
+class MultiMoverLogger {
+    public:
+        MultiMoverLogger() = default;
+
+        void LogEvent(double time_stamp, const std::string& event) {
+            time_stamps_.push_back(time_stamp);
+            events_.push_back(event);
+        };
+
+        void PrintLog() const {
+            std::cout << "MultiMover Logged actions:" << std::endl;
+            for (size_t i = 0; i < time_stamps_.size(); ++i) {
+                std::cout << "[" << time_stamps_[i] << "] " 
+                          << events_[i] << std::endl;
+            }
+        };
+
+        json ToJson() const {
+            json j;
+            j["time_stamps"] = time_stamps_;
+            j["events"] = events_;
+            return j;
+        };
+    private:
+        std::vector<double> time_stamps_;
+        std::vector<std::string> events_;
 };
 
 // Class to simulate multiple movers preventing collisions
@@ -221,6 +250,7 @@ class MultiMoverSimulator {
         void SimulateAllTasks();
 
         void DumpToJson(std::string const &filename) const;
+        void PrintLog() const { logger_.PrintLog();};
 
     private:
         // Function to capture all that needs to happen to simulate a single
@@ -240,11 +270,11 @@ class MultiMoverSimulator {
         void DealWithCollision(int agent_idx_1, int agent_idx_2);
 
         bool GetIntersection(int agent_idx_1, int agent_idx_2, 
-                             Corridor& intersection);
+                             CorridorUnion& intersection);
         CollisionResolutionDecision GetIntersectionCase(int agent_idx_1, 
-            int agent_idx_2, Corridor const &intersection);
+            int agent_idx_2, CorridorUnion const &intersection);
         std::map<std::string, double> GetTimeEnteringAndLeavingIntersection(
-            int agent_idx, Corridor const &intersection);
+            int agent_idx, CorridorUnion const &intersection);
 
         // Check if agents are waiting for each other
         bool CheckIfDeadlockPresent();
@@ -274,6 +304,7 @@ class MultiMoverSimulator {
         // stored information
         std::vector<IntersectionLog> intersection_logs_;
         std::vector<json> claimed_destinations_info_;
+        MultiMoverLogger logger_;
 
         // scratch space
         std::vector<bool> new_trajectories_;

@@ -174,6 +174,68 @@ void Corridor::UpdateDirection(){
 
 
 
+
+// CorridorUnion class
+bool CorridorUnion::ContainsPoint(Point2D<double> const &point) const {
+    for (const auto &corridor : union_){
+        if (corridor.ContainsPoint(point)){
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CorridorUnion::ContainsVehicle(const Point2D<double> &vehicle_position, 
+                                    const Parameters &params) const {
+    for (const auto &corridor : union_){
+        if (corridor.ContainsVehicle(vehicle_position, params)){
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CorridorUnion::OverlapsWith(const Corridor& other) const {
+    Corridor overlap;
+    for (const auto &corridor : union_){
+        if (corridor.GetOverlap(other, overlap)){
+            return true;
+        }
+    }
+    return false;
+}
+
+json CorridorUnion::ToJson() const {
+    json j;
+    j["sequence"] = json::array();
+    for (const auto &corridor : union_){
+        j["sequence"].push_back(corridor.ToJson());
+    }
+    return j;
+}
+
+void CorridorUnion::MinimizeRepresentation(){
+    // TODO
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // CorridorSequence class
 
 void CorridorSequence::UpdateSequence(Point2D<double> const &start,
@@ -433,13 +495,13 @@ std::vector<Point2D<double>> CorridorSequence::GetCorridorOverlapCenters() const
     return centers;
 }
 
-std::vector<Corridor> CorridorSequence::GetOverlap(CorridorSequence& other) {
-    std::vector<Corridor> overlaps;
+CorridorUnion CorridorSequence::GetOverlap(CorridorSequence& other) {
+    CorridorUnion overlaps;
     for (int i = 0; i < NbCorridors(); i++){
         for (int j = 0; j < other.NbCorridors(); j++){
             Corridor overlap;
             if (GetCorridor(i).GetOverlap(other.GetCorridor(j), overlap)){
-                overlaps.push_back(overlap);
+                overlaps.AddCorridor(overlap);
             }
         }
     }
@@ -448,26 +510,27 @@ std::vector<Corridor> CorridorSequence::GetOverlap(CorridorSequence& other) {
 
 Point2D<double> CorridorSequence::GetWaitingPosition(
                                         Point2D<double> const &curr_pos,
-                                        Corridor const &intersection, 
+                                        CorridorUnion const &intersection, 
                                         Parameters const &params,
                                         double cell_width, double cell_height) const {
     // if the vehicle is already in the intersection, just wait
-    if (intersection.ContainsPoint(curr_pos)){
-        return curr_pos;
-    }
+    // if (intersection.ContainsPoint(curr_pos)){
+    //     return curr_pos;
+    // }
     
     // find first corridor that overlaps with the intersection
     int idx = -1;
     Corridor o;
     for (int i = 0; i < NbCorridors(); i++){
-        if (GetCorridor(i).GetOverlap(intersection, o)){
+        // if (GetCorridor(i).GetOverlap(intersection, o)){
+        if (intersection.OverlapsWith(GetCorridor(i))){
             idx = i;
             break;
         }
     }
 
     if (idx == -1){
-        throw std::runtime_error("No corridor overlaps with the intersection");
+        throw UnableToFindWaitingPoint("No corridor overlaps with the intersection");
     }
 
     Corridor c = GetCorridor(idx);
@@ -481,64 +544,63 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
     }
 
     // Construct candidates around the intersection
-    int corridor_cell_width = std::round((intersection.Xmax() - intersection.Xmin())/cell_width);
-    int corridor_cell_height = std::round((intersection.Ymax() - intersection.Ymin())/cell_height);
     std::vector<Point2D<double>> candidates;
     std::vector<double> distances;
     Point2D<double> candidate;
     double current_best_distance = 1.0e20;
     Point2D<double> waiting_position;
 
-    for (int i = -1; i < corridor_cell_width + 1; i++){
-        candidate.SetX(intersection.Xmin() + i*cell_width + cell_width/2);
-        candidate.SetY(intersection.Ymin() - cell_height/2);
-        if (c.ContainsVehicle(candidate, params) && 
-                candidate.ManhattanDistance(reference_point) < current_best_distance){
-            waiting_position.CopyValues(candidate);
-            current_best_distance = candidate.ManhattanDistance(reference_point);
-        }
+    // for every corridor in the intersection list
+    for (Corridor intersection_corridor : intersection.GetCorridors()){
+        int corridor_cell_width = std::round((intersection_corridor.Xmax() - 
+                                    intersection_corridor.Xmin())/cell_width);
+        int corridor_cell_height = std::round((intersection_corridor.Ymax() - 
+                                    intersection_corridor.Ymin())/cell_height);
+        // check horizontally
+        for (int i = -1; i < corridor_cell_width + 1; i++){
+            candidate.SetX(intersection_corridor.Xmin() + i*cell_width + cell_width/2);
+            candidate.SetY(intersection_corridor.Ymin() - cell_height/2);
+            if (c.ContainsVehicle(candidate, params) && 
+                    !intersection.ContainsPoint(candidate) &&
+                    candidate.ManhattanDistance(reference_point) < current_best_distance){
+                waiting_position.CopyValues(candidate);
+                current_best_distance = candidate.ManhattanDistance(reference_point);
+            }
 
-        candidate.SetY(intersection.Ymax() + cell_height/2);
-        if (c.ContainsVehicle(candidate, params) && 
-                candidate.ManhattanDistance(reference_point) < current_best_distance){
-            waiting_position.CopyValues(candidate);
-            current_best_distance = candidate.ManhattanDistance(reference_point);
+            candidate.SetY(intersection_corridor.Ymax() + cell_height/2);
+            if (c.ContainsVehicle(candidate, params) && 
+                    !intersection.ContainsPoint(candidate) &&
+                    candidate.ManhattanDistance(reference_point) < current_best_distance){
+                waiting_position.CopyValues(candidate);
+                current_best_distance = candidate.ManhattanDistance(reference_point);
+            }
         }
-    }
-    for (int i = 0; i < corridor_cell_height; i++){
-        candidate.SetX(intersection.Xmin() - cell_width/2);
-        candidate.SetY(intersection.Ymin() + i*cell_height + cell_height/2);
-        if (c.ContainsVehicle(candidate, params) && 
-                candidate.ManhattanDistance(reference_point) < current_best_distance){
-            waiting_position.CopyValues(candidate);
-            current_best_distance = candidate.ManhattanDistance(reference_point);
-        }
+        // check vertically
+        for (int i = 0; i < corridor_cell_height; i++){
+            candidate.SetX(intersection_corridor.Xmin() - cell_width/2);
+            candidate.SetY(intersection_corridor.Ymin() + i*cell_height + cell_height/2);
+            if (c.ContainsVehicle(candidate, params) && 
+                    !intersection.ContainsPoint(candidate) &&
+                    candidate.ManhattanDistance(reference_point) < current_best_distance){
+                waiting_position.CopyValues(candidate);
+                current_best_distance = candidate.ManhattanDistance(reference_point);
+            }
 
-        candidate.SetX(intersection.Xmax() + cell_width/2);
-        if (c.ContainsVehicle(candidate, params) && 
-                candidate.ManhattanDistance(reference_point) < current_best_distance){
-            waiting_position.CopyValues(candidate);
-            current_best_distance = candidate.ManhattanDistance(reference_point);
+            candidate.SetX(intersection_corridor.Xmax() + cell_width/2);
+            if (c.ContainsVehicle(candidate, params) && 
+                    !intersection.ContainsPoint(candidate) &&
+                    candidate.ManhattanDistance(reference_point) < current_best_distance){
+                waiting_position.CopyValues(candidate);
+                current_best_distance = candidate.ManhattanDistance(reference_point);
+            }
         }
     }
 
     if (current_best_distance > 1.0e10){
         std::cout << "WARNING: no waiting position found" << std::endl;
-        throw std::runtime_error("No waiting position found");
+        throw UnableToFindWaitingPoint("No waiting position found in corridor sequence");
     }
 
-    // Construct a corridor representing the current corridor - intersection
-
-    // project the center of the intersection into the current corridor
-    // Point2D<double> waiting_position = intersection.GetCenter();
-    // waiting_position.SetX(std::min(waiting_position.x(), 
-    //     GetCorridor(idx).Xmax() - params.GetWidthOffset()));
-    // waiting_position.SetX(std::max(waiting_position.x(),
-    //     GetCorridor(idx).Xmin() + params.GetWidthOffset()));
-    // waiting_position.SetY(std::min(waiting_position.y(),
-    //     GetCorridor(idx).Ymax() - params.GetHeightOffset()));
-    // waiting_position.SetY(std::max(waiting_position.y(),
-    //     GetCorridor(idx).Ymin() + params.GetHeightOffset()));
     return waiting_position;    
 }
 

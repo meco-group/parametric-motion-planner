@@ -20,10 +20,10 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     claimable_destinations_info = data["claimed_destinations_info"]
 
     SHOW_CORRIDORS = 0
-    SHOW_INTERSECTIONS = 1
+    SHOW_INTERSECTIONS = 0
     SHOW_CLAIMED_CELLS = 1
-    SHOW_CURRENT_PLANS = 1
-    SHOW_TRAVELLED_TRAJECTORIES = 1
+    SHOW_CURRENT_PLANS = 0
+    SHOW_TRAVELLED_TRAJECTORIES = 0
 
 
     max_T = max([traj["Tf"] for traj in travelled_trajectories])
@@ -62,7 +62,8 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     if SHOW_INTERSECTIONS:
         for log in data["intersection_logs"]:
             if T >= log["time_entering"] and T <= log["time_leaving"]:
-                show_corridors({"sequence":[log["intersection"]]}, color='red')
+                # show_corridors({"sequence":[log["intersection"]]}, color='red')
+                show_corridor_union(log["intersection"], color='red')
 
     # show claimed cells
     if SHOW_CLAIMED_CELLS:
@@ -94,30 +95,29 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
             show_trajectory(planned_trajectories[i][curr_plan_idx], 'gray', show_markers=False)
 
     # show travelled trajectories
-    if SHOW_TRAVELLED_TRAJECTORIES:
-        for i in range(len(planners)):
-            nb_of_unfaded_samples = 100
-            if original_T > travelled_trajectories[i]["Tf"]:
-                normal_unfaded_time = nb_of_unfaded_samples*travelled_trajectories[i]["dt"]
-                unfaded_time = max(0, normal_unfaded_time - (original_T - travelled_trajectories[i]["Tf"]))
-                nb_of_unfaded_samples = int(unfaded_time/travelled_trajectories[i]["dt"])
-            show_trajectory(travelled_trajectories[i], vehicle_colors[i], with_trace=True,
-                            width=planners[i]["parameters"]["veh_width"],
-                            height=planners[i]["parameters"]["veh_height"],
-                            with_footprints=True, 
-                            nb_samples_to_show=min(traj_sample_idx, len(travelled_trajectories[i]["px"])),
-                            virtual_final_footprint=False, 
-                            unfaded_nb_samples=nb_of_unfaded_samples, 
-                            show_initial_footprint_if_showing_footprints=False,
-                            trace_alpha=0.1)
-            if len(travelled_trajectories[i]['px']) > 0:
-                # plt.plot(travelled_trajectories[i]["px"][0], travelled_trajectories[i]["py"][0], 'o', 
-                #         color=vehicle_colors[i], markersize=5)
-                # plt.plot(travelled_trajectories[i]["px"][-1], travelled_trajectories[i]["py"][-1], 'o', 
-                #         color=vehicle_colors[i], markersize=5)
-                plt.plot(travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["x"],
-                        travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["y"], 'o',
-                        color=vehicle_colors[i], markersize=5)
+    for i in range(len(planners)):
+        nb_of_unfaded_samples = 100 if SHOW_TRAVELLED_TRAJECTORIES else 0
+        if original_T > travelled_trajectories[i]["Tf"]:
+            normal_unfaded_time = nb_of_unfaded_samples*travelled_trajectories[i]["dt"]
+            unfaded_time = max(0, normal_unfaded_time - (original_T - travelled_trajectories[i]["Tf"]))
+            nb_of_unfaded_samples = int(unfaded_time/travelled_trajectories[i]["dt"])
+        show_trajectory(travelled_trajectories[i], vehicle_colors[i], with_trace=SHOW_TRAVELLED_TRAJECTORIES,
+                        width=planners[i]["parameters"]["veh_width"],
+                        height=planners[i]["parameters"]["veh_height"],
+                        with_footprints=True, 
+                        nb_samples_to_show=min(traj_sample_idx, len(travelled_trajectories[i]["px"])),
+                        virtual_final_footprint=False, 
+                        unfaded_nb_samples=nb_of_unfaded_samples, 
+                        show_initial_footprint_if_showing_footprints=False,
+                        trace_alpha=0.1)
+        if len(travelled_trajectories[i]['px']) > 0:
+            # plt.plot(travelled_trajectories[i]["px"][0], travelled_trajectories[i]["py"][0], 'o', 
+            #         color=vehicle_colors[i], markersize=5)
+            # plt.plot(travelled_trajectories[i]["px"][-1], travelled_trajectories[i]["py"][-1], 'o', 
+            #         color=vehicle_colors[i], markersize=5)
+            plt.plot(travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["x"],
+                    travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["y"], 'o',
+                    color=vehicle_colors[i], markersize=5)
 
     # show vehicle numbers and states
     for i in range(len(planners)):
@@ -130,7 +130,11 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
                      str(i), color=vehicle_colors[i], fontsize=10, ha='center', 
                      va='center')
             # vehicle state
-            plt.text(0.66, 0.9 - i*0.05, str(travelled_states[i][min(traj_sample_idx, len(travelled_states[i]) - 1)]), 
+            local_idx = min(traj_sample_idx, len(travelled_states[i]) - 1)
+            state_string = str(travelled_states[i][local_idx])
+            if "WAIT" in state_string and "FREE" not in state_string:
+                state_string += " (" + str(data["agents"][i]["travelled_blocking_agent_idx"][local_idx]) + ")"
+            plt.text(0.66, 0.9 - i*0.05, state_string, 
                      color=vehicle_colors[i], fontsize=8, ha='left', 
                      va='top', transform=fig.transFigure)
 

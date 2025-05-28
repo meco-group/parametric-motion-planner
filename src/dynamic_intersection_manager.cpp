@@ -206,7 +206,7 @@ bool DynamicIntersectionManager::GetIntersection(){
     CorridorSequence corridors_2 = planner_2_.GetCorridorSequence();
 
     // compute overlapping regions
-    std::vector<Corridor> overlaps = corridors_1.GetOverlap(corridors_2);
+    std::vector<Corridor> overlaps = corridors_1.GetOverlap(corridors_2).GetCorridors();
 
     if (overlaps.size() > 0){
         // for now, only keep the first overlapping region

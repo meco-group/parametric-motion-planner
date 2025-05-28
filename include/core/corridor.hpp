@@ -36,6 +36,7 @@ class Corridor{
         // Function returns a boolean indicating if there is overlap. If not, 
         // overlap is not modified
         bool GetOverlap(Corridor const &other, Corridor &overlap) const;
+        bool GetOverlap(std::vector<Corridor> const &other, Corridor &overlap) const;
 
         // Check if this corridor is completely within another corridor
         bool IsCompletelyWithin(Corridor* const &other) const;
@@ -166,6 +167,44 @@ class Corridor_MX{
         MX y_max_;
 };
 
+// Non-rectangular corridor, represented as the union of multiple corridors
+class CorridorUnion{
+    public:
+        CorridorUnion() : union_() {};
+        CorridorUnion(std::vector<Corridor> const &corridors) : 
+            union_(corridors) {};
+
+        void AddCorridor(Corridor const &corridor) {
+            union_.push_back(corridor);
+        };
+        const std::vector<Corridor> GetCorridors() const { return union_;};
+        bool IsEmpty() const { return union_.empty();};
+
+        bool ContainsPoint(Point2D<double> const &point) const;
+        bool ContainsVehicle(const Point2D<double> &vehicle_position, 
+                             const Parameters &params) const;
+        bool OverlapsWith(const Corridor& other) const;
+
+        json ToJson() const;
+
+        // printing operator
+        friend std::ostream& operator<<(std::ostream &out, CorridorUnion const &c) {
+            out << "CorridorUnion: ";
+            for (const auto &corridor : c.union_){
+                out << corridor << " ";
+            }
+            return out;
+        }
+
+    private:
+        // Filter out corridors that are not needed to represent the same
+        // occupied space
+        // TODO
+        void MinimizeRepresentation();
+
+        std::vector<Corridor> union_;
+};
+
 // Sequence of corridors
 class CorridorSequence{
     public:
@@ -226,10 +265,16 @@ class CorridorSequence{
 
         std::vector<Point2D<double>> GetCorridorOverlapCenters() const;
 
-        std::vector<Corridor> GetOverlap(CorridorSequence& other);
+        CorridorUnion GetOverlap(CorridorSequence& other);
 
+        Point2D<double> GetWaitingPosition(Point2D<double> const &curr_pos, 
+                Corridor const &intersection, Parameters const &params, 
+                double cell_width, double cell_height) const {
+            return GetWaitingPosition(curr_pos, CorridorUnion({intersection}), 
+                                      params, cell_width, cell_height);
+        };
         Point2D<double> GetWaitingPosition(
-            Point2D<double> const &curr_pos, Corridor const &intersection, 
+            Point2D<double> const &curr_pos, CorridorUnion const &intersection, 
             Parameters const &params, double cell_width, double cell_height) const;
 
         // printing

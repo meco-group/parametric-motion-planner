@@ -107,7 +107,7 @@ const Agent& Agent::GetBlockingAgent() const{
     return *blocking_agent_;
 }
 
-const Corridor& Agent::GetIntersection() const{
+const CorridorUnion& Agent::GetIntersection() const{
     return intersection_;
 }
 
@@ -122,7 +122,7 @@ double Agent::GetTimeAtTimeStep(int future_time_step) const{
 
 void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent, 
                          int blocking_agent_idx, 
-                         Corridor& intersection){
+                         CorridorUnion const &intersection){
     if (state_ == IDLING){
         throw std::runtime_error("Agent cannot wait for another agent when idling");
     }
@@ -133,12 +133,20 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
     if (blocking_agent_idx < 0){
         throw std::runtime_error("Invalid blocking agent index");
     }
+    try{
+        waiting_position_ = planner_.GetCorridorSequence().GetWaitingPosition(
+            planner_.GetStart(), intersection, 
+            planner_.GetParameters(), 
+            planner_.GetEnvironment().CellWidth(),
+            planner_.GetEnvironment().CellHeight());
+    } catch (UnableToFindWaitingPoint& e){
+        // If we cannot find a waiting point but we're stationary, just wait here
+        if (Stationary()){ waiting_position_ = curr_pos_; }
+        // otherwise the other agent will have to wait
+        else { throw e;}
+    }
+    
     state_ = MOVING_TO_WAITING_POINT;
-    waiting_position_ = planner_.GetCorridorSequence().GetWaitingPosition(
-        planner_.GetStart(), intersection, 
-        planner_.GetParameters(), 
-        planner_.GetEnvironment().CellWidth(),
-        planner_.GetEnvironment().CellHeight());
     blocking_agent_ = blocking_agent;
     blocking_agent_idx_ = blocking_agent_idx;
     intersection_ = intersection;
@@ -233,7 +241,7 @@ bool Agent::UpdateTrajectory(){
         if (wait_for_clear_intersection_){
             blocking_agent_->GetVehicleFootprint(0, blocking_footprint_, 
                                                  collision_check_margin_);
-            if (blocking_footprint_.GetOverlap(intersection_, o)){
+            if (intersection_.OverlapsWith(blocking_footprint_)){
                 // blocking agent is still in the intersection
                 return false;
             } else {
@@ -250,6 +258,7 @@ bool Agent::UpdateTrajectory(){
                 PlanToDestination(true);
                 // discard first trajectory sample
                 planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
+
                 return false; // TODO: actually, the new trajectory might be
                 // different than the one before. It would be better to 
                 // actually revert to the previous trajectory. This would also
@@ -350,14 +359,9 @@ bool Agent::CheckForCollisionWithBlockingAgent(){
     
     for (int nb_steps_in_future = 0; 
             nb_steps_in_future < nb_time_steps_to_check; nb_steps_in_future++){
-        GetVehicleFootprint(nb_steps_in_future, footprint_, 
-                            collision_check_margin_);
+        GetVehicleFootprint(nb_steps_in_future, footprint_, 0);
         blocking_agent_->GetVehicleFootprint(nb_steps_in_future, 
-                                blocking_footprint_, collision_check_margin_);
-
-        if (nb_steps_in_future == 124){
-            std::cout << "[" << nb_steps_in_future << "] " << footprint_ << " " << blocking_footprint_ << std::endl;
-        }
+                                blocking_footprint_, 0);
 
         if (footprint_.GetOverlap(blocking_footprint_, o)){
             std::cout << "[" << nb_steps_in_future << "] " << footprint_ << " " << blocking_footprint_ << std::endl;
@@ -466,6 +470,8 @@ void MultiMoverSimulator::SimulateAllTasks(){
 
         // check if all tasks are completed
         if (AllTasksRevealed() && AllAgentsIdling()){
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+                             "All tasks completed and all agents are idling");
             all_tasks_completed = true;
         }
 
@@ -496,6 +502,10 @@ void MultiMoverSimulator::SimulateSingleStep(){
     // Update trajectories if needed
     for (int j = 0; j < agents_.size(); j++){
         new_trajectories_[j] = agents_[j]->UpdateTrajectory();
+        if (new_trajectories_[j]){
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+                "Agent " + std::to_string(j) + " updated trajectory");
+        }
     }
     // std::cout << "updated trajectories: " << new_trajectories << std::endl;
 
@@ -573,7 +583,7 @@ bool MultiMoverSimulator::CheckForCollision(int agent_idx_1, int agent_idx_2){
 
 void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
     // get the intersection of the two vehicles
-    Corridor intersection;
+    CorridorUnion intersection;
     bool intersection_present = GetIntersection(agent_idx_1, agent_idx_2, intersection);
     if (!intersection_present){
         std::cout << "no intersection found between agents " << agent_idx_1;
@@ -589,7 +599,11 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
     CollisionResolutionDecision intersection_case = 
                 GetIntersectionCase(agent_idx_1, agent_idx_2, intersection);
     Point2D<double> waiting_position;
-    std::cout << "Decision: " << DecisionToString(intersection_case) << std::endl; 
+    std::cout << "Decision: " << DecisionToString(intersection_case) << std::endl;
+    logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+        "Collision found between agents " + std::to_string(agent_idx_1) + 
+        " and " + std::to_string(agent_idx_2) + 
+        " with decision: " + DecisionToString(intersection_case));
     
     if (intersection_case == INVALID){
         // throw std::runtime_error("Invalid intersection case");
@@ -601,51 +615,87 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
 
     } else if (intersection_case == AGENT_1_MUST_WAIT){
         // instruct vehicle 1 to wait
-        agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2,
-                                          intersection);
+        try{
+            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
+                                               agent_idx_2, intersection);
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+                "Instructed agent " + std::to_string(agent_idx_1) + 
+                " to wait for agent " + std::to_string(agent_idx_2));
+        } catch (UnableToFindWaitingPoint& e){
+            // agent_idx_1 cannot find a waiting point, so agent_idx_2 must 
+            // longer
+            if (!agents_[agent_idx_2]->Stationary()){
+                std::cout << "Agent " << agent_idx_1 << " cannot find a waiting point, so agent " 
+                          << agent_idx_2 << " must wait longer" << std::endl;
+            }
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                "Agent " + std::to_string(agent_idx_1) + 
+                " cannot find a waiting point, so agent " + std::to_string(agent_idx_2) + 
+                " must wait longer");
+            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
+                                               agent_idx_1, intersection);
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+                "Instructed agent " + std::to_string(agent_idx_2) + 
+                " to wait for agent " + std::to_string(agent_idx_1));
+        }
 
     } else if (intersection_case == AGENT_2_MUST_WAIT){
         // instruct vehicle 2 to wait
-        agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1,
-                                          intersection);
+        try{
+            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
+                                               agent_idx_1, intersection);
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                "Instructed agent " + std::to_string(agent_idx_2) + 
+                " to wait for agent " + std::to_string(agent_idx_1));
+        } catch (UnableToFindWaitingPoint& e){
+            // agent_idx_2 cannot find a waiting point, so agent_idx_1 must 
+            // longer
+            if (!agents_[agent_idx_1]->Stationary()){
+                std::cout << "Agent " << agent_idx_2 << " cannot find a waiting point, so agent " 
+                          << agent_idx_1 << " must wait longer" << std::endl;
+            }
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                "Agent " + std::to_string(agent_idx_2) + 
+                " cannot find a waiting point, so agent " + std::to_string(agent_idx_1) + 
+                " must wait longer");
+            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
+                                               agent_idx_2, intersection);
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                "Instructed agent " + std::to_string(agent_idx_1) + 
+                " to wait for agent " + std::to_string(agent_idx_2));
+        }
     } else {
         throw std::runtime_error("Invalid CollisionResolutionDecision: Don't know what to do");
     }
 }
 
 bool MultiMoverSimulator::GetIntersection(int agent_idx_1, int agent_idx_2, 
-                                          Corridor& intersection){
+                                          CorridorUnion& intersection){
     CorridorSequence seq_1 = agents_[agent_idx_1]->GetCorridorSequence();
     CorridorSequence seq_2 = agents_[agent_idx_2]->GetCorridorSequence();
-    std::vector<Corridor> overlaps = seq_1.GetOverlap(seq_2);
+    intersection = seq_1.GetOverlap(seq_2);
 
-    if (overlaps.size() == 0){
-        return false;
-    }
+    // if (overlaps.size() == 0){
+    //     return false;
+    // }
 
-    intersection = overlaps[0].Copy();
-    for (int i = 1; i < overlaps.size(); i++){
-        intersection.SetXmin(std::min(intersection.Xmin(), overlaps[i].Xmin()));
-        intersection.SetXmax(std::max(intersection.Xmax(), overlaps[i].Xmax()));
-        intersection.SetYmin(std::min(intersection.Ymin(), overlaps[i].Ymin()));
-        intersection.SetYmax(std::max(intersection.Ymax(), overlaps[i].Ymax()));
-    }
+    // Create single corridor around all overlaps --> too conservative
+    // intersection = overlaps[0].Copy();
+    // for (int i = 1; i < overlaps.size(); i++){
+    //     intersection.SetXmin(std::min(intersection.Xmin(), overlaps[i].Xmin()));
+    //     intersection.SetXmax(std::max(intersection.Xmax(), overlaps[i].Xmax()));
+    //     intersection.SetYmin(std::min(intersection.Ymin(), overlaps[i].Ymin()));
+    //     intersection.SetYmax(std::max(intersection.Ymax(), overlaps[i].Ymax()));
+    // }
 
-    // intersections can never cover edges of the environment
-    double cell_width = env_.CellWidth();
-    intersection.SetXmin(std::max(intersection.Xmin(), cell_width));
-    intersection.SetXmax(std::min(intersection.Xmax(), env_.NbCellCols() - cell_width));
-    intersection.SetYmin(std::max(intersection.Ymin(), cell_width));
-    intersection.SetYmax(std::min(intersection.Ymax(), env_.NbCellRows() - cell_width));
-    if (intersection.GetArea() == 0){
-        return false;
-    }
+    // return true;
 
-    return true;
+    return !intersection.IsEmpty();
 }
 
 CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
-        int agent_idx_1, int agent_idx_2, Corridor const &intersection){
+        int agent_idx_1, int agent_idx_2, 
+        CorridorUnion const &intersection){
     std::map<std::string, double> times_1 = 
             GetTimeEnteringAndLeavingIntersection(agent_idx_1, intersection);
     std::map<std::string, double> times_2 =
@@ -711,18 +761,17 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
 }
 
 std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingIntersection(
-        int agent_idx, Corridor const &intersection){
+        int agent_idx, CorridorUnion const &intersection){
     std::map<std::string, double> result;
     result["entering_time"] = -1;
     result["leaving_time"] = -1;
 
     // find the time when the vehicle enters the intersection
     Corridor footprint;
-    Corridor o;
     int nb_steps_remaining = agents_[agent_idx]->GetRemainingTimeSteps();
     int nb_time_steps_from_now = 0;
     agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
-    while (!intersection.GetOverlap(footprint, o)){
+    while (!intersection.OverlapsWith(footprint)){
         nb_time_steps_from_now++;
         if (nb_time_steps_from_now >= nb_steps_remaining){
             return result;
@@ -738,7 +787,7 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
     int nb_steps_until_entering = nb_time_steps_from_now;
     nb_time_steps_from_now = nb_steps_remaining - 1;
     agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
-    while (!intersection.GetOverlap(footprint, o)){
+    while (!intersection.OverlapsWith(footprint)){
         nb_time_steps_from_now--;
         if (nb_time_steps_from_now <= nb_steps_until_entering){
             return result;
@@ -760,18 +809,28 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(){
     while (std::find(processed_agents.begin(), processed_agents.end(), false) != processed_agents.end()){
         // find the first agent that is not processed yet
         int original_agent_idx = std::find(processed_agents.begin(), processed_agents.end(), false) - processed_agents.begin();
+        curr_agent_idx = original_agent_idx;
 
         processed_agents[original_agent_idx] = true;
-        while (agents_[curr_agent_idx]->GetState() == MOVING_TO_WAITING_POINT || 
-                agents_[curr_agent_idx]->GetState() == WAITING_AT_INTERSECTION){
+        AgentState state = agents_[original_agent_idx]->GetState();
+        while (state == MOVING_TO_WAITING_POINT || 
+                state == WAITING_AT_INTERSECTION){
             // get the agent for which the current agent is waiting
             int temp = curr_agent_idx;
             curr_agent_idx = agents_[curr_agent_idx]->GetBlockingAgentIdx();
+            processed_agents[curr_agent_idx] = true;
 
             // check if the current agent is waiting for the original agent
             if (curr_agent_idx == original_agent_idx){
                 // deadlock found
                 return true;
+            }
+            state = agents_[curr_agent_idx]->GetState();
+
+            // check if the current agent is idling
+            if (state == IDLING){
+                // the current agent is idling, so we are in a temporary deadlock
+                // return true;
             }
         }
     }
@@ -808,12 +867,26 @@ void MultiMoverSimulator::ProcessPotentialNewTasks(){
                     std::cout << "agents state: " << AgentStateToString(
                         agents_[task.GetAgentIdx()]->GetState()) << std::endl;
                     task.PostponeTask(0.1);
+                    logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                        "Postponing task for agent " + 
+                        std::to_string(task.GetAgentIdx()) + " to " + name + 
+                        " (unable to claim destination)");
+                } else {
+                    logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                        "Agent " + std::to_string(task.GetAgentIdx()) + 
+                        " instructed to destination " + name);
                 }
             } else {
                 // postpone the task
                 task.PostponeTask(
                     agents_[task.GetAgentIdx()]->GetRemainingTimeSteps()*
                     simulation_time_step_);
+                logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                    "Postponing task for agent " + 
+                    std::to_string(task.GetAgentIdx()) + " to " + 
+                    task.GetDestinationName() + 
+                    " (agent not ready, state: " + 
+                    AgentStateToString(agents_[task.GetAgentIdx()]->GetState()) + ")");
             }
         }
     }

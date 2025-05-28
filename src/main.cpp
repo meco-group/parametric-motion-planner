@@ -1076,7 +1076,7 @@ void TestDeadlockScenario(){
         MoverTask(0, "3", 0.1),
         MoverTask(1, "1", 0.1),
         // MoverTask(2, "6", 0.1),
-        // MoverTask(3, "0", 0.1),
+        MoverTask(3, "0", 0.1),
     };
 
     // Create simulator
@@ -1152,7 +1152,10 @@ void TestDeadlockScenario2(){
     } catch (std::exception &e){
         std::cout << "something went wrong: " << e.what() << std::endl;
         std::cerr << e.what() << std::endl;
+        mms.DumpToJson("output/multi_mover_simulator.json");
     }
+
+    mms.PrintLog();
 }
 
 

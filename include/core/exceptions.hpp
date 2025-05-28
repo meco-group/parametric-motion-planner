@@ -64,4 +64,15 @@ class UnableToPlanEmergencyBrakingTrajectoryException : public std::exception {
         std::string message_ = "Planner was unable to compute a safe emergency braking trajectory";
 };
 
+class UnableToFindWaitingPoint : public std::exception {
+    public:
+        UnableToFindWaitingPoint(std::string message) : message_(message) {}
+        
+        const char* what() const throw(){
+            return message_.c_str();
+        }
+    private:
+        std::string message_;
+};
+
 #endif

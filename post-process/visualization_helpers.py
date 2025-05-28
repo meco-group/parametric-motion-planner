@@ -98,6 +98,22 @@ def show_corridors(corridors, color='green', max_alpha=1, clip_on=False, **kwarg
                             fill=False, edgecolor=color, linewidth=1,
                             clip_on=clip_on, hatch=hatch))
         
+def show_corridor_union(corridors, color='green', max_alpha=1, clip_on=False, **kwargs):
+    hatch = kwargs.get("hatch", None)
+    # create a union of rectangles
+    seq = []
+    for c in corridors["sequence"]:
+        seq.append(sg.box(c["x_min"], c["y_min"], c["x_max"], c["y_max"]))
+    union = so.unary_union(seq)
+    try:
+        x, y = union.exterior.xy
+        plt.gca().fill(x, y, color=color, alpha=0.2*max_alpha, edgecolor=None, clip_on=clip_on)
+        plt.gca().fill(x, y, color=color, fill=False, edgecolor=color, clip_on=clip_on)
+        
+    except:
+        print("No corridor union to plot")
+
+        
 def show_waypoints(parametrization):
     for w in range(0, parametrization["nb_corridors"] + 1):
         plt.plot([parametrization["waypoints"][w]["x"]], 
