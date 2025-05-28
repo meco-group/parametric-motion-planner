@@ -170,14 +170,15 @@ void Agent::SimulateStep(){
     // Check if we can release a destination
     std::vector<int> indices_to_be_released;
     Point2D<double> destination;
-    Corridor cell;
+    Corridor cell, footprint, o;
     for (int i = 0; i < destinations_to_be_released_.size(); i++){
         destination = env_.GetClaimableDestinationLocation(destinations_to_be_released_[i]);
         cell.SetXmin(destination.x() - planner_.GetParameters().GetWidthOffset());
         cell.SetXmax(destination.x() + planner_.GetParameters().GetWidthOffset());
         cell.SetYmin(destination.y() - planner_.GetParameters().GetHeightOffset());
         cell.SetYmax(destination.y() + planner_.GetParameters().GetHeightOffset());
-        if (!cell.ContainsVehicle(curr_pos_, planner_.GetParameters())){
+        GetVehicleFootprint(0, footprint, 0.01);
+        if (!cell.GetOverlap(footprint, o)){
             // we can release the destination
             indices_to_be_released.push_back(i);
             env_.ReleaseDestination(destinations_to_be_released_[i], this);
@@ -245,6 +246,7 @@ bool Agent::UpdateTrajectory(){
             PlanToDestination();
 
             if (CheckForCollisionWithBlockingAgent()){
+                std::cout << "Collision detected with blocking agent, replanning..." << std::endl;
                 PlanToDestination(true);
                 // discard first trajectory sample
                 planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
@@ -266,7 +268,7 @@ void Agent::GetVehicleFootprint(int nb_time_steps_from_now,
                                  Corridor& footprint, 
                                  double collision_check_margin){
     nb_time_steps_from_now = std::min(nb_time_steps_from_now, 
-        planner_.GetLastSolution().NbSamples() - 1);
+        planner_.GetLastSolution().NbSamples() - 1 - planner_.GetCurrentSampleIdx());
     double px = planner_.GetLastSolution().Px()[planner_.GetCurrentSampleIdx() + nb_time_steps_from_now];
     double py = planner_.GetLastSolution().Py()[planner_.GetCurrentSampleIdx() + nb_time_steps_from_now];
     double width_offset = planner_.GetParameters().GetWidthOffset() + collision_check_margin;
@@ -311,11 +313,7 @@ json Agent::ToJson() const {
 
 void Agent::PlanToDestination(bool to_waiting_point){
     // plan
-    // std::cout << "environment before setting claiming object: " << std::endl;
-    // std::cout << env_ << std::endl;
     env_.SetClaimingObject(this);
-    // std::cout << "environment after setting claiming object: " << std::endl;
-    // std::cout << env_ << std::endl;
     state_ = to_waiting_point ? MOVING_TO_WAITING_POINT : MOVING_TO_FINAL_DESTINATION;
     planner_.SetStart(curr_pos_);
     planner_.SetStartVel(curr_vel_);
@@ -357,7 +355,12 @@ bool Agent::CheckForCollisionWithBlockingAgent(){
         blocking_agent_->GetVehicleFootprint(nb_steps_in_future, 
                                 blocking_footprint_, collision_check_margin_);
 
+        if (nb_steps_in_future == 124){
+            std::cout << "[" << nb_steps_in_future << "] " << footprint_ << " " << blocking_footprint_ << std::endl;
+        }
+
         if (footprint_.GetOverlap(blocking_footprint_, o)){
+            std::cout << "[" << nb_steps_in_future << "] " << footprint_ << " " << blocking_footprint_ << std::endl;
             return true;
         }
     }
@@ -452,9 +455,10 @@ void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling)
 
 void MultiMoverSimulator::SimulateAllTasks(){
     bool all_tasks_completed = false;
-    int max_nb_steps = 10000;
+    int max_nb_steps = 1000;//10000;
     int step_counter = 0;
     while (!all_tasks_completed && step_counter < max_nb_steps){
+        // std::cout << "Simulating step " << step_counter << std::endl;
         // check if new tasks are available
         ProcessPotentialNewTasks();
 
@@ -525,6 +529,7 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     // This example show the order in which the collisions are processed is
     // important. Otherwise veh3 might be waiting for veh1 while veh1 is 
     // waiting for veh2.
+    // return false;
     for (int i = 0; i < agents_.size(); i++){
         if (new_trajectories_[i]){
             for (int j = 0; j < agents_.size(); j++){
@@ -729,10 +734,13 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
         simulation_time_step_;
 
     // find the time when the vehicle leaves the intersection
+    // (start at the end of the trajectory)
+    int nb_steps_until_entering = nb_time_steps_from_now;
+    nb_time_steps_from_now = nb_steps_remaining - 1;
     agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
-    while (intersection.GetOverlap(footprint, o)){
-        nb_time_steps_from_now++;
-        if (nb_time_steps_from_now >= nb_steps_remaining){
+    while (!intersection.GetOverlap(footprint, o)){
+        nb_time_steps_from_now--;
+        if (nb_time_steps_from_now <= nb_steps_until_entering){
             return result;
         }
         agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);

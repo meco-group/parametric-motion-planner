@@ -983,7 +983,7 @@ void TestMultiMoverTasksWithStations(){
     }
 
     Parameters params = Parameters();
-    int nb_movers = 3;
+    int nb_movers = 4;
 
     std::vector<std::string> starting_positions(nb_movers);
     for (int i = 0; i < nb_movers; i++){
@@ -1008,7 +1008,7 @@ void TestMultiMoverTasksWithStations(){
             }
             newly_selected[station_idx] = true;
             tasks.push_back(MoverTask(j, std::to_string(station_idx), 1.0 * i + 0.05 * j));
-            
+
         }
         occupied = newly_selected;
         newly_selected = std::vector<bool>(nb_stations, false);        
@@ -1037,6 +1037,125 @@ void TestMultiMoverTasksWithStations(){
     }
 }
 
+void TestDeadlockScenario(){
+    // Set the stage
+    double cell_size = 0.12;
+    Environment env = Environment(8, 17, cell_size, cell_size);
+    std::vector<int> x_obs = {2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 
+                              4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 7, 7,
+                              8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9,
+                              12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13,
+                              14, 14, 14, 14, 14, 14};
+    std::vector<int> y_obs = {0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
+                              0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
+                              0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
+                              0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
+                              0, 1, 2, 3, 4, 5};
+    for (int i = 0; i < x_obs.size(); i++){
+        env.AddObstacle(Point2D<int>(x_obs[i], y_obs[i]));
+    }
+
+    // Get stations at random boundary positions
+    std::map<std::string, Point2D<int>> stations {
+        {"0", Point2D<int>(0, 0)},
+        {"1", Point2D<int>(5, 2)},
+        {"2", Point2D<int>(5, 0)},
+        {"3", Point2D<int>(10, 2)},
+        {"4", Point2D<int>(10, 0)},
+        {"5", Point2D<int>(15, 5)},
+        {"6", Point2D<int>(15, 3)},
+    };
+
+    Parameters params = Parameters();
+    int nb_movers = 4;
+
+    std::vector<std::string> starting_positions = {"0", "4", "2", "5"};
+
+    // Create tasks
+    std::vector<MoverTask> tasks = {
+        MoverTask(0, "3", 0.1),
+        MoverTask(1, "1", 0.1),
+        // MoverTask(2, "6", 0.1),
+        // MoverTask(3, "0", 0.1),
+    };
+
+    // Create simulator
+    std::vector<Parameters> params_list(nb_movers);
+    std::vector<const Parameters*> params_ptr_list;
+    for (int i = 0; i < nb_movers; i++){
+        params_list[i] = Parameters();
+        params_ptr_list.push_back(&params_list[i]);
+    }
+    std::cout << "Creating MultiMoverSimulator..." << std::endl;
+    MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
+                                        stations, starting_positions, tasks);
+    
+    try{
+        // Simulate for a bit
+        std::cout << "Simulating..." << std::endl;
+        mms.SimulateAllTasks();
+        // Dump to json
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    } catch (std::exception &e){
+        std::cout << "something went wrong: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
+    }
+}
+
+void TestDeadlockScenario2(){
+    // Set the stage
+    double cell_size = 0.12;
+    Environment env = Environment(8, 8, cell_size, cell_size);
+    
+    // Get stations at random boundary positions
+    std::map<std::string, Point2D<int>> stations {
+        {"0", Point2D<int>(1, 6)},
+        {"1", Point2D<int>(6, 1)},
+        {"2", Point2D<int>(6, 6)},
+        {"3", Point2D<int>(1, 1)},
+        {"4", Point2D<int>(6, 4)},
+        {"5", Point2D<int>(1, 4)},
+        {"6", Point2D<int>(3, 1)},
+        {"7", Point2D<int>(4, 6)},
+    };
+
+    Parameters params = Parameters();
+    int nb_movers = 4;
+
+    std::vector<std::string> starting_positions = {"0", "2", "4", "6"};
+
+    // Create tasks
+    std::vector<MoverTask> tasks = {
+        MoverTask(0, "1", 0.1),
+        MoverTask(1, "3", 0.1),
+        MoverTask(2, "5", 0.1),
+        MoverTask(3, "7", 0.1),
+    };
+
+    // Create simulator
+    std::vector<Parameters> params_list(nb_movers);
+    std::vector<const Parameters*> params_ptr_list;
+    for (int i = 0; i < nb_movers; i++){
+        params_list[i] = Parameters();
+        params_ptr_list.push_back(&params_list[i]);
+    }
+    std::cout << "Creating MultiMoverSimulator..." << std::endl;
+    MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
+                                        stations, starting_positions, tasks);
+    
+    try{
+        // Simulate for a bit
+        std::cout << "Simulating..." << std::endl;
+        mms.SimulateAllTasks();
+        // Dump to json
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    } catch (std::exception &e){
+        std::cout << "something went wrong: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
+    }
+}
+
+
 int main(int argc, char *argv[]){
     int nb_runs = 1;
     if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
@@ -1056,5 +1175,7 @@ int main(int argc, char *argv[]){
     // TestDynamicIntersections();
     // TestMultiMoverSimulator();
     // TestMultiMoverTasksWithStationsOld();
-    TestMultiMoverTasksWithStations();
+    // TestMultiMoverTasksWithStations();
+    TestDeadlockScenario();
+    // TestDeadlockScenario2();
 }

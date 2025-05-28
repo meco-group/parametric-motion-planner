@@ -82,7 +82,7 @@ class Corridor{
 
         // printing
         friend std::ostream& operator<<(std::ostream &out, Corridor corridor) {
-            bool print_cell_dimensions = true; // Only to be used for DEBUGGING
+            bool print_cell_dimensions = false; // Only to be used for DEBUGGING
             double cell_size = 0.12;
             if (print_cell_dimensions){
                 out << "[" << corridor.Xmin()/cell_size << ", " << 

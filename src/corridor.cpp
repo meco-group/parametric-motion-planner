@@ -194,6 +194,19 @@ void CorridorSequence::UpdateSequence(Point2D<double> const &start,
     if (!environment_.isValidVehiclePosition(start, params.GetVehWidth(), 
                                              params.GetVehHeight(), 
                                              params.GetMargin())){
+        Point2D<double> test_point;
+
+        for (int i = -1; i <= 1; i++){
+            for (int j = -1; j <= 1; j++){
+                test_point.SetX(i > 0 ? start.x() + i*params.GetVehWidth()/2 + params.GetMargin() : 
+                                        start.x() + i*params.GetVehWidth()/2 - params.GetMargin());
+                test_point.SetY(j > 0 ? start.y() + j*params.GetVehHeight()/2 + params.GetMargin() : 
+                                        start.y() + j*params.GetVehHeight()/2 - params.GetMargin());
+                if (!environment_.IsFree(test_point)){
+                    std::cout << "found test point that is not free: " << test_point << std::endl;
+                }
+            }
+        }
         throw InvalidPositionInEnvironmentException("Invalid STARTING POSITION or destination");
     }
     if (!environment_.isValidVehiclePosition(dest, params.GetVehWidth(), 
