@@ -32,6 +32,13 @@ class ClaimableDestination {
             return claimed_ && claimed_by_ == caller;
         }
 
+        const void* ClaimedBy() const {
+            if (!claimed_){
+                throw InvalidEnvironmentOperationException("Destination is not claimed");
+            }
+            return claimed_by_;
+        }
+
         bool Claim(const void* caller) {
             if (claimed_){
                 return false;
@@ -112,6 +119,7 @@ class Environment{
         }
         void ClearClaimingObject() { claiming_object_ = nullptr;}
         const void* GetClaimingObject() const { return claiming_object_;}
+        const void* GetObjectClaimingDestination(const std::string &destination) const;
 
         // Moving obstacle operations
         class MovingObstacleOperationsToken {

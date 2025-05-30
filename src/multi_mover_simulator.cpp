@@ -38,10 +38,10 @@ std::string AgentStateToString(AgentState s){
 }
 
 
-Agent::Agent(Environment& env, const Parameters& params,
+Agent::Agent(int idx, Environment& env, const Parameters& params,
              double collision_check_margin, 
              Point2D<double> starting_position) : 
-        env_(env), planner_(params, env), blocking_agent_(nullptr){
+        my_agent_idx_(idx), env_(env), planner_(params, env), blocking_agent_(nullptr){
     state_ = IDLING;
     final_dest_ = starting_position;
     curr_pos_ = starting_position;
@@ -61,6 +61,7 @@ bool Agent::InstructToDestination(const std::string& destination_name,
     if (!env_.ClaimDestination(destination_name, this)){
         // if we were unable to claim the destination, update the state and
         // return false
+        ptr_to_object_claiming_destination_ = env_.GetObjectClaimingDestination(destination_name);
         state_ = WAITING_FOR_FREE_DESTINATION;
         return false;
     }
@@ -105,6 +106,13 @@ const Point2D<double>& Agent::GetWaitingPosition() const{
 
 const Agent& Agent::GetBlockingAgent() const{
     return *blocking_agent_;
+}
+
+const void* Agent::GetPtrToObjectClaimingDestination() const{
+    if (state_ != WAITING_FOR_FREE_DESTINATION){
+        throw std::runtime_error("No object is currently claiming the destination");
+    }
+    return ptr_to_object_claiming_destination_;
 }
 
 const CorridorUnion& Agent::GetIntersection() const{
@@ -411,7 +419,7 @@ MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
     // initialize agents
     for (int i = 0; i < params.size(); i++){
         agents_.emplace_back(
-            std::make_shared<Agent>(env_, *params_[i], collision_check_margin_, 
+            std::make_shared<Agent>(i, env_, *params_[i], collision_check_margin_, 
                 possible_destinations_[starting_positions[i]].ConvertCellToWorld(
                                         env_.CellWidth(), env_.CellHeight())
             )
@@ -470,12 +478,13 @@ void MultiMoverSimulator::SimulateAllTasks(){
     bool all_tasks_completed = false;
     int max_nb_steps = 1000;//10000;
     int step_counter = 0;
-    while (!all_tasks_completed && step_counter < max_nb_steps){
+    bool deadlock_detected = false;
+    while (!all_tasks_completed && step_counter < max_nb_steps && !deadlock_detected){
         // std::cout << "Simulating step " << step_counter << std::endl;
         // check if new tasks are available
         ProcessPotentialNewTasks();
 
-        SimulateSingleStep();
+        deadlock_detected = SimulateSingleStep();
 
         // check if all tasks are completed
         if (AllTasksRevealed() && AllAgentsIdling()){
@@ -507,7 +516,7 @@ void MultiMoverSimulator::DumpToJson(std::string const &filename) const {
     o << std::setw(4) << j << std::endl;
 }
 
-void MultiMoverSimulator::SimulateSingleStep(){
+bool MultiMoverSimulator::SimulateSingleStep(){
     // Update trajectories if needed
     for (int j = 0; j < agents_.size(); j++){
         new_trajectories_[j] = agents_[j]->UpdateTrajectory();
@@ -524,13 +533,16 @@ void MultiMoverSimulator::SimulateSingleStep(){
     // Check for deadlocks
     if (CheckIfDeadlockPresent()){
         std::cout << "Deadlock detected" << std::endl;
-        throw std::runtime_error("Deadlock detected");
+        // throw std::runtime_error("Deadlock detected");
+        return true;
     }
 
     claimed_destinations_info_.push_back(env_.ClaimableDestinationsToJson());
 
     // Update positions of all agents
     UpdateSingleStep();
+
+    return false;
 }
 
 void MultiMoverSimulator::UpdateSingleStep(){
@@ -830,10 +842,23 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(){
         processed_agents[original_agent_idx] = true;
         AgentState state = agents_[original_agent_idx]->GetState();
         while (state == MOVING_TO_WAITING_POINT || 
-                state == WAITING_AT_INTERSECTION){
+                state == WAITING_AT_INTERSECTION ||
+                state == WAITING_FOR_FREE_DESTINATION){
             // get the agent for which the current agent is waiting
             int temp = curr_agent_idx;
-            curr_agent_idx = agents_[curr_agent_idx]->GetBlockingAgentIdx();
+            if (state == WAITING_FOR_FREE_DESTINATION){
+                const void* claiming_object = agents_[curr_agent_idx]->GetPtrToObjectClaimingDestination();
+                // find the agent that is claiming the destination
+                curr_agent_idx = -1;
+                for (int i = 0; i < agents_.size(); i++){
+                    if (agents_[i].get() == claiming_object){
+                        curr_agent_idx = i;
+                        break;
+                    }
+                }
+            } else {
+                curr_agent_idx = agents_[curr_agent_idx]->GetBlockingAgentIdx();
+            }
             processed_agents[curr_agent_idx] = true;
 
             // check if the current agent is waiting for the original agent
@@ -846,7 +871,7 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(){
             // check if the current agent is idling
             if (state == IDLING){
                 // the current agent is idling, so we are in a temporary deadlock
-                // return true;
+                return true;
             }
         }
     }

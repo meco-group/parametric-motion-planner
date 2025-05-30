@@ -29,7 +29,7 @@ enum CollisionResolutionDecision {
 class Agent {
     public:
         // Agent() : Agent(0.01, Point2D<double>(0, 0)) {};
-        Agent(Environment& env, const Parameters& params, 
+        Agent(int idx, Environment& env, const Parameters& params, 
               double collision_check_margin, 
               Point2D<double> starting_position);
 
@@ -49,6 +49,7 @@ class Agent {
         int GetBlockingAgentIdx() const {
             return blocking_agent_idx_;
         }
+        const void* GetPtrToObjectClaimingDestination() const;
         const CorridorUnion& GetIntersection() const;
         int GetRemainingTimeSteps() const;
         const CorridorSequence& GetCorridorSequence() const {
@@ -86,6 +87,7 @@ class Agent {
         MotionPlanner planner_;
         AgentState state_;
         Point2D<double> final_dest_;
+        const int my_agent_idx_ = -1;
 
         // attributes related to waiting for agent
         Point2D<double> waiting_position_;
@@ -101,6 +103,7 @@ class Agent {
                                           // claimed position
         std::string claimed_destination_name_;
         std::vector<std::string> destinations_to_be_released_;
+        const void* ptr_to_object_claiming_destination_ = nullptr; // the agent that is currently claiming our destination
 
         // Storing info
         //  every simulation step
@@ -264,7 +267,8 @@ class MultiMoverSimulator {
         // Function to capture all that needs to happen to simulate a single
         // time-step (update trajectories, process potential collisions, 
         // check for deadlock and update agent positions/velocities)
-        void SimulateSingleStep();
+        // returns whether deadlock has been detected
+        bool SimulateSingleStep();
 
         // Update positions of all agents for a single time-step
         void UpdateSingleStep();

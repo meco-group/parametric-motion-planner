@@ -918,7 +918,7 @@ void TestDeadlockScenario(){
 
     std::map<std::string, Point2D<int>> stations;
     if (RANDOMIZE){
-        int nb_stations = 10;
+        int nb_stations = 12;
         while (stations.size() < nb_stations){
             Point2D<double> candidate = env.GetRandomFreeCellPosition();
             Point2D<int> candidate_cell = 
@@ -952,7 +952,7 @@ void TestDeadlockScenario(){
 
 
     Parameters params = Parameters();
-    int nb_movers = 4;
+    int nb_movers = 6;
 
     std::vector<std::string> starting_positions;
     std::vector<MoverTask> tasks;

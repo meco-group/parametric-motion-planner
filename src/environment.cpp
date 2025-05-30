@@ -283,6 +283,15 @@ void Environment::ReleaseDestination(
     UpdateVersion();
 }
 
+const void* Environment::GetObjectClaimingDestination(
+        const std::string &destination) const {
+    if (claimable_destinations_.count(destination) == 0){
+        throw InvalidEnvironmentOperationException("Claimable destination " + destination + " does not exist");
+    }
+    
+    return claimable_destinations_.at(destination).ClaimedBy();
+}
+
 void Environment::AddMovingObstacle(MovingObstacleOperationsToken&, 
                                     const Point2D<int> &cell){
     if (!isValidCell(cell)){
