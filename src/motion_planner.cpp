@@ -839,6 +839,194 @@ void MotionPlanner::ComputeEmergencyBrakingTrajectory(double T_scaling_factor){
     }
 }
 
+bool MotionPlanner::CanAvoidCorridors(const std::vector<Corridor>& corridors, 
+                                     const Point2D<double>& pos,
+                                     const Point2D<double>& vel) const {
+    double T_x = std::abs(vel.x()) / params_.GetAmax();
+    double T_y = std::abs(vel.y()) / params_.GetAmax();
+
+    // find the starting position and velocity of the free direction
+    double T_bottleneck = std::max(T_x, T_y);
+    double T = T_bottleneck;
+    auto GetBottlekneckPosition = +[](const Point2D<double>& p){return p.x();};
+    auto GetFreePosition = +[](const Point2D<double>& p){return p.y();};
+    auto SetBottleneckPosition = +[](Point2D<double>& p, double val){};
+    auto SetFreePosition = +[](Point2D<double>& p, double val){};
+    if (T_x <= T_y){
+        GetBottlekneckPosition = +[](const Point2D<double>& p){return p.y();};
+        SetBottleneckPosition = [](Point2D<double>& p, double val){p.SetY(val);};
+        GetFreePosition = +[](const Point2D<double>& p){return p.x();};
+        SetFreePosition = [](Point2D<double>& p, double val){p.SetX(val);};
+    } else {
+        GetBottlekneckPosition = +[](const Point2D<double>& p){return p.x();};
+        SetBottleneckPosition = [](Point2D<double>& p, double val){p.SetX(val);};
+        GetFreePosition = +[](const Point2D<double>& p){return p.y();};
+        SetFreePosition = [](Point2D<double>& p, double val){p.SetY(val);};
+    }
+
+    double tau = 0.5*(T-std::abs(GetFreePosition(vel))/params_.GetAmax()); // duration of switched arc (acceleration instead of braking)
+    double p0 = GetFreePosition(pos);
+    double v0 = GetFreePosition(vel);
+
+    double dt = 0.001;
+    std::vector<Point2D<double>> p1_samples(int(T/dt)+1);
+    std::vector<Point2D<double>> p2_samples(int(T/dt)+1);
+
+    double t = 0.0;
+    int a_bottleneck = GetBottlekneckPosition(vel) > 0 ? params_.GetAmax() : -params_.GetAmax();
+    int a_free = GetFreePosition(vel) > 0 ? params_.GetAmax() : -params_.GetAmax();
+    double x_min = 10^5;
+    double x_max = -10^5;
+    double y_min = 10^5;
+    double y_max = -10^5;
+    double p1, p2;
+    double init_p1_accel = GetFreePosition(vel) > 0 ? -a_free : a_free;
+    for (int i = 0; i < p1_samples.size(); i++){
+        t = i*dt;
+        
+        double t_b = t;
+        SetBottleneckPosition(p1_samples[i], 
+            GetBottlekneckPosition(pos) + 
+            GetBottlekneckPosition(vel)*t_b -
+            0.5*a_bottleneck*std::pow(t_b, 2));
+        SetBottleneckPosition(p2_samples[i], 
+            GetBottlekneckPosition(pos) + 
+            GetBottlekneckPosition(vel)*t_b -
+            0.5*a_bottleneck*std::pow(t_b, 2));
+        
+        // accelerate first before braking
+        if (t < tau){
+            p1 = p0 + v0*t + a_free*std::pow(t, 2)/2;
+        } else {
+            p1 = p0 + v0*tau + a_free*std::pow(tau, 2)/2 +
+                 (v0 + a_free*tau)*(t - tau) - a_free*std::pow(t - tau, 2)/2;
+        }
+
+        // brake first before accelerating
+        if (t < T - tau){
+            p2 = p0 + v0*t - a_free*std::pow(t, 2)/2;
+        } else {
+            p2 = p0 + v0*(T-tau) - a_free*std::pow(T-tau, 2)/2 +
+                (v0 - a_free*(T-tau))*(t - T + tau) + a_free*std::pow(t - T + tau, 2)/2;
+        }
+
+        SetFreePosition(p1_samples[i], std::min(p1, p2));
+        SetFreePosition(p2_samples[i], std::max(p1, p2));
+
+        // update min and max values
+        x_min = std::min(x_min, std::min(p1_samples[i].x(), p2_samples[i].x()));
+        x_max = std::max(x_max, std::max(p1_samples[i].x(), p2_samples[i].x()));
+        y_min = std::min(y_min, std::min(p1_samples[i].y(), p2_samples[i].y()));
+        y_max = std::max(y_max, std::max(p1_samples[i].y(), p2_samples[i].y()));
+    }
+    x_min -= params_.GetWidthOffset(); x_max += params_.GetWidthOffset();
+    y_min -= params_.GetHeightOffset(); y_max += params_.GetHeightOffset();
+    Point2D<double> bottom_left_point = Point2D<double>(x_min, y_min);
+    Point2D<double> top_right_point = Point2D<double>(x_max, y_max);
+
+
+    // list all obstacles to consider
+    Point2D<int> bottom_left_cell = bottom_left_point.ConvertWorldToCell(environment_.CellWidth(), environment_.CellHeight());
+    Point2D<int> top_right_cell = top_right_point.ConvertWorldToCell(environment_.CellWidth(), environment_.CellHeight());
+    std::vector<Point2D<double>> obstacle_centers = {};
+    std::vector<double> obstacle_widths = {};
+    std::vector<double> obstacle_heights = {};
+    for (int x_cell = bottom_left_cell.x(); x_cell <= top_right_cell.x(); x_cell++){
+        for (int y_cell = bottom_left_cell.y(); y_cell <= top_right_cell.y(); y_cell++){
+            if (!environment_.IsFree(x_cell, y_cell)){
+                Point2D<double> obstacle_center = Point2D<int>(x_cell, y_cell).ConvertCellToWorld(environment_.CellWidth(), environment_.CellHeight());
+                obstacle_centers.push_back(obstacle_center);
+                obstacle_widths.push_back(environment_.CellWidth());
+                obstacle_heights.push_back(environment_.CellHeight());
+            }
+        }
+    }
+    // Add the corridors themselves to consider
+    for (Corridor const &corridor : corridors){
+        obstacle_centers.push_back(corridor.GetCenter());
+        obstacle_widths.push_back(corridor.Xmax() - corridor.Xmin());
+        obstacle_heights.push_back(corridor.Ymax() - corridor.Ymin());
+    }
+
+    auto GetObstacleBottleneckSize = 
+        [T_x, T_y, obstacle_widths, obstacle_heights](int i)
+        { return (T_x <= T_y) ? obstacle_heights[i] : obstacle_widths[i];};
+    auto GetObstacleFreeSize = 
+        [T_x, T_y, obstacle_widths, obstacle_heights](int i)
+        { return (T_x <= T_y) ? obstacle_widths[i] : obstacle_heights[i];};
+    auto GetBottleneckOffset = [T_x, T_y, this]()
+        { return (T_x <= T_y) ? params_.GetHeightOffset() : params_.GetWidthOffset();};
+    auto GetFreeOffset = [T_x, T_y, this]()
+        { return (T_x <= T_y) ? params_.GetWidthOffset() : params_.GetHeightOffset();};
+
+    std::vector<std::vector<double>> safe_alpha_intervals = {{0, 1}};
+
+    // loop over relevant bottleneck positions and check the free position
+    double free1, free2, obs1, obs2, obs_alpha_min, obs_alpha_max, alpha_min, alpha_max;
+    std::vector<int> empty_intervals = {};
+    std::vector<std::vector<double>> new_intervals = {};
+    bool found_safe_alpha = true;
+    for (int i = 0; i < p1_samples.size(); i++){
+        for (int j = 0; j < obstacle_centers.size(); j++){
+
+            // check if collision occurs
+            double tolerance = 1.0e-5;
+            if (std::abs(GetBottlekneckPosition(obstacle_centers[j]) - 
+                         GetBottlekneckPosition(p1_samples[i])) + tolerance < 
+                    GetObstacleBottleneckSize(j)/2 + GetBottleneckOffset()){
+                // obstacle limits
+                obs1 = GetFreePosition(obstacle_centers[j]) - GetObstacleFreeSize(j)/2 - GetFreeOffset();
+                obs2 = GetFreePosition(obstacle_centers[j]) + GetObstacleFreeSize(j)/2 + GetFreeOffset();
+
+                // check valid free positions
+                free1 = std::min(GetFreePosition(p1_samples[i]), GetFreePosition(p2_samples[i]));
+                free2 = std::max(GetFreePosition(p1_samples[i]), GetFreePosition(p2_samples[i]));
+
+                // check alpha values that are in collision
+                obs_alpha_min = (obs1 - free1) / (free2 - free1);
+                obs_alpha_max = (obs2 - free1) / (free2 - free1);
+
+                // update the current safe alpha intervals
+                new_intervals.clear();
+                for (int k = 0; k < safe_alpha_intervals.size(); k++){
+                    // get interval edges in alpha-coordinates
+                    alpha_min = safe_alpha_intervals[k][0];
+                    alpha_max = safe_alpha_intervals[k][1];
+
+                    // construct interval on left side of obstacle
+                    if (alpha_min < obs_alpha_min){
+                        // interval on left side exists
+                        new_intervals.push_back({alpha_min, std::min(alpha_max, obs_alpha_min)});
+                    }
+
+                    // construct interval on right side of obstacle
+                    if (alpha_max > obs_alpha_max){
+                        // interval on right side exists
+                        new_intervals.push_back({std::max(alpha_min, obs_alpha_max), alpha_max});
+                    }
+                }
+
+                // Check if we can still continue
+                if (new_intervals.size() == 0){
+                    found_safe_alpha = false;
+                }
+
+                // inefficient update of intervals
+                safe_alpha_intervals.clear();
+                for (int k = 0; k < new_intervals.size(); k++){
+                    safe_alpha_intervals.push_back(new_intervals[k]);
+                }
+            }
+        }
+    }
+
+    if (safe_alpha_intervals.size() == 0){
+        return false;
+    } else {
+        return true;
+    }
+}
+
 bool MotionPlanner::AreSequencesSeparable(MotionPlanner const &other, 
                             Point2D<double> const &collision_point, 
                             double& angle) const {

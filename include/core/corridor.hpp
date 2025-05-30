@@ -36,7 +36,7 @@ class Corridor{
         // Function returns a boolean indicating if there is overlap. If not, 
         // overlap is not modified
         bool GetOverlap(Corridor const &other, Corridor &overlap) const;
-        bool GetOverlap(std::vector<Corridor> const &other, Corridor &overlap) const;
+        // bool GetOverlap(std::vector<Corridor> const &other, Corridor &overlap) const;
 
         // Check if this corridor is completely within another corridor
         bool IsCompletelyWithin(Corridor* const &other) const;
@@ -96,6 +96,11 @@ class Corridor{
             }
             return out;
         }
+
+        bool operator==(const Corridor &other) const {
+            return (x_min_ == other.x_min_ && x_max_ == other.x_max_ &&
+                    y_min_ == other.y_min_ && y_max_ == other.y_max_);
+        };
 
         // Copy function
         Corridor Copy() const { return Corridor(x_min_, x_max_, y_min_, y_max_);};
@@ -195,6 +200,14 @@ class CorridorUnion{
             }
             return out;
         }
+
+        bool operator==(const CorridorUnion &other) const {
+            if (union_.size() != other.union_.size()) return false;
+            for (size_t i = 0; i < union_.size(); i++){
+                if (!(union_[i] == other.union_[i])) return false;
+            }
+            return true;
+        };
 
     private:
         // Filter out corridors that are not needed to represent the same

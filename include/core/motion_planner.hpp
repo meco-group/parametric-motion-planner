@@ -144,6 +144,9 @@ class MotionPlanner{
             logger_.LogEvent(CleanlyFinishedPlanningSequenceEvent());};
 
         void ComputeEmergencyBrakingTrajectory(double T_scaling_factor=1.0);
+        bool CanAvoidCorridors(const std::vector<Corridor>& corridors, 
+                               const Point2D<double>& pos,
+                               const Point2D<double>& vel) const;
         void PlanConcatenatedSections(bool resursive=false);
 
         bool AreSequencesSeparable(MotionPlanner const &other,

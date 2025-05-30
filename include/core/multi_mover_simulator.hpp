@@ -72,6 +72,9 @@ class Agent {
                                  Corridor& footprint, 
                                  double collision_check_margin);
 
+        // check if the agent can avoid an intersection
+        bool CanAvoidIntersection(const CorridorUnion& intersection) const;
+
         json ToJson() const;
 
     private:
@@ -186,6 +189,11 @@ class IntersectionLog {
             agent_idx_1_(agent_idx_1), agent_idx_2_(agent_idx_2),
             time_entering_(time_entering), time_leaving_(time_leaving),
             intersection_(intersection) {};
+
+        bool operator==(const IntersectionLog& other) const {
+            return (agent_idx_1_ == other.agent_idx_1_ &&
+                    agent_idx_2_ == other.agent_idx_2_ &&
+                    intersection_ == other.intersection_);};
 
         json ToJson() const {
             json j;

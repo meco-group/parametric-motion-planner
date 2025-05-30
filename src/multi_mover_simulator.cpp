@@ -288,6 +288,12 @@ void Agent::GetVehicleFootprint(int nb_time_steps_from_now,
     footprint.SetYmax(py + height_offset);
 }
 
+bool Agent::CanAvoidIntersection(const CorridorUnion& intersection) const {
+    // check if the agent can avoid the intersection
+    return planner_.CanAvoidCorridors(intersection.GetCorridors(), 
+                                      curr_pos_, curr_vel_);
+}
+
 json Agent::ToJson() const {
     json j;
     j["planner"] = planner_.ToJson();
@@ -322,27 +328,30 @@ json Agent::ToJson() const {
 
 void Agent::PlanToDestination(bool to_waiting_point){
     // plan
+    std::cout << "Agent " << this << " planning to " 
+              << (to_waiting_point ? "waiting point" : "final destination") 
+              << std::endl;
     env_.SetClaimingObject(this);
     state_ = to_waiting_point ? MOVING_TO_WAITING_POINT : MOVING_TO_FINAL_DESTINATION;
     planner_.SetStart(curr_pos_);
     planner_.SetStartVel(curr_vel_);
     planner_.SetDest(to_waiting_point ? waiting_position_ : final_dest_);
-    planner_.PlanSafely();
+    try{
+        planner_.PlanSafely();
+    } catch (std::exception & e){
+        std::cout << "Planning failed: " << e.what() << std::endl;
+        // if we cannot plan, we need to set the state accordingly
+        state_ = to_waiting_point ? FAILED_TO_PLAN_TO_WAITING_POINT : 
+            FAILED_TO_PLAN_TO_DEST;
+        env_.ClearClaimingObject();
+        return;
+    }
     
     // check if something went wrong
     if (planner_.EmergencyMode()){
         state_ = to_waiting_point ? FAILED_TO_PLAN_TO_WAITING_POINT : 
             FAILED_TO_PLAN_TO_DEST;
     }
-
-    // // if we planned succesfully, release destinations to be released
-    // if (state_ != FAILED_TO_PLAN_TO_WAITING_POINT && 
-    //         state_ != FAILED_TO_PLAN_TO_DEST){
-    //     for (const auto& dest_name : destinations_to_be_released_){
-    //         env_.ReleaseDestination(dest_name, this);
-    //     }
-    //     destinations_to_be_released_.clear();
-    // }
 
     // update stored info
     planned_trajectories_.push_back(planner_.GetLastSolution());
@@ -718,7 +727,14 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
         nb_simulated_samples_*simulation_time_step_, 
         std::max(times_1["leaving_time"], times_2["leaving_time"]), 
         intersection);
-    intersection_logs_.push_back(log);
+    bool new_log_entry = true;
+    for (IntersectionLog l : intersection_logs_){
+        if (l == log){
+            new_log_entry = false;
+            break;
+        }
+    }
+    if (new_log_entry){ intersection_logs_.push_back(log);}
 
     // If one vehicle never leaves, that one must wait
     if (times_1["leaving_time"] < 0){

@@ -801,147 +801,6 @@ void TestDynamicIntersections(){
     }
     intersection_manager.DumpToJson("output/dynamic_intersection.json");
 }
-
-// void TestMultiMoverTasksWithStationsOld(){
-//     // Set the stage
-//     double cell_size = 0.12;
-//     Environment env = Environment(6, 6, cell_size, cell_size);
-//     // env.AddRandomObstacles(0.1);
-//     // remove any obstacles around the boundary
-//     for (int i = 0; i < env.NbCellRows(); i++){
-//         env.RemoveObstacle(Point2D<int>(i, 0));
-//         env.RemoveObstacle(Point2D<int>(i, env.NbCellRows()-1));
-//     }
-//     for (int i = 0; i < env.NbCellCols(); i++){
-//         env.RemoveObstacle(Point2D<int>(0, i));
-//         env.RemoveObstacle(Point2D<int>(env.NbCellRows()-1, i));
-//     }
-
-//     std::cout << "environment before adding stations:" << std::endl;
-//     std::cout << env << std::endl;
-
-//     // set random seed
-//     srand(time(0));
-
-//     // Add stations at random boundary positions
-//     int nb_stations = 8;
-//     std::vector<Point2D<double>> stations;
-//     for (int i = 0; i < nb_stations; i++){
-//         bool found_a_station = false;
-//         Point2D<double> station;
-//         while (!found_a_station){
-//             int x = rand() % env.NbCellCols();
-//             int y = rand() % env.NbCellRows();
-//             // check if cell is on boundary row or boundary column
-//             bool boundary_row = (y == 0 || y == env.NbCellRows()-1);
-//             bool boundary_col = (x == 0 || x == env.NbCellCols()-1);
-//             station.SetX(x*cell_size + cell_size/2);
-//             station.SetY(y*cell_size + cell_size/2);
-//             bool new_station = true;
-//             for (int j = 0; j < i; j++){
-//                 if (stations[j].Distance(station) < 0.1){
-//                     new_station = false;
-//                     // break;
-//                 }
-//             }
-//             if (new_station && 
-//                     (boundary_col || boundary_row) && 
-//                     !(boundary_col && boundary_row) &&
-//                     env.IsFree(Point2D<int>(x, y))){
-//                 stations.push_back(station);
-//                 found_a_station = true;
-
-//                 // add obstacles around (along the boundary)
-//                 // and make sure station is reachable
-//                 if (boundary_row){
-//                     if (x > 0){
-//                         env.AddObstacle(Point2D<int>(x-1, y));
-//                     }
-//                     if (x < env.NbCellCols()-1){
-//                         env.AddObstacle(Point2D<int>(x+1, y));
-//                     }
-//                     if (y > 0){
-//                         env.RemoveObstacle(Point2D<int>(x, y-1));
-//                     }
-//                     if (y < env.NbCellRows()-1){
-//                         env.RemoveObstacle(Point2D<int>(x, y+1));
-//                     }
-//                 }
-//                 if (boundary_col){
-//                     if (y > 0){
-//                         env.AddObstacle(Point2D<int>(x, y-1));
-//                     }
-//                     if (y < env.NbCellRows()-1){
-//                         env.AddObstacle(Point2D<int>(x, y+1));
-//                     }
-//                     if (x > 0){
-//                         env.RemoveObstacle(Point2D<int>(x-1, y));
-//                     }
-//                     if (x < env.NbCellCols()-1){
-//                         env.RemoveObstacle(Point2D<int>(x+1, y));
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     std::cout << "stations: " << std::endl;
-//     for (int i = 0; i < stations.size(); i++){
-//         std::cout << stations[i] << std::endl;
-//     }
-
-//     std::cout << "environment:" << std::endl;
-//     std::cout << env << std::endl;
-
-//     Parameters params = Parameters();
-
-//     int nb_movers = 4;
-
-//     std::vector<Point2D<double>> starting_positions(nb_movers);
-//     for (int i = 0; i < nb_movers; i++){
-//         starting_positions[i] = stations[i];
-//     }
-//     // Create tasks
-//     std::vector<MoverTask> tasks = {
-//         MoverTask(0, stations[((nb_movers)+1) % stations.size()], 0),
-//         MoverTask(1, stations[((nb_movers)+2) % stations.size()], 0.2),
-//         MoverTask(2, stations[((nb_movers)+3) % stations.size()], 0.1),
-//         MoverTask(3, stations[((nb_movers)+4) % stations.size()], 0.1),
-
-//         MoverTask(0, stations[((nb_movers)+5) % stations.size()], 2.0),
-//         MoverTask(1, stations[((nb_movers)+6) % stations.size()], 2.1),
-//         MoverTask(2, stations[((nb_movers)+7) % stations.size()], 2.2),
-//         MoverTask(3, stations[((nb_movers)+8) % stations.size()], 2.3),
-        
-//         MoverTask(0, stations[((nb_movers)+9) % stations.size()], 3.5),
-//         MoverTask(1, stations[((nb_movers)+10) % stations.size()], 3.5),
-//         MoverTask(2, stations[((nb_movers)+11) % stations.size()], 3.4),
-//         MoverTask(2, stations[((nb_movers)+12) % stations.size()], 3.7),
-//     };
-
-//     // Create simulator
-//     std::vector<Parameters> params_list(nb_movers);
-//     std::vector<const Parameters*> params_ptr_list;
-//     for (int i = 0; i < nb_movers; i++){
-//         params_list[i] = Parameters();
-//         params_ptr_list.push_back(&params_list[i]);
-//     }
-//     MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
-//                                                   starting_positions, 
-//                                                   tasks);
-    
-//     try{
-//         // Simulate for a bit
-//         std::cout << "Simulating..." << std::endl;
-//         mms.SimulateAllTasks();
-//         // Dump to json
-//         mms.DumpToJson("output/multi_mover_simulator.json");
-//     } catch (std::exception &e){
-//         std::cout << "something went wrong: " << e.what() << std::endl;
-//         std::cerr << e.what() << std::endl;
-//     }
-// }
-
 void TestMultiMoverTasksWithStations(){
     // Set the stage
     double cell_size = 0.12;
@@ -1055,29 +914,65 @@ void TestDeadlockScenario(){
         env.AddObstacle(Point2D<int>(x_obs[i], y_obs[i]));
     }
 
-    // Get stations at random boundary positions
-    std::map<std::string, Point2D<int>> stations {
-        {"0", Point2D<int>(0, 0)},
-        {"1", Point2D<int>(5, 2)},
-        {"2", Point2D<int>(5, 0)},
-        {"3", Point2D<int>(10, 2)},
-        {"4", Point2D<int>(10, 0)},
-        {"5", Point2D<int>(15, 5)},
-        {"6", Point2D<int>(15, 3)},
+    bool RANDOMIZE = true;
+
+    std::map<std::string, Point2D<int>> stations;
+    if (RANDOMIZE){
+        int nb_stations = 10;
+        while (stations.size() < nb_stations){
+            Point2D<double> candidate = env.GetRandomFreeCellPosition();
+            Point2D<int> candidate_cell = 
+                candidate.ConvertWorldToCell(env.CellWidth(), env.CellHeight());
+
+            // check if candidate is not already in the map
+            bool new_station = true;
+            for (const auto& station : stations){
+                if (station.second.Distance(candidate_cell) < 0.1){
+                    new_station = false;
+                    break;
+                }
+            }
+
+            // check if candidate is not in main corridor
+            bool in_main_corridor = candidate_cell.y() > 5;
+
+            if (new_station && !in_main_corridor){
+                stations[std::to_string(stations.size())] = candidate_cell;
+            }
+        }
+    } else {
+        stations = {{"0", Point2D<int>(0, 0)},
+                    {"1", Point2D<int>(5, 2)},
+                    {"2", Point2D<int>(5, 0)},
+                    {"3", Point2D<int>(10, 2)},
+                    {"4", Point2D<int>(10, 0)},
+                    {"5", Point2D<int>(15, 5)},
+                    {"6", Point2D<int>(15, 3)}};
     };
+
 
     Parameters params = Parameters();
     int nb_movers = 4;
 
-    std::vector<std::string> starting_positions = {"0", "4", "2", "5"};
+    std::vector<std::string> starting_positions;
+    std::vector<MoverTask> tasks;
+    if (RANDOMIZE){
+        for (int i = 0; i < nb_movers; i++){
+            starting_positions.push_back(std::to_string(i));
 
-    // Create tasks
-    std::vector<MoverTask> tasks = {
-        MoverTask(0, "3", 0.1),
-        MoverTask(1, "1", 0.1),
-        // MoverTask(2, "6", 0.1),
-        MoverTask(3, "0", 0.1),
-    };
+            // pick a random station that is not occupied
+            int station_idx = rand() % stations.size();
+            tasks.push_back(MoverTask(i, std::to_string(station_idx), 0.1));
+        }
+    } else {
+        starting_positions = {"0", "4", "2", "5"};
+        tasks = {
+            MoverTask(0, "3", 0.1),
+            MoverTask(1, "1", 0.1),
+            MoverTask(2, "6", 0.1),
+            MoverTask(3, "0", 0.1),
+        };
+    }
 
     // Create simulator
     std::vector<Parameters> params_list(nb_movers);
@@ -1100,6 +995,7 @@ void TestDeadlockScenario(){
         std::cout << "something went wrong: " << e.what() << std::endl;
         std::cerr << e.what() << std::endl;
     }
+    mms.DumpToJson("output/multi_mover_simulator.json");
 }
 
 void TestDeadlockScenario2(){

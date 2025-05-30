@@ -20,7 +20,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     claimable_destinations_info = data["claimed_destinations_info"]
 
     SHOW_CORRIDORS = 0
-    SHOW_INTERSECTIONS = 0
+    SHOW_INTERSECTIONS = 1
     SHOW_CLAIMED_CELLS = 1
     SHOW_CURRENT_PLANS = 0
     SHOW_TRAVELLED_TRAJECTORIES = 0
