@@ -914,7 +914,7 @@ void TestDeadlockScenario(){
         env.AddObstacle(Point2D<int>(x_obs[i], y_obs[i]));
     }
 
-    bool RANDOMIZE = true;
+    bool RANDOMIZE = false;
 
     std::map<std::string, Point2D<int>> stations;
     if (RANDOMIZE){
@@ -953,6 +953,7 @@ void TestDeadlockScenario(){
 
     Parameters params = Parameters();
     int nb_movers = 6;
+    if (!RANDOMIZE){ nb_movers = 4;}
 
     std::vector<std::string> starting_positions;
     std::vector<MoverTask> tasks;
@@ -968,9 +969,12 @@ void TestDeadlockScenario(){
         starting_positions = {"0", "4", "2", "5"};
         tasks = {
             MoverTask(0, "3", 0.1),
-            MoverTask(1, "1", 0.1),
-            MoverTask(2, "6", 0.1),
+            // MoverTask(1, "1", 0.1),
+            // MoverTask(2, "6", 0.1),
+            MoverTask(1, "3", 0.1),
+            MoverTask(2, "3", 0.1),
             MoverTask(3, "0", 0.1),
+            MoverTask(3, "3", 1.0),
         };
     }
 
@@ -982,6 +986,7 @@ void TestDeadlockScenario(){
         params_ptr_list.push_back(&params_list[i]);
     }
     std::cout << "Creating MultiMoverSimulator..." << std::endl;
+    try{
     MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
                                         stations, starting_positions, tasks);
     
@@ -996,6 +1001,12 @@ void TestDeadlockScenario(){
         std::cerr << e.what() << std::endl;
     }
     mms.DumpToJson("output/multi_mover_simulator.json");
+
+    } catch (std::exception &e){
+    std::cout << "something went wrong: " << e.what() << std::endl;
+    std::cerr << e.what() << std::endl;
+    return;
+    }
 }
 
 void TestDeadlockScenario2(){

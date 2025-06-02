@@ -289,7 +289,7 @@ class MultiMoverSimulator {
             int agent_idx, CorridorUnion const &intersection);
 
         // Check if agents are waiting for each other
-        bool CheckIfDeadlockPresent();
+        bool CheckIfDeadlockPresent(std::vector<MoverTask>& deadlock_resolving_tasks);
 
         // Check if all agents are idling
         bool AllAgentsIdling() const;

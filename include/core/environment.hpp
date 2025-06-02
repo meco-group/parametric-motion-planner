@@ -28,6 +28,8 @@ class ClaimableDestination {
 
         const Point2D<int>& GetLocation() const {return location_;}
 
+        bool Claimed() const { return claimed_;}
+
         bool ClaimedByCaller(const void* caller) const {
             return claimed_ && claimed_by_ == caller;
         }
@@ -120,6 +122,7 @@ class Environment{
         void ClearClaimingObject() { claiming_object_ = nullptr;}
         const void* GetClaimingObject() const { return claiming_object_;}
         const void* GetObjectClaimingDestination(const std::string &destination) const;
+        std::string GetNearestFreeClaimableDestination(const Point2D<double> &pos) const;
 
         // Moving obstacle operations
         class MovingObstacleOperationsToken {

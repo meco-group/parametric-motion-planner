@@ -292,6 +292,33 @@ const void* Environment::GetObjectClaimingDestination(
     return claimable_destinations_.at(destination).ClaimedBy();
 }
 
+std::string Environment::GetNearestFreeClaimableDestination(const Point2D<double>& pos) const {
+    if (claimable_destinations_.empty()){
+        throw InvalidEnvironmentOperationException("No claimable destinations exist");
+    }
+
+    std::string nearest_destination;
+    double min_distance = std::numeric_limits<double>::max();
+
+    for (const auto &pair : claimable_destinations_){
+        const ClaimableDestination &dest = pair.second;
+        if (!dest.Claimed()){
+            double distance = pos.Distance(dest.GetLocation().ConvertCellToWorld(
+                cell_width_, cell_height_));
+            if (distance < min_distance){
+                min_distance = distance;
+                nearest_destination = pair.first;
+            }
+        }
+    }
+
+    if (nearest_destination.empty()){
+        throw InvalidEnvironmentOperationException("No free claimable destinations available");
+    }
+
+    return nearest_destination;
+}
+
 void Environment::AddMovingObstacle(MovingObstacleOperationsToken&, 
                                     const Point2D<int> &cell){
     if (!isValidCell(cell)){

@@ -531,10 +531,17 @@ bool MultiMoverSimulator::SimulateSingleStep(){
     ProcessPotentialNewCollsions();
 
     // Check for deadlocks
-    if (CheckIfDeadlockPresent()){
+    std::vector<MoverTask> deadlock_resolving_tasks;
+    if (CheckIfDeadlockPresent(deadlock_resolving_tasks)){
         std::cout << "Deadlock detected" << std::endl;
         // throw std::runtime_error("Deadlock detected");
-        return true;
+        if (deadlock_resolving_tasks.size() > 0){
+            std::cout << "Attempting to resolve deadlock" << std::endl;
+            tasks_.insert(tasks_.end(), deadlock_resolving_tasks.begin(), 
+                          deadlock_resolving_tasks.end());
+        } else {
+            return true;
+        }
     }
 
     claimed_destinations_info_.push_back(env_.ClaimableDestinationsToJson());
@@ -829,18 +836,20 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
     return result;
 }
 
-bool MultiMoverSimulator::CheckIfDeadlockPresent(){
+bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadlock_resolving_tasks){
     std::vector<bool> processed_agents(agents_.size(), false);
+
+    deadlock_resolving_tasks = {};
 
     // keep going as long as not all agents have been checked
     int curr_agent_idx = 0;
     while (std::find(processed_agents.begin(), processed_agents.end(), false) != processed_agents.end()){
         // find the first agent that is not processed yet
-        int original_agent_idx = std::find(processed_agents.begin(), processed_agents.end(), false) - processed_agents.begin();
-        curr_agent_idx = original_agent_idx;
+        int curr_agent_idx = std::find(processed_agents.begin(), processed_agents.end(), false) - processed_agents.begin();
+        std::vector<int> waiting_chain = {curr_agent_idx};
 
-        processed_agents[original_agent_idx] = true;
-        AgentState state = agents_[original_agent_idx]->GetState();
+        processed_agents[curr_agent_idx] = true;
+        AgentState state = agents_[curr_agent_idx]->GetState();
         while (state == MOVING_TO_WAITING_POINT || 
                 state == WAITING_AT_INTERSECTION ||
                 state == WAITING_FOR_FREE_DESTINATION){
@@ -862,15 +871,34 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(){
             processed_agents[curr_agent_idx] = true;
 
             // check if the current agent is waiting for the original agent
-            if (curr_agent_idx == original_agent_idx){
+            if (std::find(waiting_chain.begin(), waiting_chain.end(), curr_agent_idx) != waiting_chain.end()){
                 // deadlock found
                 return true;
             }
+            waiting_chain.push_back(curr_agent_idx);
             state = agents_[curr_agent_idx]->GetState();
 
             // check if the current agent is idling
             if (state == IDLING){
                 // the current agent is idling, so we are in a temporary deadlock
+                // this agent should move to the closest possible unclaimed destination
+
+                try{
+                    std::cout << "trying to resolve deadlock" << std::endl;
+                    std::string nearest_free_destination = 
+                        env_.GetNearestFreeClaimableDestination(
+                            agents_[curr_agent_idx]->GetCurrentPosition()
+                        );
+
+                    deadlock_resolving_tasks.push_back(
+                        MoverTask(curr_agent_idx, nearest_free_destination,
+                                  nb_simulated_samples_*simulation_time_step_));
+                    std::cout << "resolving task:" << deadlock_resolving_tasks[deadlock_resolving_tasks.size() - 1] << std::endl;
+                } catch (InvalidEnvironmentOperationException &e){
+                    // no free destination available, so we cannot resolve
+                    // deadlock
+                    std::cout << "unable to resolve deadlock (" << e.what() << ")" << std::endl;
+                }
                 return true;
             }
         }
