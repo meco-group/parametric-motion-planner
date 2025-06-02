@@ -1085,7 +1085,7 @@ int main(int argc, char *argv[]){
     // TestDynamicIntersections();
     // TestMultiMoverSimulator();
     // TestMultiMoverTasksWithStationsOld();
-    // TestMultiMoverTasksWithStations();
-    TestDeadlockScenario();
+    TestMultiMoverTasksWithStations();
+    // TestDeadlockScenario();
     // TestDeadlockScenario2();
 }

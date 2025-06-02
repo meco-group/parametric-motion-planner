@@ -1,4 +1,4 @@
-#include "core/multi_mover_simulator.hpp"
+#include "core/multimover/multi_mover_simulator.hpp"
 #include "core/corridor.hpp"
 
 std::string DecisionToString(CollisionResolutionDecision d){
@@ -850,6 +850,7 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
 
         processed_agents[curr_agent_idx] = true;
         AgentState state = agents_[curr_agent_idx]->GetState();
+        std::vector<std::string> states_chain = {AgentStateToString(state)};
         while (state == MOVING_TO_WAITING_POINT || 
                 state == WAITING_AT_INTERSECTION ||
                 state == WAITING_FOR_FREE_DESTINATION){
@@ -873,10 +874,17 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
             // check if the current agent is waiting for the original agent
             if (std::find(waiting_chain.begin(), waiting_chain.end(), curr_agent_idx) != waiting_chain.end()){
                 // deadlock found
+                waiting_chain.push_back(curr_agent_idx);
+                state = agents_[curr_agent_idx]->GetState();
+                states_chain.push_back(AgentStateToString(state));
+                std::cout << "deadlock found." << std::endl;
+                std::cout << "Waiting chain: " << waiting_chain << std::endl;
+                std::cout << "States chain:  " << states_chain << std::endl;
                 return true;
             }
             waiting_chain.push_back(curr_agent_idx);
             state = agents_[curr_agent_idx]->GetState();
+            states_chain.push_back(AgentStateToString(state));
 
             // check if the current agent is idling
             if (state == IDLING){
@@ -899,6 +907,7 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
                     // deadlock
                     std::cout << "unable to resolve deadlock (" << e.what() << ")" << std::endl;
                 }
+                std::cout << "deadlock found. Waiting chain: " << waiting_chain << std::endl;
                 return true;
             }
         }

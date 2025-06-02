@@ -12,6 +12,6 @@
 #include "dynamic_simulator.hpp"
 #include "dynamic_sampler.hpp"
 #include "dynamic_intersection_manager.hpp"
-#include "multi_mover_simulator.hpp"
+#include "multimover/multi_mover_simulator.hpp"
 
 #endif

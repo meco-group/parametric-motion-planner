@@ -105,7 +105,7 @@ else()
     find_package(pybind11 REQUIRED PATHS ~/.local/lib/python3.10/site-packages/pybind11/share/cmake/pybind11)
 
     # Collect source files
-    file(GLOB SOURCES "src/*.cpp")
+    file(GLOB_RECURSE SOURCES "src/*.cpp")
 
     # Create the library
     add_library(${PROJECT_NAME} STATIC ${SOURCES})
