@@ -1,5 +1,7 @@
+#ifndef __AGENT_HPP__
+#define __AGENT_HPP__
 #include "core/motion_planner.hpp"
-
+#include "core/multimover/mover_task.hpp"
 
 enum AgentState {
     MOVING_TO_FINAL_DESTINATION,    // moving towards the final destination
@@ -11,6 +13,29 @@ enum AgentState {
     FAILED_TO_PLAN_TO_WAITING_POINT,// planner failed, trying emergency stop
     WAITING_FOR_FREE_DESTINATION,   // destination is not free so needs to wait
 };
+
+inline std::string AgentStateToString(AgentState s){
+    if (s == MOVING_TO_FINAL_DESTINATION){
+        return "MOVING_TO_FINAL_DESTINATION";
+    } else if (s == MOVING_TO_WAITING_POINT){
+        return "MOVING_TO_WAITING_POINT";
+    } else if (s == WAITING_AT_INTERSECTION){
+        return "WAITING_AT_INTERSECTION";
+    } else if (s == IDLING){
+        return "IDLING";
+    } else if (s == READY_TO_PLAN){
+        return "READY_TO_PLAN";
+    } else if (s == FAILED_TO_PLAN_TO_DEST){
+        return "FAILED_TO_PLAN_TO_DEST";
+    } else if (s == FAILED_TO_PLAN_TO_WAITING_POINT){
+        return "FAILED_TO_PLAN_TO_WAITING_POINT";
+    } else if (s == WAITING_FOR_FREE_DESTINATION){
+        return "WAITING_FOR_FREE_DESTINATION";
+    } else {
+        return "?";
+    }
+}
+
 
 // Wrapper around a mover with some additional attributes needed for it to 
 // function in a multi-mover environment
@@ -25,7 +50,8 @@ class Agent {
         // Instruct this agent to move to a destination. Returns false if the
         // destination could not be claimed.
         bool InstructToDestination(const std::string& destination_name,
-                                   const Point2D<double>& final_dest);
+                                   const Point2D<double>& final_dest,
+                                   std::shared_ptr<MoverTask>& task);
 
         // Basic Getters
         const Point2D<double>& GetFinalDestination() const;
@@ -105,6 +131,9 @@ class Agent {
         std::vector<CorridorSequence> planned_corridor_sequences_;
         std::vector<double> planned_times_;
 
+        // mover task logging
+        std::shared_ptr<MoverTask> curr_task_; // the current task that is being executed by this agent
+
         // current info
         Point2D<double> curr_pos_;
         Point2D<double> curr_vel_;
@@ -124,3 +153,5 @@ class Agent {
         Corridor blocking_footprint_;
         Corridor o;
 };
+
+#endif

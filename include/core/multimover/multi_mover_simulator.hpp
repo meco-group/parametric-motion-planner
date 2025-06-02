@@ -87,9 +87,6 @@ class MultiMoverSimulator {
                             std::vector<std::string> starting_positions,
                             std::vector<MoverTask> tasks);
 
-        void InstructAgentToDestination(int agent_idx, 
-                                        const std::string& destination_name);
-
         void SimulateSteps(int nb_steps, bool stop_when_all_idling=true);
         void SimulateAllTasks();
 
@@ -141,7 +138,7 @@ class MultiMoverSimulator {
         // simulation attributes
         int nb_simulated_samples_ = 0;
         double simulation_time_step_ = 0.01;
-        std::vector<MoverTask> tasks_;
+        std::vector<std::shared_ptr<MoverTask>> tasks_;
 
         // options
         double collision_check_margin_ = 0.01;

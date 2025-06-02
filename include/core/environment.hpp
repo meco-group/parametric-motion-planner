@@ -42,7 +42,7 @@ class ClaimableDestination {
         }
 
         bool Claim(const void* caller) {
-            if (claimed_){
+            if (claimed_ && ClaimedBy() != caller){
                 return false;
             }
             claimed_ = true;

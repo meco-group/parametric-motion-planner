@@ -811,7 +811,7 @@ void TestMultiMoverTasksWithStations(){
     srand(time(0));
 
     // Get stations at random boundary positions
-    int nb_stations = 9;
+    int nb_stations = 7;
     std::map<std::string, Point2D<int>> stations;
     Point2D<int> candidate;
     int nb_stations_found = 0;
@@ -842,7 +842,7 @@ void TestMultiMoverTasksWithStations(){
     }
 
     Parameters params = Parameters();
-    int nb_movers = 4;
+    int nb_movers = 3;
 
     std::vector<std::string> starting_positions(nb_movers);
     for (int i = 0; i < nb_movers; i++){

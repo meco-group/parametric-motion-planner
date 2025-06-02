@@ -1,6 +1,7 @@
 import sys
 sys.path.append('post-process/')
 from visualization_helpers import *
+import matplotlib.patches as mpatches
 
 
 def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
@@ -175,7 +176,150 @@ def create_multi_mover_motion_video(data, **kwargs):
                                     repeat=False)
     anim.save(f"post-process/multi_mover_simulator/animations/animation.mp4", writer=writer)
 
+def extract_segments(task):
+    events = task["task_events"]
+    segments = []
+    current_state = None
+    last_state_switch_time_stamp = None
+    current_start = None
+    planning_segments = []
 
+    # make sure to sort events by time_stamp
+    events.sort(key=lambda x: x["time_stamp"])
+
+    for i, event in enumerate(events):
+        evt_type = event["event_type"]
+        time = event["time_stamp"]
+        meta = event.get("optional_meta_data", 0)
+
+        if evt_type == "TASK_REVEALED":
+            segments.append(("TASK_REVEALED", time, time, 2))
+        elif evt_type == "TASK_POSTPONED":
+            segments.append(("TASK_POSTPONED", time, time + meta, 2))
+        elif evt_type == "MOVER_WAITING":
+            # if the state is not initilialized yet, update it
+            if current_state is None:
+                current_state = "MOVER_WAITING"
+                last_state_switch_time_stamp = time
+
+            # if we were moving, add a moving segment
+            elif current_state == "MOVER_MOVING":
+                segments.append(("MOVER_MOVING", last_state_switch_time_stamp, time, 1))
+                current_state = "MOVER_WAITING"
+                last_state_switch_time_stamp = time
+
+            # if we were already waiting, ignore this event
+            else:
+                continue
+                
+        elif evt_type == "MOVER_MOVING":
+            # if the state is not initialized yet, update it
+            if current_state is None:
+                current_state = "MOVER_MOVING"
+                last_state_switch_time_stamp = time
+
+            # if we were waiting, add a waiting segment
+            elif current_state == "MOVER_WAITING":
+                segments.append(("MOVER_WAITING", last_state_switch_time_stamp, time, 1))
+                current_state = "MOVER_MOVING"
+                last_state_switch_time_stamp = time
+            
+            # if we were already moving, ignore this event
+            elif current_state == "MOVER_MOVING":
+                continue
+
+        elif evt_type == "TASK_PLANNING_OCCURED":
+            segments.append(("TASK_PLANNING_OCCURED", time, time + 0.001*meta, 2))
+
+        elif evt_type == "TASK_COMPLETED":
+            if current_state == "MOVER_MOVING":
+                segments.append(("MOVER_MOVING", last_state_switch_time_stamp, time, 1))
+            
+            elif current_state == "MOVER_WAITING":
+                segments.append(("MOVER_WAITING", last_state_switch_time_stamp, time, 1))
+
+            segments.append(("TASK_COMPLETED", time, time, 2))
+
+    return segments
+
+
+def visualize_task_completion(data):
+    event_colors = {
+        "TASK_REVEALED": ("black", "TASK_REVEALED"),
+        "TASK_POSTPONED": ("gray", "TASK_POSTPONED"),
+        "MOVER_WAITING": ("orange", "MOVER_WAITING"),
+        "MOVER_MOVING": ("green", "MOVER_MOVING"),
+        "TASK_PLANNING_OCCURED": ("blue", "TASK_PLANNING_OCCURED"),
+        "TASK_COMPLETED": ("red", "TASK_COMPLETED"),
+    }
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    yticks = []
+    yticklabels = []
+    offset = 0
+    height_of_first_bar_for_this_agent = 0
+
+    # list completion times of all tasks
+    total_time = -1
+    for task in data["tasks"]:
+        for event in task["task_events"]:
+            if event["event_type"] == "TASK_COMPLETED":
+                total_time = max(total_time, event["time_stamp"])
+
+    # group tasks by agent_idx and sort by time to reveal task (per agent)
+    data["tasks"].sort(key=lambda x: (x["agent_idx"], x["time_to_reveal_task"]))
+
+    for idx, task in enumerate(data["tasks"]):
+        agent = task["agent_idx"]
+        dest = task["destination_name"]
+        reveal_time = task["time_to_reveal_task"]
+
+        task_label = f"Agent {agent} to {dest}"
+        if idx > 0 and data["tasks"][idx - 1]["agent_idx"] != agent:
+            ax.add_patch(mpatches.Rectangle((0, height_of_first_bar_for_this_agent - 0.2), 
+                total_time, idx - 1 + offset + 2*0.2 - height_of_first_bar_for_this_agent, 
+                color='lightgray', zorder=0, alpha=0.5))
+
+            offset += 1
+            height_of_first_bar_for_this_agent = idx + offset
+        
+        y = idx + offset
+        yticks.append(y)
+        yticklabels.append(task_label)
+
+        # Expected reveal line
+        # ax.axvline(x=reveal_time, color='black', linestyle='--', alpha=0.3)
+
+        segments = extract_segments(task)
+
+        for seg_type, start, end, zorder in segments:
+            color, _ = event_colors.get(seg_type, ("purple", seg_type))
+            ax.barh(y, end - start if end > start else 0.1, left=start, 
+                    color=color, edgecolor='k', height=0.4, alpha=1.0, 
+                    zorder=zorder)
+
+    ax.add_patch(mpatches.Rectangle((0, height_of_first_bar_for_this_agent - 0.2), 
+        total_time, idx + offset + 2*0.2 - height_of_first_bar_for_this_agent, 
+        color='lightgray', zorder=0, alpha=0.5))
+
+    # Formatting
+    ax.set_xlabel("Time")
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels)
+    ax.set_title("MoverTask Progress Gantt Chart")
+    # ax.grid(True, axis='x', linestyle='--', alpha=0.5)
+
+    ax.set_xlim(0, total_time)
+
+    # Legend
+    legend_patches = [mpatches.Patch(color=color, label=label) for color, label in event_colors.values()]
+    ax.legend(handles=legend_patches, loc='best')
+
+    plt.tight_layout()
+    plt.savefig("post-process/multi_mover_simulator/animations/task_completion_gantt_chart.png")
+    
 
 # Load the data
 file = "build/output/multi_mover_simulator.json"
@@ -183,4 +327,6 @@ file = "build/output/multi_mover_simulator.json"
 with open(file) as f:
     data = json.load(f)
 
+visualize_task_completion(data)
+# exit()
 create_multi_mover_motion_video(data, fps=25)
