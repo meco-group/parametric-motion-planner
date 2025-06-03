@@ -91,9 +91,13 @@ class MultiMoverSimulator {
         void SimulateAllTasks();
 
         void DumpToJson(std::string const &filename) const;
-        void PrintLog() const { logger_.PrintLog();};
+        void PrintLog() const;
 
     private:
+        bool SanityCheckOnPossibleDestinations(Environment& environment, 
+            std::vector<const Parameters*> params, 
+            std::map<std::string, Point2D<int>> possible_destinations) const;
+
         // Function to capture all that needs to happen to simulate a single
         // time-step (update trajectories, process potential collisions, 
         // check for deadlock and update agent positions/velocities)
@@ -109,7 +113,7 @@ class MultiMoverSimulator {
         bool ProcessPotentialNewCollsions();
 
         bool CheckForCollision(int agent_idx_1, int agent_idx_2);
-        void DealWithCollision(int agent_idx_1, int agent_idx_2);
+        std::pair<bool, bool> DealWithCollision(int agent_idx_1, int agent_idx_2);
 
         bool GetIntersection(int agent_idx_1, int agent_idx_2, 
                              CorridorUnion& intersection);
@@ -147,6 +151,7 @@ class MultiMoverSimulator {
         std::vector<IntersectionLog> intersection_logs_;
         std::vector<json> claimed_destinations_info_;
         MultiMoverLogger logger_;
+        std::vector<double> simulation_step_computation_times_;
 
         // scratch space
         std::vector<bool> new_trajectories_;

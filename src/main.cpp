@@ -801,6 +801,8 @@ void TestDynamicIntersections(){
     }
     intersection_manager.DumpToJson("output/dynamic_intersection.json");
 }
+
+
 void TestMultiMoverTasksWithStations(){
     // Set the stage
     double cell_size = 0.12;
@@ -811,7 +813,7 @@ void TestMultiMoverTasksWithStations(){
     srand(time(0));
 
     // Get stations at random boundary positions
-    int nb_stations = 7;
+    int nb_stations = 9;
     std::map<std::string, Point2D<int>> stations;
     Point2D<int> candidate;
     int nb_stations_found = 0;
@@ -842,7 +844,7 @@ void TestMultiMoverTasksWithStations(){
     }
 
     Parameters params = Parameters();
-    int nb_movers = 3;
+    int nb_movers = 4;
 
     std::vector<std::string> starting_positions(nb_movers);
     for (int i = 0; i < nb_movers; i++){
@@ -893,7 +895,10 @@ void TestMultiMoverTasksWithStations(){
     } catch (std::exception &e){
         std::cout << "something went wrong: " << e.what() << std::endl;
         std::cerr << e.what() << std::endl;
+        mms.DumpToJson("output/multi_mover_simulator.json");
     }
+
+    mms.PrintLog();
 }
 
 void TestDeadlockScenario(){

@@ -146,6 +146,7 @@ class Agent {
         int replanning_step_counter_ = 0;
         bool wait_for_clear_intersection_ = false;
         double collision_check_margin_ = 0.01;
+        bool jit_planner_ = false;
 
         // scratch space
         double t;

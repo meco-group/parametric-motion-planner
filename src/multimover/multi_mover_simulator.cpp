@@ -52,6 +52,11 @@ MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
         env_.AddClaimableDestination(name, pos);
     }
 
+    // perform check on possible destinations
+    if (!SanityCheckOnPossibleDestinations(env_, params, possible_destinations)){
+        throw std::runtime_error("Sanity check on possible destinations failed");
+    }
+
     // set final destinations as current positions
     bool success = false;
     for (int i = 0; i < agents_.size(); i++){
@@ -92,8 +97,10 @@ void MultiMoverSimulator::SimulateAllTasks(){
     int max_nb_steps = 1000;//10000;
     int step_counter = 0;
     bool deadlock_detected = false;
+    simulation_step_computation_times_.reserve(max_nb_steps);
     while (!all_tasks_completed && step_counter < max_nb_steps && !deadlock_detected){
-        // std::cout << "Simulating step " << step_counter << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
+
         // check if new tasks are available
         ProcessPotentialNewTasks();
 
@@ -108,6 +115,10 @@ void MultiMoverSimulator::SimulateAllTasks(){
 
         nb_simulated_samples_++;
         step_counter++;
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = end - start;
+        simulation_step_computation_times_.push_back(elapsed.count());
     }
 }
 
@@ -129,8 +140,98 @@ void MultiMoverSimulator::DumpToJson(std::string const &filename) const {
     for (const auto& task : tasks_){
         j["tasks"].push_back(task->ToJson());
     }
+    j["nb_simulated_samples"] = nb_simulated_samples_;
+    j["simulation_time_step"] = simulation_time_step_;
+    j["computation_time_per_simulation_step"] = json::array();
+    for (int i = 0; i < nb_simulated_samples_; i++){
+        j["computation_time_per_simulation_step"].push_back(
+            simulation_step_computation_times_[i]
+        );
+    }
     std::ofstream o(filename);
     o << std::setw(4) << j << std::endl;
+}
+
+void MultiMoverSimulator::PrintLog() const {
+    logger_.PrintLog();
+
+    double total_duration = 0.0;
+    double total_duration_gt_1ms = 0.0;
+    int count_gt_1ms = 0;
+    for (int i = 0; i < nb_simulated_samples_; i++){
+        total_duration += simulation_step_computation_times_[i];
+        if (simulation_step_computation_times_[i] > 1.0){
+            total_duration_gt_1ms += simulation_step_computation_times_[i];
+            count_gt_1ms++;
+        }
+    }
+
+    std::cout << "average duration per simulation step: ";
+    if (nb_simulated_samples_ > 0){
+        std::cout << total_duration / nb_simulated_samples_ << " ms" << std::endl;
+    } else {
+        std::cout << "N/A" << std::endl;
+    }
+    std::cout << "average duration of simulation steps > 1ms: ";
+    if (count_gt_1ms > 0){
+        std::cout << total_duration_gt_1ms / count_gt_1ms << " ms" << std::endl;
+    } else {
+        std::cout << "N/A" << std::endl;
+    }
+
+    std::cout << "max duration of a simulation step: ";
+    if (nb_simulated_samples_ > 0){
+        double max_duration = *std::max_element(simulation_step_computation_times_.begin(), 
+                                                simulation_step_computation_times_.begin() + nb_simulated_samples_);
+        std::cout << max_duration << " ms" << std::endl;
+    } else {
+        std::cout << "N/A" << std::endl;
+    };
+}
+
+bool MultiMoverSimulator::SanityCheckOnPossibleDestinations(
+        Environment& environment, std::vector<const Parameters*> params,
+        std::map<std::string, Point2D<int>> possible_destinations) const {
+
+    // Check for all possible parameters (possibly different sizes)
+    for (int p = 0; p < params.size(); p++){
+        // Create a local MotionPlanner to check the reachability
+        MotionPlanner mp(*params[0], environment);
+
+        // list all destinations
+        std::vector<Point2D<double>> destinations;
+        std::vector<std::string> destination_names;
+        for (const auto& [name, pos] : possible_destinations){
+            destinations.push_back(pos.ConvertCellToWorld(environment.CellWidth(), 
+                                                        environment.CellHeight()));
+            destination_names.push_back(name);
+        }
+
+        // Check reachability
+        environment.SetClaimingObject(&mp);
+        for (int i = 0; i < destinations.size(); i++){
+            environment.ClaimDestination(destination_names[i], &mp);
+            for (int j = i+1; j < destinations.size(); j++){
+                // TODO: claim destinations
+                environment.ClaimDestination(destination_names[j], &mp);
+                mp.SetStart(destinations[i]);
+                mp.SetDest(destinations[j]);
+                try {
+                    mp.PlanSafely();
+                } catch (std::exception & e) {
+                    environment.ReleaseDestination(destination_names[i], &mp);
+                    environment.ReleaseDestination(destination_names[j], &mp);
+                    environment.ClearClaimingObject();
+                    return false;
+                }
+                environment.ReleaseDestination(destination_names[j], &mp);
+            }
+            environment.ReleaseDestination(destination_names[i], &mp);
+        }
+        environment.ClearClaimingObject();
+    }
+
+    return true;
 }
 
 bool MultiMoverSimulator::SimulateSingleStep(){
@@ -188,17 +289,49 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     // important. Otherwise veh3 might be waiting for veh1 while veh1 is 
     // waiting for veh2.
     // return false;
-    for (int i = 0; i < agents_.size(); i++){
-        if (new_trajectories_[i]){
-            for (int j = 0; j < agents_.size(); j++){
-                if (i == j){
-                    continue;
-                }
-                if (CheckForCollision(i, j)){
-                    DealWithCollision(i, j);
+
+    // This code is not accurate, since "DealWithCollision" creates new
+    // trajectories which are not yet checked
+    // for (int i = 0; i < agents_.size(); i++){
+    //     if (new_trajectories_[i]){
+    //         for (int j = 0; j < agents_.size(); j++){
+    //             if (i == j){
+    //                 continue;
+    //             }
+    //             if (CheckForCollision(i, j)){
+    //                 DealWithCollision(i, j);
+    //             }
+    //         }
+    //     }
+    // }
+
+    // as long as there are unprocessed new trajectories, keep checking for
+    // collisions
+    std::vector<bool> updated_trajectories(agents_.size(), false);
+    std::pair<bool, bool> collision_updates;
+    while (std::any_of(new_trajectories_.begin(), new_trajectories_.end(), 
+                  [](bool b){ return b; })){
+        for (int i = 0; i < agents_.size(); i++){
+            if (new_trajectories_[i]){
+                for (int j = 0; j < agents_.size(); j++){
+                    if (i == j){
+                        continue;
+                    }
+                    if (CheckForCollision(i, j)){
+                        collision_updates = DealWithCollision(i, j);
+                        // check if trajectories have been updated
+                        if (collision_updates.first){
+                            updated_trajectories[i] = true;
+                        }
+                        if (collision_updates.second){
+                            updated_trajectories[j] = true;
+                        }
+                    }
                 }
             }
-        }
+        }   
+        new_trajectories_ = updated_trajectories;
+        updated_trajectories = std::vector<bool>(agents_.size(), false);
     }
 
     return false;
@@ -229,14 +362,14 @@ bool MultiMoverSimulator::CheckForCollision(int agent_idx_1, int agent_idx_2){
     return false;
 }
 
-void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
+std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
     // get the intersection of the two vehicles
     CorridorUnion intersection;
     bool intersection_present = GetIntersection(agent_idx_1, agent_idx_2, intersection);
     if (!intersection_present){
         std::cout << "no intersection found between agents " << agent_idx_1;
         std::cout << " and " << agent_idx_2 << std::endl;
-        return;
+        return std::make_pair(false, false);
         // throw std::runtime_error("No intersection found between agent " + 
         //     std::to_string(agent_idx_1) + " and agent " + std::to_string(agent_idx_2));
     }
@@ -256,10 +389,11 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
     if (intersection_case == INVALID){
         // throw std::runtime_error("Invalid intersection case");
         std::cout << "Invalid intersection case" << std::endl;
+        return std::make_pair(false, false);
 
     } else if (intersection_case == NO_OVERLAP){
         // no action needed
-        return;
+        return std::make_pair(false, false);
 
     } else if (intersection_case == AGENT_1_MUST_WAIT){
         // instruct vehicle 1 to wait
@@ -269,6 +403,7 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
             logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
                 "Instructed agent " + std::to_string(agent_idx_1) + 
                 " to wait for agent " + std::to_string(agent_idx_2));
+            return std::make_pair(true, false);
         } catch (UnableToFindWaitingPoint& e){
             // agent_idx_1 cannot find a waiting point, so agent_idx_2 must 
             // longer
@@ -285,6 +420,7 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
             logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
                 "Instructed agent " + std::to_string(agent_idx_2) + 
                 " to wait for agent " + std::to_string(agent_idx_1));
+            return std::make_pair(false, true);
         }
 
     } else if (intersection_case == AGENT_2_MUST_WAIT){
@@ -295,6 +431,7 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
             logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
                 "Instructed agent " + std::to_string(agent_idx_2) + 
                 " to wait for agent " + std::to_string(agent_idx_1));
+            return std::make_pair(false, true);
         } catch (UnableToFindWaitingPoint& e){
             // agent_idx_2 cannot find a waiting point, so agent_idx_1 must 
             // longer
@@ -311,9 +448,12 @@ void MultiMoverSimulator::DealWithCollision(int agent_idx_1, int agent_idx_2){
             logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
                 "Instructed agent " + std::to_string(agent_idx_1) + 
                 " to wait for agent " + std::to_string(agent_idx_2));
+            return std::make_pair(true, false);
         }
+
     } else {
         throw std::runtime_error("Invalid CollisionResolutionDecision: Don't know what to do");
+        return std::make_pair(false, false);
     }
 }
 

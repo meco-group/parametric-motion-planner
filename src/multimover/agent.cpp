@@ -10,6 +10,9 @@ Agent::Agent(int idx, Environment& env, const Parameters& params,
     curr_pos_ = starting_position;
     collision_check_margin_ = collision_check_margin;
     planner_.SetMaxNbCorridorGrowingIterations(1);
+    if (!jit_planner_){
+        planner_.SetJustInTimePreparationMode(false);
+    }
 
     travelled_trajectory_.Reset(starting_position);
 }
@@ -171,10 +174,13 @@ void Agent::SimulateStep(){
         cell.SetXmax(destination.x() + planner_.GetParameters().GetWidthOffset());
         cell.SetYmin(destination.y() - planner_.GetParameters().GetHeightOffset());
         cell.SetYmax(destination.y() + planner_.GetParameters().GetHeightOffset());
-        GetVehicleFootprint(0, footprint, 0.01);
+        GetVehicleFootprint(0, footprint, 0.0);
         if (!cell.GetOverlap(footprint, o)){
             // we can release the destination
             indices_to_be_released.push_back(i);
+            std::cout << this << " releasing destination " << 
+                destinations_to_be_released_[i] << " at " << destination <<
+                " currently claimed by " << env_.GetObjectClaimingDestination(destinations_to_be_released_[i]) << std::endl;
             env_.ReleaseDestination(destinations_to_be_released_[i], this);
         }
     }
@@ -264,6 +270,7 @@ bool Agent::UpdateTrajectory(){
                     curr_task_->NotifyStartedToMove(curr_time_);
                 }
                 return true;
+                // TODO: this trajectory should still be checked against other vehicles
             }
         }
     }

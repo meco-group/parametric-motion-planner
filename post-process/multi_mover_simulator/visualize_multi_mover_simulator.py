@@ -2,6 +2,7 @@ import sys
 sys.path.append('post-process/')
 from visualization_helpers import *
 import matplotlib.patches as mpatches
+import numpy as np
 
 
 def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
@@ -321,6 +322,58 @@ def visualize_task_completion(data):
     plt.savefig("post-process/multi_mover_simulator/animations/task_completion_gantt_chart.png")
     
 
+def visualize_computation_time_per_simulation_step(data):
+    computation_times = data["computation_time_per_simulation_step"]
+    total_time = data["nb_simulated_samples"]*data["simulation_time_step"]
+
+    # # compute the amount of buffered samples
+    # # every 0.01 seconds, a sample is removed from the buffer
+    # fine_time_grid = np.linspace(0, total_time, int(total_time*10000))
+    # buffered_samples = np.zeros(len(fine_time_grid))
+
+    # current_nb_in_buffer = 0
+    # time_since_last_sample_read = 0.0
+    # time_since_computation_started = 0.0
+    # computation_time_idx = 0
+    # for i in range(len(fine_time_grid)):
+    #     # check if new sample is read
+    #     if time_since_last_sample_read > data["simulation_time_step"]:
+    #         current_nb_in_buffer -= 1
+    #         time_since_last_sample_read = 0.0
+        
+    #     # check if new sample is added
+    #     if computation_time_idx < len(computation_times) and \
+    #        time_since_computation_started >= 0.0001*computation_times[computation_time_idx]:
+    #         current_nb_in_buffer += 1
+    #         time_since_computation_started = 0.0
+    #         computation_time_idx += 1
+
+    #     # update time counters
+    #     time_since_last_sample_read += fine_time_grid[i] - (fine_time_grid[i-1] if i > 0 else 0)
+    #     time_since_computation_started += fine_time_grid[i] - (fine_time_grid[i-1] if i > 0 else 0)
+    #     buffered_samples[i] = current_nb_in_buffer
+
+    # # Plotting
+    # fig, ax = plt.subplots(figsize=(12, 6))
+    # ax.plot(fine_time_grid, buffered_samples, color='blue', label='Buffered Samples')
+    # ax.set_xlabel("Time (s)")
+    # ax.set_ylabel("Number of Buffered Samples")
+    # plt.savefig("post-process/multi_mover_simulator/animations/buffered_samples_over_time.png")
+
+    # Plotting: a bar plot with computation times under 10ms in blue and others in red
+    fig, ax = plt.subplots(figsize=(12, 6))
+    computation_times = np.array(computation_times)
+    time_grid = np.arange(0, len(computation_times)) * data["simulation_time_step"]
+    colors = np.where(computation_times < 10, 'blue', 'red')
+    ax.bar(time_grid, computation_times, color=colors, width=data["simulation_time_step"]*0.8, alpha=0.7)
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Computation Time (ms)")
+    plt.xlim(0, total_time)
+    plt.ylim(0, 100)
+    plt.savefig("post-process/multi_mover_simulator/animations/buffered_samples_over_time.png")
+    
+    
+
 # Load the data
 file = "build/output/multi_mover_simulator.json"
 
@@ -328,5 +381,6 @@ with open(file) as f:
     data = json.load(f)
 
 visualize_task_completion(data)
+visualize_computation_time_per_simulation_step(data)
 # exit()
 create_multi_mover_motion_video(data, fps=25)
