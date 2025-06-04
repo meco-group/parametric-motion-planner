@@ -97,6 +97,10 @@ void Trajectory::Update(int nb_corridors,
     trajectory_sampling_time_ = 
         std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - start_sampling_time).count();
+
+    if (px_[curr_nb_samples_-1] == 0 && py_[curr_nb_samples_-1] == 0){
+        throw std::runtime_error("Zero trailing sample detected!");
+    }
 }
 
 void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp, 
@@ -195,6 +199,10 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     trajectory_sampling_time_ = 
         std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - start_sampling_time).count();
+
+    if (px_[curr_nb_samples_-1] == 0 && py_[curr_nb_samples_-1] == 0){
+        throw std::runtime_error("Zero trailing sample detected!");
+    }
 }
 
 std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
@@ -351,16 +359,22 @@ std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
     }
 
     // The last sample should be steady-state
-    px_[curr_nb_samples_ - 1] = px_[curr_nb_samples_ - 2];
-    py_[curr_nb_samples_ - 1] = py_[curr_nb_samples_ - 2];
-    vx_[curr_nb_samples_ - 1] = 0.0;
-    vy_[curr_nb_samples_ - 1] = 0.0;
-    ax_[curr_nb_samples_ - 1] = 0.0;
-    ay_[curr_nb_samples_ - 1] = 0.0;
+    for (int i = sample_ptr; i < curr_nb_samples_; i++){
+        px_[i] = px_[std::max(0, sample_ptr - 1)];
+        py_[i] = py_[std::max(0, sample_ptr - 1)];
+        vx_[i] = 0.0;
+        vy_[i] = 0.0;
+        ax_[i] = 0.0;
+        ay_[i] = 0.0;
+    }
 
     trajectory_sampling_time_ = 
         std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - start_sampling_time).count();
+
+    if (px_[curr_nb_samples_-1] <= 0.05 || py_[curr_nb_samples_-1] <= 0.05){
+        throw std::runtime_error("[Trajectory] Zero trailing sample detected!");
+    }
 
     return out_of_corridor_list;
 }
@@ -453,6 +467,10 @@ void Trajectory::Update(Point2D<double> const &start,
     trajectory_sampling_time_ = 
         std::chrono::duration<double, std::milli>(
             std::chrono::high_resolution_clock::now() - start_sampling_time).count();
+
+    if (px_[curr_nb_samples_-1] == 0 && py_[curr_nb_samples_-1] == 0){
+        throw std::runtime_error("Zero trailing sample detected!");
+    }
 }
 
 void Trajectory::Reset(Point2D<double> const &start){

@@ -120,6 +120,9 @@ void MultiMoverSimulator::SimulateAllTasks(){
         std::chrono::duration<double, std::milli> elapsed = end - start;
         simulation_step_computation_times_.push_back(elapsed.count());
     }
+
+    logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+                     "Clean exit");
 }
 
 void MultiMoverSimulator::DumpToJson(std::string const &filename) const {
@@ -309,8 +312,16 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     // collisions
     std::vector<bool> updated_trajectories(agents_.size(), false);
     std::pair<bool, bool> collision_updates;
+    int counter = 0;
     while (std::any_of(new_trajectories_.begin(), new_trajectories_.end(), 
                   [](bool b){ return b; })){
+        if (counter  > 10){
+            throw std::runtime_error("Too many iterations in collision resolution, possible deadlock detected");
+        }
+        std::cout << "\n\n\n\n\n" << std::endl;
+        std::cout << "Checking for collisions" << std::endl;
+        std::cout << new_trajectories_ << std::endl;
+        std::cout << "\n\n\n\n\n" << std::endl;
         for (int i = 0; i < agents_.size(); i++){
             if (new_trajectories_[i]){
                 for (int j = 0; j < agents_.size(); j++){
@@ -332,6 +343,7 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
         }   
         new_trajectories_ = updated_trajectories;
         updated_trajectories = std::vector<bool>(agents_.size(), false);
+        counter++;
     }
 
     return false;
@@ -350,8 +362,8 @@ bool MultiMoverSimulator::CheckForCollision(int agent_idx_1, int agent_idx_2){
     Corridor o;
     for (int nb_steps_in_future = 0; 
             nb_steps_in_future < nb_time_steps_to_check; nb_steps_in_future++){
-        agents_[agent_idx_1]->GetVehicleFootprint(nb_steps_in_future, footprint_1, collision_check_margin_);
-        agents_[agent_idx_2]->GetVehicleFootprint(nb_steps_in_future, footprint_2, collision_check_margin_);
+        agents_[agent_idx_1]->GetVehicleFootprint(nb_steps_in_future, footprint_1, 0*collision_check_margin_);
+        agents_[agent_idx_2]->GetVehicleFootprint(nb_steps_in_future, footprint_2, 0*collision_check_margin_);
 
         if (footprint_1.GetOverlap(footprint_2, o)){
             return true;
@@ -407,10 +419,6 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
         } catch (UnableToFindWaitingPoint& e){
             // agent_idx_1 cannot find a waiting point, so agent_idx_2 must 
             // longer
-            if (!agents_[agent_idx_2]->Stationary()){
-                std::cout << "Agent " << agent_idx_1 << " cannot find a waiting point, so agent " 
-                          << agent_idx_2 << " must wait longer" << std::endl;
-            }
             logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
                 "Agent " + std::to_string(agent_idx_1) + 
                 " cannot find a waiting point, so agent " + std::to_string(agent_idx_2) + 
@@ -435,10 +443,6 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
         } catch (UnableToFindWaitingPoint& e){
             // agent_idx_2 cannot find a waiting point, so agent_idx_1 must 
             // longer
-            if (!agents_[agent_idx_1]->Stationary()){
-                std::cout << "Agent " << agent_idx_2 << " cannot find a waiting point, so agent " 
-                          << agent_idx_1 << " must wait longer" << std::endl;
-            }
             logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
                 "Agent " + std::to_string(agent_idx_2) + 
                 " cannot find a waiting point, so agent " + std::to_string(agent_idx_1) + 
@@ -527,6 +531,7 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
     // Check if vehicles plan to be in intersection at the same time
     if (times_1["leaving_time"] < times_2["entering_time"] ||
             times_2["leaving_time"] < times_1["entering_time"]){
+        throw std::runtime_error("Vehicles are not in the intersection at the same time, but we detected a collision");
         return NO_OVERLAP;
     }
 
@@ -569,6 +574,7 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
     while (!intersection.OverlapsWith(footprint)){
         nb_time_steps_from_now++;
         if (nb_time_steps_from_now >= nb_steps_remaining){
+            throw std::runtime_error("How can it be that a vehicle never enters intersection if we already detected collision?");
             return result;
         }
         agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
@@ -590,8 +596,10 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
         agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
     }
     // result["leaving_time"] = agents_[agent_idx]->GetTimeAtTimeStep(nb_time_steps_from_now);
-    result["leaving_time"] = (nb_simulated_samples_ + nb_time_steps_from_now)*
-        simulation_time_step_;
+    result["leaving_time"] = std::max(
+        (nb_simulated_samples_ + nb_time_steps_from_now)*simulation_time_step_,
+        result["entering_time"]
+    );
 
     return result;
 }

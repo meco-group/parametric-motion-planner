@@ -239,6 +239,10 @@ void MotionPlanner::GetSample(double &time, Point2D<double> &pos,
     } else {
         last_solution_.GetSample(sample_ptr_, time, pos, vel, acc);
         sample_ptr_++;
+        if (pos.x() <= 0.05 || pos.y() <= 0.05){
+            throw std::runtime_error("[MotionPlanner] Zero position sample detected!");
+        }
+        // throw std::runtime_error("checking error throwing");
     }
 }
 

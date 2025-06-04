@@ -21,7 +21,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     agent_addresses = [d["memory_address"] for d in data["agents"]]
     claimable_destinations_info = data["claimed_destinations_info"]
 
-    SHOW_CORRIDORS = 0
+    SHOW_CORRIDORS = 1
     SHOW_INTERSECTIONS = 1
     SHOW_CLAIMED_CELLS = 1
     SHOW_CURRENT_PLANS = 0

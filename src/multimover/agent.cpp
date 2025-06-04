@@ -41,7 +41,14 @@ bool Agent::InstructToDestination(const std::string& destination_name,
     // we cannot release it yet because that would cause an invalid starting 
     // point in the environment
     if (currently_claiming_){
-        destinations_to_be_released_.push_back(claimed_destination_name_);
+        // only add it if it is not already in the list
+        if (std::find(destinations_to_be_released_.begin(), 
+                      destinations_to_be_released_.end(), 
+                      claimed_destination_name_) == destinations_to_be_released_.end()){
+            // add the destination to the list of destinations to be released
+            // later
+            destinations_to_be_released_.push_back(claimed_destination_name_);
+        }
     }
 
     // if we were able to claim the destination, take note of this such that
@@ -107,6 +114,10 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
     if (state_ == WAITING_AT_INTERSECTION || state_ == MOVING_TO_WAITING_POINT){
         std::cout << "WARNING: This agent was already waiting for another agent" << std::endl;
         // throw std::runtime_error("Agent cannot wait for another agent when idling or already waiting");
+        // throw AgentCannotWaitWhileAlreadyWaiting(
+        //     "Agent " + std::to_string(my_agent_idx_) +
+        //     " cannot wait for agent " + std::to_string(blocking_agent_idx) + 
+        //     " when already waiting for " + std::to_string(blocking_agent_idx_));
     }
     if (blocking_agent_idx < 0){
         throw std::runtime_error("Invalid blocking agent index");
@@ -178,7 +189,7 @@ void Agent::SimulateStep(){
         if (!cell.GetOverlap(footprint, o)){
             // we can release the destination
             indices_to_be_released.push_back(i);
-            std::cout << this << " releasing destination " << 
+            std::cout << "agent " << my_agent_idx_ << "(" << this << ") releasing destination " << 
                 destinations_to_be_released_[i] << " at " << destination <<
                 " currently claimed by " << env_.GetObjectClaimingDestination(destinations_to_be_released_[i]) << std::endl;
             env_.ReleaseDestination(destinations_to_be_released_[i], this);

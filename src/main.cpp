@@ -829,7 +829,14 @@ void TestMultiMoverTasksWithStations(){
             }
         }
 
-        if (new_station){
+        // make sure candidate is not in a corner
+        bool corner = false;
+        if ((candidate.x() == 0 || candidate.x() == env.NbCellCols() - 1) &&
+                (candidate.y() == 0 || candidate.y() == env.NbCellRows() - 1)){
+            corner = true;
+        }
+
+        if (new_station && !corner){
             stations[std::to_string(nb_stations_found)] = candidate;
             nb_stations_found++;
         }
@@ -898,7 +905,7 @@ void TestMultiMoverTasksWithStations(){
         mms.DumpToJson("output/multi_mover_simulator.json");
     }
 
-    mms.PrintLog();
+    // mms.PrintLog();
 }
 
 void TestDeadlockScenario(){
