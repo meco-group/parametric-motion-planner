@@ -318,10 +318,6 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
         if (counter  > 10){
             throw std::runtime_error("Too many iterations in collision resolution, possible deadlock detected");
         }
-        std::cout << "\n\n\n\n\n" << std::endl;
-        std::cout << "Checking for collisions" << std::endl;
-        std::cout << new_trajectories_ << std::endl;
-        std::cout << "\n\n\n\n\n" << std::endl;
         for (int i = 0; i < agents_.size(); i++){
             if (new_trajectories_[i]){
                 for (int j = 0; j < agents_.size(); j++){
@@ -588,6 +584,12 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
     int nb_steps_until_entering = nb_time_steps_from_now;
     nb_time_steps_from_now = nb_steps_remaining - 1;
     agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
+    if (intersection.OverlapsWith(footprint)){
+        // the vehicle is already in the intersection at the end of the trajectory
+        // so it will never leave
+        result["leaving_time"] = -1;
+        return result;
+    }
     while (!intersection.OverlapsWith(footprint)){
         nb_time_steps_from_now--;
         if (nb_time_steps_from_now <= nb_steps_until_entering){
