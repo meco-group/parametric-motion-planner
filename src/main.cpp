@@ -813,12 +813,14 @@ void TestMultiMoverTasksWithStations(){
     srand(time(0));
 
     // Get stations at random boundary positions
-    int nb_stations = 9;
+    int nb_stations = 11;
     std::map<std::string, Point2D<int>> stations;
     Point2D<int> candidate;
     int nb_stations_found = 0;
     while (nb_stations_found < nb_stations){
         candidate = env.GetRandomFreeCellPositionAtEnvironmentEdge();
+        // candidate = env.GetRandomFreeCellPosition().ConvertWorldToCell(
+        //     env.CellWidth(), env.CellHeight());
 
         // check if candidate is not already in the map
         bool new_station = true;
@@ -851,7 +853,7 @@ void TestMultiMoverTasksWithStations(){
     }
 
     Parameters params = Parameters();
-    int nb_movers = 4;
+    int nb_movers = 5;
 
     std::vector<std::string> starting_positions(nb_movers);
     for (int i = 0; i < nb_movers; i++){
@@ -905,7 +907,7 @@ void TestMultiMoverTasksWithStations(){
         mms.DumpToJson("output/multi_mover_simulator.json");
     }
 
-    // mms.PrintLog();
+    mms.PrintLog();
 }
 
 void TestDeadlockScenario(){

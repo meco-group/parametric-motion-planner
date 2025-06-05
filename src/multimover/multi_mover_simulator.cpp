@@ -497,8 +497,9 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
         return NO_OVERLAP;
     }
 
-    // If both vehicles stay in the intersection we're in trouble
-    if (times_1["leaving_time"] < 0 && times_2["leaving_time"] < 0){
+    // If both vehicles are already in the intersection, we're in trouble
+    if ((times_1["leaving_time"] < 0 && times_2["leaving_time"] < 0) ||
+            (times_1["entering_time"] == 0 && times_2["entering_time"] == 0)){
         return INVALID;
     }
 
@@ -515,7 +516,15 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
     }
     if (new_log_entry){ intersection_logs_.push_back(log);}
 
-    // If one vehicle never leaves, that one must wait
+
+    // If one vehicle is already in the intersection, the other must wait
+    if (times_1["entering_time"] == 0 && times_2["entering_time"] > 0){
+        return AGENT_2_MUST_WAIT;
+    } else if (times_2["entering_time"] == 0 && times_1["entering_time"] > 0){
+        return AGENT_1_MUST_WAIT;
+    }
+
+    // Otherwise, if one vehicle never leaves, that one must wait
     if (times_1["leaving_time"] < 0){
         return AGENT_1_MUST_WAIT;
     }
@@ -567,17 +576,21 @@ std::map<std::string, double> MultiMoverSimulator::GetTimeEnteringAndLeavingInte
     int nb_steps_remaining = agents_[agent_idx]->GetRemainingTimeSteps();
     int nb_time_steps_from_now = 0;
     agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
-    while (!intersection.OverlapsWith(footprint)){
-        nb_time_steps_from_now++;
-        if (nb_time_steps_from_now >= nb_steps_remaining){
-            throw std::runtime_error("How can it be that a vehicle never enters intersection if we already detected collision?");
-            return result;
+    if (intersection.OverlapsWith(footprint)){
+        result["entering_time"] = 0;
+    } else {
+        while (!intersection.OverlapsWith(footprint)){
+            nb_time_steps_from_now++;
+            if (nb_time_steps_from_now >= nb_steps_remaining){
+                throw std::runtime_error("How can it be that a vehicle never enters intersection if we already detected collision?");
+                return result;
+            }
+            agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
         }
-        agents_[agent_idx]->GetVehicleFootprint(nb_time_steps_from_now, footprint, 0);
+        // result["entering_time"] = agents_[agent_idx]->GetTimeAtTimeStep(nb_time_steps_from_now);
+        result["entering_time"] = (nb_simulated_samples_ + nb_time_steps_from_now)*
+            simulation_time_step_;
     }
-    // result["entering_time"] = agents_[agent_idx]->GetTimeAtTimeStep(nb_time_steps_from_now);
-    result["entering_time"] = (nb_simulated_samples_ + nb_time_steps_from_now)*
-        simulation_time_step_;
 
     // find the time when the vehicle leaves the intersection
     // (start at the end of the trajectory)
