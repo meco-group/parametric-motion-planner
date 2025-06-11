@@ -19,6 +19,7 @@ Trajectory::Trajectory() :
     ay_ = std::vector<double>(max_nb_samples_);
 }
 
+// P2P update
 void Trajectory::Update(int nb_corridors,
                         std::vector<Point2D<double>> const &waypoints,
                         std::vector<Point2D<double>> const &positions,
@@ -103,6 +104,7 @@ void Trajectory::Update(int nb_corridors,
     }
 }
 
+// OCP update
 void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp, 
                         std::vector<double> const &tt_ocp,
                         double solver_time, 
@@ -205,6 +207,7 @@ void Trajectory::Update(DM const &xx_ocp, DM const &uu_ocp,
     }
 }
 
+// PMP update
 std::set<int> Trajectory::Update(CorridorSequence const &corridor_sequence,
                                  std::vector<std::vector<double>> const &t_x,
                                  std::vector<std::vector<double>> const &t_y,
