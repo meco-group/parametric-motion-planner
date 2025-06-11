@@ -37,7 +37,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     T = max(0, min(max_T, T))
     traj_sample_idx = int(T/travelled_trajectories[0]["dt"])
 
-    plt.figure(fig.number)
+    plt.figure(fig.number, dpi=200)
     plt.clf()
 
     # show environment
@@ -64,7 +64,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     # show intersections
     if SHOW_INTERSECTIONS:
         for log in data["intersection_logs"]:
-            if T >= log["time_entering"] and T <= log["time_leaving"]:
+            if (T >= log["time_entering"] and T <= log["time_leaving"]):
                 # show_corridors({"sequence":[log["intersection"]]}, color='red')
                 agent1 = log["agent_idx_1"]
                 agent2 = log["agent_idx_2"]
@@ -111,6 +111,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
                 curr_plan_idx += 1
 
             show_trajectory(planned_trajectories[i][curr_plan_idx], 'gray', show_markers=False)
+                
 
     # show travelled trajectories
     for i in range(len(planners)):
