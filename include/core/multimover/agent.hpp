@@ -74,7 +74,7 @@ class Agent {
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
         void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_, 
-                          CorridorUnion const &intersection);
+                          CorridorUnion &intersection);
 
         // Simulate a time-step and potentially update the current state
         void SimulateStep();

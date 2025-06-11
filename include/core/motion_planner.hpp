@@ -117,6 +117,10 @@ class MotionPlanner{
         void SetTrajectoryT0(double t0){ last_solution_.SetT0(t0);};
         void SetMaxNbCorridorGrowingIterations(int max_nb_grow_iterations){
             max_nb_corridor_growing_iterations_ = max_nb_grow_iterations;};
+        void LockCorridorSequence() { locked_corridor_sequence_ = true; };
+        void UnlockCorridorSequence() { 
+            locked_corridor_sequence_ = false; 
+            corridor_sequence_.ResetCorridorIdxs(); };
 
         // Printing
         void PrintEnvironment(){
@@ -202,6 +206,7 @@ class MotionPlanner{
         CorridorSequence corridor_sequence_;    // contains a reference to the environment
         Parametrization parametrization_;       // contains a reference to the corridor sequence
         OCPSolver ocp_solver_;                  // contains a reference to the corridor sequence
+        bool locked_corridor_sequence_ = false; // whether the corridor sequence is locked for updates
 
         Parametrization::UpdateToken parametrization_update_token_; // token to update the parametrization
         CorridorSequence::UpdateToken sequence_update_token_; // token to update the corridor sequence

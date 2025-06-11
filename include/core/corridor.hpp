@@ -256,6 +256,8 @@ class CorridorSequence{
         void DecrementFirstCorridorIdx(){SetFirstCorridorIdx(first_corridor_idx_ - 1);};
         void SetLastCorridorIdx(int idx);
         void ResetCorridorIdxs();
+        void UpdateCorridorIdxs(Point2D<double> const &start, 
+                                 Point2D<double> const &dest);
         void SetCorridorExtendedMode(bool set){ extended_corridors_mode_ = set;};
 
         // Getters

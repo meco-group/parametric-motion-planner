@@ -59,6 +59,14 @@ bool Agent::InstructToDestination(const std::string& destination_name,
     final_dest_ = final_dest;
     state_ = READY_TO_PLAN;
 
+    // update the corridor sequence and lock it
+    env_.SetClaimingObject(this);
+    planner_.SetStart(curr_pos_);
+    planner_.SetStartVel(curr_vel_);
+    planner_.SetDest(final_dest_);
+    planner_.UpdateCorridorSequence();
+    planner_.LockCorridorSequence();
+
     return true;
 }
 
@@ -107,17 +115,29 @@ double Agent::GetTimeAtTimeStep(int future_time_step) const{
 
 void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent, 
                          int blocking_agent_idx, 
-                         CorridorUnion const &intersection){
+                         CorridorUnion &intersection){
     if (state_ == IDLING){
         throw std::runtime_error("Agent cannot wait for another agent when idling");
     }
     if (state_ == WAITING_AT_INTERSECTION || state_ == MOVING_TO_WAITING_POINT){
         std::cout << "WARNING: This agent was already waiting for another agent" << std::endl;
-        // throw std::runtime_error("Agent cannot wait for another agent when idling or already waiting");
-        // throw AgentCannotWaitWhileAlreadyWaiting(
-        //     "Agent " + std::to_string(my_agent_idx_) +
-        //     " cannot wait for agent " + std::to_string(blocking_agent_idx) + 
-        //     " when already waiting for " + std::to_string(blocking_agent_idx_));
+        // if the current agent was already waiting for the blocking agent,
+        // it must be somehow colliding with the blocking agent on it's way to
+        // the waiting position. Add the cell in which the current waiting
+        // point is located to the intersection and find a new waiting position
+        if (blocking_agent_idx == blocking_agent_idx_){
+            std::cout << "enlarging the intersection with the current waiting position" << std::endl;
+            // TODO: Somehow, this change in the intersection should be made persistant, otherwise we can cycle infinitely long
+            double cw = env_.CellWidth();
+            double ch = env_.CellHeight();
+            intersection.AddCorridor(
+                Corridor(waiting_position_.x() - cw/2,
+                         waiting_position_.x() + cw/2,
+                         waiting_position_.y() - ch/2,
+                         waiting_position_.y() + ch/2)
+                );
+        }
+
     }
     if (blocking_agent_idx < 0){
         throw std::runtime_error("Invalid blocking agent index");
@@ -128,6 +148,7 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
             planner_.GetParameters(), 
             planner_.GetEnvironment().CellWidth(),
             planner_.GetEnvironment().CellHeight());
+        std::cout << "waiting position: " << waiting_position_ << std::endl;
     } catch (UnableToFindWaitingPoint& e){
         // If we cannot find a waiting point but we're stationary, just wait here
         if (Stationary()){ waiting_position_ = curr_pos_; }
@@ -157,6 +178,7 @@ void Agent::SimulateStep(){
             curr_vel_.Norm() <= 1.0e-2){
         // we have reached the final destination
         state_ = IDLING;
+        planner_.UnlockCorridorSequence();
         
         if (curr_task_.get() != nullptr){
             // if we have a task, mark it as completed

@@ -380,6 +380,10 @@ bool CorridorSequence::ContainsPoint(const Point2D<double> &point) const {
 
 void CorridorSequence::SetFirstCorridorIdx(int idx){
     if (idx < 0 || idx > last_corridor_idx_){
+        std::cout << "idx: " << idx << std::endl;
+        std::cout << "last corridor index: " << last_corridor_idx_ << std::endl;
+        std::cout << "sequence: " << std::endl;
+        std::cout << *this << std::endl;
         throw std::out_of_range("Invalid index of first corridor");
     }
 
@@ -432,6 +436,25 @@ void CorridorSequence::ResetCorridorIdxs(){
     dest_ = true_dest_;
     
     UpdateVersion();
+};
+
+void CorridorSequence::UpdateCorridorIdxs(Point2D<double> const &start,
+                                          Point2D<double> const &dest) {
+    int first_idx = nb_of_corridors_ - 1;
+    while (first_idx > 0 && 
+           !sequence_[first_idx].ContainsVehicle(start, params_)){
+        first_idx--;
+    }
+    SetFirstCorridorIdx(first_idx);
+    start_ = start;
+
+    int last_idx = first_idx;
+    while (last_idx < nb_of_corridors_ - 1 && 
+           !sequence_[last_idx].ContainsVehicle(dest, params_)){
+        last_idx++;
+    }
+    SetLastCorridorIdx(last_idx);
+    dest_ = dest;
 };
 
 Corridor CorridorSequence::GetCorridor(int idx) const {
@@ -497,10 +520,10 @@ std::vector<Point2D<double>> CorridorSequence::GetCorridorOverlapCenters() const
 
 CorridorUnion CorridorSequence::GetOverlap(CorridorSequence& other) {
     CorridorUnion overlaps;
-    for (int i = 0; i < NbCorridors(); i++){
-        for (int j = 0; j < other.NbCorridors(); j++){
+    for (int i = 0; i < nb_of_corridors_; i++){
+        for (int j = 0; j < other.nb_of_corridors_; j++){
             Corridor overlap;
-            if (GetCorridor(i).GetOverlap(other.GetCorridor(j), overlap)){
+            if (GetCorridorByRawIndex(i).GetOverlap(other.GetCorridorByRawIndex(j), overlap)){
                 overlaps.AddCorridor(overlap);
             }
         }
@@ -521,9 +544,9 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
     // find first corridor that overlaps with the intersection
     int idx = -1;
     Corridor o;
-    for (int i = 0; i < NbCorridors(); i++){
+    for (int i = 0; i < nb_of_corridors_; i++){
         // if (GetCorridor(i).GetOverlap(intersection, o)){
-        if (intersection.OverlapsWith(GetCorridor(i))){
+        if (intersection.OverlapsWith(GetCorridorByRawIndex(i))){
             idx = i;
             break;
         }
@@ -533,13 +556,13 @@ Point2D<double> CorridorSequence::GetWaitingPosition(
         throw UnableToFindWaitingPoint("No corridor overlaps with the intersection");
     }
 
-    Corridor c = GetCorridor(idx);
+    Corridor c = GetCorridorByRawIndex(idx);
 
     // find the candidate that is closest to the reference point
     Point2D<double> reference_point;
     if (idx == 0){ reference_point = start_; }
     else {
-        GetCorridor(idx - 1).GetOverlap(GetCorridor(idx), o);
+        GetCorridorByRawIndex(idx - 1).GetOverlap(GetCorridorByRawIndex(idx), o);
         o.GetCenter(reference_point);
     }
 

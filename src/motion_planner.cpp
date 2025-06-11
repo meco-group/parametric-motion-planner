@@ -67,6 +67,12 @@ void MotionPlanner::SetRandomDest(){
 }
 
 void MotionPlanner::UpdateCorridorSequence(){
+    if (locked_corridor_sequence_){
+        if (!silent_mode_){ std::cout << "Corridor sequence is locked, not updating." << std::endl;}
+        // Update first_corridor_idx based on current start
+        corridor_sequence_.UpdateCorridorIdxs(start_, dest_);
+        return;
+    }
     logger_.LogEvent(UpdatedCorridorsEvent(corridor_sequence_));
     corridor_sequence_.UpdateSequence(start_, dest_, start_vel_, params_,
                                       sequence_update_token_,
@@ -96,7 +102,7 @@ void MotionPlanner::Plan(){
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
 
     // Update the corridor sequence
-    if (corridor_sequence_.CurrentlyConsideringFullSequence()){
+    if (true || corridor_sequence_.CurrentlyConsideringFullSequence()){
         UpdateCorridorSequence();
         if (!silent_mode_){ std::cout << "Done updating the corridor sequence" << std::endl;}
         if (!corridor_sequence_.SequenceAvailable()){
