@@ -813,7 +813,7 @@ void TestMultiMoverTasksWithStations(){
     srand(time(0));
 
     // Get stations at random boundary positions
-    int nb_stations = 11;
+    int nb_stations = 15;
     std::map<std::string, Point2D<int>> stations;
     Point2D<int> candidate;
     int nb_stations_found = 0;
@@ -867,7 +867,7 @@ void TestMultiMoverTasksWithStations(){
     for (int i = 0; i < nb_movers; i++){ occupied[i] = true;}
 
     // wave of motions
-    for (int i = 0; i < 4; i++){
+    for (int i = 0; i < 10; i++){
 
         // Add task for each mover
         for (int j = 0; j < nb_movers; j++){
