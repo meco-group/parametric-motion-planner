@@ -53,9 +53,9 @@ MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
     }
 
     // perform check on possible destinations
-    if (!SanityCheckOnPossibleDestinations(env_, params, possible_destinations)){
-        throw std::runtime_error("Sanity check on possible destinations failed");
-    }
+    // if (!SanityCheckOnPossibleDestinations(env_, params, possible_destinations)){
+    //     throw std::runtime_error("Sanity check on possible destinations failed");
+    // }
 
     // set final destinations as current positions
     bool success = false;
@@ -94,7 +94,7 @@ void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling)
 
 void MultiMoverSimulator::SimulateAllTasks(){
     bool all_tasks_completed = false;
-    int max_nb_steps = 1000;//10000;
+    int max_nb_steps = 10000;//10000;
     int step_counter = 0;
     bool deadlock_detected = false;
     simulation_step_computation_times_.reserve(max_nb_steps);
@@ -362,6 +362,11 @@ bool MultiMoverSimulator::CheckForCollision(int agent_idx_1, int agent_idx_2){
         agents_[agent_idx_2]->GetVehicleFootprint(nb_steps_in_future, footprint_2, 0*collision_check_margin_);
 
         if (footprint_1.GetOverlap(footprint_2, o)){
+            std::cout << "\tcollision detected: " << std::endl;
+            std::cout << "\t << agent " << agent_idx_1 << " has footprint: " 
+                      << footprint_1 << std::endl;
+            std::cout << "\t << agent " << agent_idx_2 << " has footprint: "
+                        << footprint_2 << std::endl;
             return true;
         }
     }
@@ -498,9 +503,35 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
     }
 
     // If both vehicles are already in the intersection, we're in trouble
-    if ((times_1["leaving_time"] < 0 && times_2["leaving_time"] < 0) ||
-            (times_1["entering_time"] == 0 && times_2["entering_time"] == 0)){
+    // if ((times_1["leaving_time"] < 0 && times_2["leaving_time"] < 0) ||
+    //         (times_1["entering_time"] == 0 && times_2["entering_time"] == 0)){
+    if ((times_1["entering_time"] == 0 && times_2["entering_time"] == 0)){
         return INVALID;
+    }
+
+    // If both vehicles never leave, make the stationary one wait
+    if (times_1["leaving_time"] < 0 && times_2["leaving_time"] < 0){
+        if (agents_[agent_idx_1]->Stationary() && 
+                agents_[agent_idx_2]->Stationary()){
+            // both vehicles are stationary, so tell the one entering latest to wait
+            if (times_1["entering_time"] < times_2["entering_time"]){
+                return AGENT_2_MUST_WAIT;
+            } else {
+                return AGENT_1_MUST_WAIT;
+            }
+        } else if (agents_[agent_idx_1]->Stationary()){
+            return AGENT_1_MUST_WAIT;
+        } else if (agents_[agent_idx_2]->Stationary()){
+            return AGENT_2_MUST_WAIT;
+        } else {
+            // both vehicles are moving, so we can choose which one must wait
+            std::cout << "\tWARNING: Both vehicles are moving" << std::endl;
+            if (times_1["entering_time"] < times_2["entering_time"]){
+                return AGENT_2_MUST_WAIT;
+            } else {
+                return AGENT_1_MUST_WAIT;
+            }
+        }
     }
 
     IntersectionLog log(agent_idx_1, agent_idx_2,
@@ -634,8 +665,8 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
         processed_agents[curr_agent_idx] = true;
         AgentState state = agents_[curr_agent_idx]->GetState();
         std::vector<std::string> states_chain = {AgentStateToString(state)};
-        while (state == MOVING_TO_WAITING_POINT || 
-                state == WAITING_AT_INTERSECTION ||
+        while (state == WAITING_AT_INTERSECTION || 
+                //state == MOVING_TO_WAITING_POINT ||
                 state == WAITING_FOR_FREE_DESTINATION){
             // get the agent for which the current agent is waiting
             int temp = curr_agent_idx;
@@ -664,6 +695,7 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
                 std::cout << "Waiting chain: " << waiting_chain << std::endl;
                 std::cout << "States chain:  " << states_chain << std::endl;
                 return true;
+                // return false;
             }
             waiting_chain.push_back(curr_agent_idx);
             state = agents_[curr_agent_idx]->GetState();
