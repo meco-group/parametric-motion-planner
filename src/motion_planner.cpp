@@ -102,7 +102,8 @@ void MotionPlanner::Plan(){
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
 
     // Update the corridor sequence
-    if (true || corridor_sequence_.CurrentlyConsideringFullSequence()){
+    // if (corridor_sequence_.CurrentlyConsideringFullSequence()){
+    if (!currently_planning_concatenated_sections_){
         UpdateCorridorSequence();
         if (!silent_mode_){ std::cout << "Done updating the corridor sequence" << std::endl;}
         if (!corridor_sequence_.SequenceAvailable()){
@@ -1282,7 +1283,9 @@ void MotionPlanner::PlanConcatenatedSections(bool recursive){
     logger_.LogEvent(ConcatenatedSectionsPlanningStarted(start_, start_vel_, dest_));
     if (!recursive){
         UpdateCorridorSequence();
-        corridor_sequence_.ResetCorridorIdxs();
+        if (!locked_corridor_sequence_){
+            corridor_sequence_.ResetCorridorIdxs();
+        }
     }
 
     if (corridor_sequence_.NbCorridors() == 1){
@@ -1294,7 +1297,11 @@ void MotionPlanner::PlanConcatenatedSections(bool recursive){
     // Plan a trajectory, skipping the first corridor
     corridor_sequence_.IncrementFirstCorridorIdx();
     if (!silent_mode_){std::cout << "Planning concatenated sections: planning second part from " << corridor_sequence_.GetStart() << " to " << corridor_sequence_.GetDest() << std::endl;}
-    try{ Plan();}
+    try{ 
+        currently_planning_concatenated_sections_ = true;
+        Plan();
+        currently_planning_concatenated_sections_ = false;
+    }
     catch (std::exception& e){
         if (!silent_mode_){std::cout << "Planning concatenated sections: caught exception: " << e.what() << std::endl;}
         PlanConcatenatedSections(true);

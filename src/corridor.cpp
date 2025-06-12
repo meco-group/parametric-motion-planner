@@ -445,15 +445,21 @@ void CorridorSequence::UpdateCorridorIdxs(Point2D<double> const &start,
            !sequence_[first_idx].ContainsVehicle(start, params_)){
         first_idx--;
     }
-    SetFirstCorridorIdx(first_idx);
-    start_ = start;
 
     int last_idx = first_idx;
     while (last_idx < nb_of_corridors_ - 1 && 
            !sequence_[last_idx].ContainsVehicle(dest, params_)){
         last_idx++;
     }
+
+    // little hack to make sure corridor indices can be updated
+    if (first_idx > last_corridor_idx_){ last_corridor_idx_ = first_idx; }
+    if (last_idx < first_corridor_idx_){ first_corridor_idx_ = last_idx; }
+
+    // update indices
+    SetFirstCorridorIdx(first_idx);
     SetLastCorridorIdx(last_idx);
+    start_ = start;
     dest_ = dest;
 };
 

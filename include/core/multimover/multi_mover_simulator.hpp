@@ -7,6 +7,7 @@
 #include "core/multimover/mover_task.hpp"
 
 #include <vector>
+#include <fstream>
 
 enum CollisionResolutionDecision {
     AGENT_1_MUST_WAIT,
@@ -60,11 +61,13 @@ class MultiMoverLogger {
         };
 
         void PrintLog() const {
-            std::cout << "MultiMover Logged actions:" << std::endl;
+            std::ofstream log_file("multi_mover_log.txt");
+            log_file << "MultiMover Logged actions:" << std::endl;
             for (size_t i = 0; i < time_stamps_.size(); ++i) {
-                std::cout << "[" << time_stamps_[i] << "] " 
+                log_file << "[" << time_stamps_[i] << "] " 
                           << events_[i] << std::endl;
             }
+            log_file.close();
         };
 
         json ToJson() const {

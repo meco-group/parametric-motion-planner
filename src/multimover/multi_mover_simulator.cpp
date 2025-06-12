@@ -503,10 +503,24 @@ CollisionResolutionDecision MultiMoverSimulator::GetIntersectionCase(
     }
 
     // If both vehicles are already in the intersection, we're in trouble
-    // if ((times_1["leaving_time"] < 0 && times_2["leaving_time"] < 0) ||
-    //         (times_1["entering_time"] == 0 && times_2["entering_time"] == 0)){
+    // Let the stationary one wait
     if ((times_1["entering_time"] == 0 && times_2["entering_time"] == 0)){
-        return INVALID;
+        if (agents_[agent_idx_1]->Stationary() && 
+                agents_[agent_idx_2]->Stationary()){
+            // both vehicles are stationary, let the one not waiting wait
+            if (agents_[agent_idx_1]->GetState() == WAITING_AT_INTERSECTION){
+                return AGENT_2_MUST_WAIT;
+            } else if (agents_[agent_idx_2]->GetState() == WAITING_AT_INTERSECTION){
+                return AGENT_1_MUST_WAIT;
+            }
+        }
+        if (agents_[agent_idx_1]->Stationary()){
+            return AGENT_1_MUST_WAIT;
+        } else if (agents_[agent_idx_2]->Stationary()){
+            return AGENT_2_MUST_WAIT;
+        } else {
+            return INVALID;
+        }
     }
 
     // If both vehicles never leave, make the stationary one wait

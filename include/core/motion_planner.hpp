@@ -207,6 +207,7 @@ class MotionPlanner{
         Parametrization parametrization_;       // contains a reference to the corridor sequence
         OCPSolver ocp_solver_;                  // contains a reference to the corridor sequence
         bool locked_corridor_sequence_ = false; // whether the corridor sequence is locked for updates
+        bool currently_planning_concatenated_sections_ = false;
 
         Parametrization::UpdateToken parametrization_update_token_; // token to update the parametrization
         CorridorSequence::UpdateToken sequence_update_token_; // token to update the corridor sequence

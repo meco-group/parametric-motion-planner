@@ -853,7 +853,7 @@ void TestMultiMoverTasksWithStations(){
     }
 
     Parameters params = Parameters();
-    int nb_movers = 5;
+    int nb_movers = 6;
 
     std::vector<std::string> starting_positions(nb_movers);
     for (int i = 0; i < nb_movers; i++){
@@ -867,7 +867,7 @@ void TestMultiMoverTasksWithStations(){
     for (int i = 0; i < nb_movers; i++){ occupied[i] = true;}
 
     // wave of motions
-    for (int i = 0; i < 10; i++){
+    for (int i = 0; i < 20; i++){
 
         // Add task for each mover
         for (int j = 0; j < nb_movers; j++){
@@ -891,6 +891,8 @@ void TestMultiMoverTasksWithStations(){
         params_list[i] = Parameters();
         params_ptr_list.push_back(&params_list[i]);
     }
+    params_list[0].SetAmax(0.5);
+    params_list[1].SetVmax(0.5);
     std::cout << "Creating MultiMoverSimulator..." << std::endl;
     MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
                                         stations, starting_positions, tasks);
