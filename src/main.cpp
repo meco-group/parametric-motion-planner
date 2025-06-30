@@ -867,7 +867,7 @@ void TestMultiMoverTasksWithStations(){
     for (int i = 0; i < nb_movers; i++){ occupied[i] = true;}
 
     // wave of motions
-    for (int i = 0; i < 20; i++){
+    for (int i = 0; i < 30; i++){
 
         // Add task for each mover
         for (int j = 0; j < nb_movers; j++){
@@ -877,7 +877,7 @@ void TestMultiMoverTasksWithStations(){
                 station_idx = rand() % nb_stations;
             }
             newly_selected[station_idx] = true;
-            tasks.push_back(MoverTask(j, std::to_string(station_idx), 1.0 * i + 0.05 * j));
+            tasks.push_back(MoverTask(j, std::to_string(station_idx), 2.0 * i + 0.05 * j));
 
         }
         occupied = newly_selected;

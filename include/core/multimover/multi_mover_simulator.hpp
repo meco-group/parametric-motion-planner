@@ -146,6 +146,7 @@ class MultiMoverSimulator {
         int nb_simulated_samples_ = 0;
         double simulation_time_step_ = 0.01;
         std::vector<std::shared_ptr<MoverTask>> tasks_;
+        int nb_consecutive_deadlocks_found_ = 0;
 
         // options
         double collision_check_margin_ = 0.01;

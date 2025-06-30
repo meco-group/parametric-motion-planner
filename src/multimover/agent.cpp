@@ -164,6 +164,34 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
     PlanToDestination(true);
 }
 
+void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent, 
+                         int blocking_agent_idx){
+    if (state_ == IDLING){
+        throw std::runtime_error("Agent cannot wait for another agent when idling");
+    }
+    if (blocking_agent_idx < 0){
+        throw std::runtime_error("Invalid blocking agent index");
+    }
+    
+    state_ = MOVING_TO_WAITING_POINT;
+    blocking_agent_ = blocking_agent;
+    blocking_agent_idx_ = blocking_agent_idx;
+
+    PlanToDestination(true);
+}
+
+void Agent::ResetWaitForAgent(){
+    if (!submitted_new_trajectory_while_waiting_){
+        throw std::runtime_error("Cannot reset wait for agent when not waiting for an agent");
+    }
+
+    // reset the state and the blocking agent
+    state_ = MOVING_TO_WAITING_POINT;
+    planner_.RevertToPreviousTrajectory();
+    std::cout << "AGENT " << my_agent_idx_ << " (" << this << 
+        ") resetting wait for agent state, reverting to previous trajectory." << std::endl;
+}
+
 void Agent::SimulateStep(){
     nb_simulated_samples_++;
     planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
@@ -171,6 +199,8 @@ void Agent::SimulateStep(){
     travelled_trajectory_.Append(curr_time_, curr_pos_.x(), curr_pos_.y(), 
                                  curr_vel_.x(), curr_vel_.y(), 
                                  curr_acc_.x(), curr_acc_.y());
+
+    submitted_new_trajectory_while_waiting_ = false;
     
     // check for potential state changes
     if (state_ == MOVING_TO_FINAL_DESTINATION && 
@@ -266,6 +296,11 @@ bool Agent::UpdateTrajectory(){
     // if we can continue
     replanning_step_counter_++;
     if (replanning_step_counter_ >= replanning_frequency_){
+        if (wait_until_stationary_ && !Stationary()){
+            // we are not stationary, so we cannot replan yet
+            return false;
+        }
+
         replanning_step_counter_ = 0;
 
         // check if we can replan
@@ -289,6 +324,7 @@ bool Agent::UpdateTrajectory(){
 
             if (CheckForCollisionWithBlockingAgent()){
                 std::cout << "Collision detected with blocking agent, replanning..." << std::endl;
+                /*
                 PlanToDestination(true);
                 // discard first trajectory sample
                 planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
@@ -297,11 +333,20 @@ bool Agent::UpdateTrajectory(){
                 // different than the one before. It would be better to 
                 // actually revert to the previous trajectory. This would also
                 // be much more efficient
+                */
+                
+                planner_.RevertToPreviousTrajectory();
+                planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
+                state_ = MOVING_TO_WAITING_POINT;
+                return false;
+                
+
             } else {
                 // no collision detected, we can continue
                 if (curr_task_.get() != nullptr){
                     curr_task_->NotifyStartedToMove(curr_time_);
                 }
+                submitted_new_trajectory_while_waiting_ = true;
                 return true;
                 // TODO: this trajectory should still be checked against other vehicles
             }

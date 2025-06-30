@@ -97,6 +97,7 @@ void MotionPlanner::Plan(){
 
     // store the current solution into the previous solution
     previous_solution_ = last_solution_;
+    previous_sample_ptr_ = sample_ptr_;
 
     // Start the clock
     auto planning_computation_time_start = std::chrono::high_resolution_clock::now();
@@ -1162,6 +1163,11 @@ void MotionPlanner::SeparateVehicleFreeSpace(MotionPlanner &other,
         other.environment_.AddVirtualObstacle(collision_cell);
     }
 };
+
+void MotionPlanner::RevertToPreviousTrajectory(){
+    last_solution_ = previous_solution_;
+    sample_ptr_ = previous_sample_ptr_;
+}
 
 void MotionPlanner::LogEmergencyBrakingComputation(
         bool print,

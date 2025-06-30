@@ -70,11 +70,24 @@ class Agent {
             return planner_.GetCorridorSequence();
         }
         double GetTimeAtTimeStep(int future_time_step) const;
+        bool SubmittedTrajectoryWhileWaiting() const {
+            return submitted_new_trajectory_while_waiting_;
+        }
         
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
         void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_, 
                           CorridorUnion &intersection);
+        // Special case: if this agent was waiting and found a collision-free
+        // way around the blocking agent, but still collides with another
+        // moving vehicle, it must just continue to the waiting point is was
+        // already moving towards.
+        void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_);
+        // Special case: if this agent was waiting and found a collision-free
+        // way around the blocking agent, but still collides with another
+        // moving vehicle, just keep waiting for the original agent and try
+        // again later
+        void ResetWaitForAgent();
 
         // Simulate a time-step and potentially update the current state
         void SimulateStep();
@@ -108,6 +121,7 @@ class Agent {
         std::shared_ptr<Agent> blocking_agent_;
         int blocking_agent_idx_ = -1;
         CorridorUnion intersection_;
+        bool submitted_new_trajectory_while_waiting_ = false;
 
         // attributes related to claiming a destination
         bool currently_claiming_ = false; // should actually always be true 
@@ -145,6 +159,7 @@ class Agent {
         int replanning_frequency_ = 15; // in number of time-steps
         int replanning_step_counter_ = 0;
         bool wait_for_clear_intersection_ = false;
+        bool wait_until_stationary_ = false; // wait until the agent is stationary before planning
         double collision_check_margin_ = 0.01;
         bool jit_planner_ = true;
 

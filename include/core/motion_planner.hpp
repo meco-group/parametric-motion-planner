@@ -165,6 +165,8 @@ class MotionPlanner{
             last_solution_.InsertInitialWaitingTime(waiting_time);
         };
 
+        void RevertToPreviousTrajectory();
+
     private:
 
         void LogEmergencyBrakingComputation(bool print,
@@ -220,12 +222,13 @@ class MotionPlanner{
         Point2D<double> dest_;
         Point2D<double> start_vel_;
 
-        Trajectory last_solution_ = Trajectory();
+        Trajectory last_solution_ = Trajectory(); // current solution
         int sample_ptr_ = 0;
         Trajectory emergency_solution_ = Trajectory();
         int emergency_sample_ptr_ = 0;
         bool emergency_mode_ = false;
         Trajectory previous_solution_ = Trajectory();
+        int previous_sample_ptr_ = 0;
         
         // P2P method attributes
         std::vector<Point2D<double>> p2p_waypoints_;

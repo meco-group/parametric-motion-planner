@@ -23,7 +23,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     claimable_destinations_info = data["claimed_destinations_info"]
 
     SHOW_CORRIDORS = 0
-    SHOW_INTERSECTIONS = 0
+    SHOW_INTERSECTIONS = 1
     SHOW_CLAIMED_CELLS = 1
     SHOW_CURRENT_PLANS = 0
     SHOW_TRAVELLED_TRAJECTORIES = 0
@@ -66,20 +66,22 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
         for log in data["intersection_logs"]:
             if (T >= log["time_entering"] and T <= log["time_leaving"]):
                 # show_corridors({"sequence":[log["intersection"]]}, color='red')
-                agent1 = log["agent_idx_1"]
-                agent2 = log["agent_idx_2"]
 
-                # check if agent1 is waiting for agent2
-                if (travelled_states[agent1][min(len(travelled_states[agent1])-1, traj_sample_idx)] == "MOVING_TO_WAITING_POINT" or \
-                    travelled_states[agent1][min(len(travelled_states[agent1])-1, traj_sample_idx)] == "WAITING_AT_INTERSECTION") and \
-                   travelled_blocking_agent_idx[agent1][min(len(travelled_states[agent2])-1, traj_sample_idx)] == agent2:
-                    show_corridor_union(log["intersection"], color=vehicle_colors[agent1])
-                elif (travelled_states[agent2][min(len(travelled_states[agent2])-1, traj_sample_idx)] == "MOVING_TO_WAITING_POINT" or \
-                      travelled_states[agent2][min(len(travelled_states[agent2])-1, traj_sample_idx)] == "WAITING_AT_INTERSECTION") and \
-                      travelled_blocking_agent_idx[agent2][min(len(travelled_states[agent1])-1, traj_sample_idx)] == agent1:
-                    show_corridor_union(log["intersection"], color=vehicle_colors[agent2])
-                else:
-                    show_corridor_union(log["intersection"], color='red')
+                show_corridor_union(log["intersection"], color='red')
+                # agent1 = log["agent_idx_1"]
+                # agent2 = log["agent_idx_2"]
+
+                # # check if agent1 is waiting for agent2
+                # if (travelled_states[agent1][min(len(travelled_states[agent1])-1, traj_sample_idx)] == "MOVING_TO_WAITING_POINT" or \
+                #     travelled_states[agent1][min(len(travelled_states[agent1])-1, traj_sample_idx)] == "WAITING_AT_INTERSECTION") and \
+                #    travelled_blocking_agent_idx[agent1][min(len(travelled_states[agent2])-1, traj_sample_idx)] == agent2:
+                #     show_corridor_union(log["intersection"], color=vehicle_colors[agent1])
+                # elif (travelled_states[agent2][min(len(travelled_states[agent2])-1, traj_sample_idx)] == "MOVING_TO_WAITING_POINT" or \
+                #       travelled_states[agent2][min(len(travelled_states[agent2])-1, traj_sample_idx)] == "WAITING_AT_INTERSECTION") and \
+                #       travelled_blocking_agent_idx[agent2][min(len(travelled_states[agent1])-1, traj_sample_idx)] == agent1:
+                #     show_corridor_union(log["intersection"], color=vehicle_colors[agent2])
+                # else:
+                #     show_corridor_union(log["intersection"], color='red')
 
 
 
@@ -397,7 +399,7 @@ file = "build/output/multi_mover_simulator.json"
 with open(file) as f:
     data = json.load(f)
 
-visualize_task_completion(data)
-visualize_computation_time_per_simulation_step(data)
+# visualize_task_completion(data)
+# visualize_computation_time_per_simulation_step(data)
 # exit()
 create_multi_mover_motion_video(data, fps=25)
