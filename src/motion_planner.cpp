@@ -1164,6 +1164,16 @@ void MotionPlanner::SeparateVehicleFreeSpace(MotionPlanner &other,
     }
 };
 
+void MotionPlanner::StoreResetTrajectory(){
+    reset_trajectory_ = last_solution_;
+    reset_sample_ptr_ = sample_ptr_;
+}
+
+void MotionPlanner::ResetTrajectory(){
+    last_solution_ = reset_trajectory_;
+    sample_ptr_ = reset_sample_ptr_;
+}
+
 void MotionPlanner::RevertToPreviousTrajectory(){
     last_solution_ = previous_solution_;
     sample_ptr_ = previous_sample_ptr_;

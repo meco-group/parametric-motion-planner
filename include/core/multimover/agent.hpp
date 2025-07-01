@@ -53,6 +53,12 @@ class Agent {
                                    const Point2D<double>& final_dest,
                                    std::shared_ptr<MoverTask>& task);
 
+        // Deadlock can occur if two agents were waiting for another agent
+        // and now find themselves blocking each others trajectories
+        // Resolve by aborting the current task and executing the provided
+        // task (moving to a different destination)
+        bool ResolveDeadlock(std::shared_ptr<MoverTask>& task);
+
         // Basic Getters
         const Point2D<double>& GetFinalDestination() const;
         const Point2D<double> GetCurrentPosition() const;
@@ -73,6 +79,10 @@ class Agent {
         bool SubmittedTrajectoryWhileWaiting() const {
             return submitted_new_trajectory_while_waiting_;
         }
+        bool VehicleIsAtStation() const {
+            return Stationary() && env_.VehicleIsAtClaimableDestination(
+                    GetCurrentPosition(), planner_.GetParameters());
+        }
         
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
@@ -81,7 +91,7 @@ class Agent {
         // Special case: if this agent was waiting and found a collision-free
         // way around the blocking agent, but still collides with another
         // moving vehicle, it must just continue to the waiting point is was
-        // already moving towards.
+        // already moving towards. --> Might easily lead to deadlock!
         void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_);
         // Special case: if this agent was waiting and found a collision-free
         // way around the blocking agent, but still collides with another
@@ -147,6 +157,9 @@ class Agent {
 
         // mover task logging
         std::shared_ptr<MoverTask> curr_task_; // the current task that is being executed by this agent
+
+        // while resolving deadlock, store the aborted task
+        std::vector<std::shared_ptr<MoverTask>> aborted_tasks_;
 
         // current info
         Point2D<double> curr_pos_;

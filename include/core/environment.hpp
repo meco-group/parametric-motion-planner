@@ -9,6 +9,7 @@
 #include "helper_types.hpp"
 #include "exceptions.hpp"
 #include "corridor.hpp"
+#include "parameters.hpp"
 
 using json = nlohmann::json;
 
@@ -182,6 +183,8 @@ class Environment{
         json ToJson() const;
 
         json ClaimableDestinationsToJson() const;
+        bool VehicleIsAtClaimableDestination(const Point2D<double> &pos,
+                                             const Parameters &params) const;
 
     private:
         // Function to be called whenever a modification is made to the 

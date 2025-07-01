@@ -94,7 +94,7 @@ void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling)
 
 void MultiMoverSimulator::SimulateAllTasks(){
     bool all_tasks_completed = false;
-    int max_nb_steps = 10000;//10000;
+    int max_nb_steps = 600;//10000;
     int step_counter = 0;
     bool deadlock_detected = false;
     simulation_step_computation_times_.reserve(max_nb_steps);
@@ -314,16 +314,15 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     //     }
     // }
 
-    // as long as there are unprocessed new trajectories, keep checking for
-    // collisions
-    std::vector<bool> updated_trajectories(agents_.size(), false);
-    std::pair<bool, bool> collision_updates;
+    // as long as there collisions found, keep checking
+    bool collision_found = true;
     int counter = 0;
-    while (std::any_of(new_trajectories_.begin(), new_trajectories_.end(), 
-                  [](bool b){ return b; })){
+    while (collision_found){
         if (counter  > 10){
             throw std::runtime_error("Too many iterations in collision resolution, possible deadlock detected");
         }
+
+        collision_found = false;
         for (int i = 0; i < agents_.size(); i++){
             if (new_trajectories_[i]){
                 for (int j = 0; j < agents_.size(); j++){
@@ -331,20 +330,15 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
                         continue;
                     }
                     if (CheckForCollision(i, j)){
-                        collision_updates = DealWithCollision(i, j);
-                        // check if trajectories have been updated
-                        if (collision_updates.first){
-                            updated_trajectories[i] = true;
-                        }
-                        if (collision_updates.second){
-                            updated_trajectories[j] = true;
-                        }
+                        DealWithCollision(i, j);
+                        collision_found = true;
                     }
                 }
             }
         }   
-        new_trajectories_ = updated_trajectories;
-        updated_trajectories = std::vector<bool>(agents_.size(), false);
+        // new_trajectories_ = updated_trajectories;
+        // updated_trajectories = std::vector<bool>(agents_.size(), false);
+        // new_trajectories_ = std::vector<bool>(agents_.size(), false);
         counter++;
     }
 
@@ -407,88 +401,105 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
         if (new_log_entry){ intersection_logs_.push_back(log);}
     }
 
-    // Simplied decision-making
-    // If both vehicles are moving, one of them must have been waiting, tell it to proceed to the waiting position
-    if (!agents_[agent_idx_1]->Stationary() && 
-            !agents_[agent_idx_2]->Stationary()){
-        bool agent_1_planned_while_waiting = agents_[agent_idx_1]->SubmittedTrajectoryWhileWaiting();
-        bool agent_2_planned_while_waiting = agents_[agent_idx_2]->SubmittedTrajectoryWhileWaiting();
+    //////////////////////////////
+    // Simplied decision-making //
+    //////////////////////////////
+    bool vehicle_1_at_station = agents_[agent_idx_1]->VehicleIsAtStation();
+    bool vehicle_2_at_station = agents_[agent_idx_2]->VehicleIsAtStation();
+    bool vehicle_1_submitted_ = new_trajectories_[agent_idx_1];
+    bool vehicle_2_submitted_ = new_trajectories_[agent_idx_2];
 
-        // If both agents were waiting and submitted a new trajectory while
-        // moving, we cannot resolve the collision so we tell them to continue
-        // waiting
-        if (agent_1_planned_while_waiting && agent_2_planned_while_waiting){
-            agents_[agent_idx_1]->ResetWaitForAgent();
-            agents_[agent_idx_2]->ResetWaitForAgent();
-            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "Both agents " + std::to_string(agent_idx_1) + " and " + 
-                std::to_string(agent_idx_2) + " instructed to reset waiting state");
-            return std::make_pair(false, false);
-        }
+    std::cout << "vehicle_1_at_station: " << vehicle_1_at_station << std::endl;
+    std::cout << "vehicle_2_at_station: " << vehicle_2_at_station << std::endl;
+    std::cout << "vehicle_1_submitted_: " << vehicle_1_submitted_ << std::endl;
+    std::cout << "vehicle_2_submitted_: " << vehicle_2_submitted_ << std::endl;
 
-        // If only one agent was waiting and submitted a new trajectory, that
-        // one must wait for the other agent to pass
-        if (agent_1_planned_while_waiting && !agent_2_planned_while_waiting){
-            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
+    if (!vehicle_1_at_station && !vehicle_1_submitted_ && 
+            !vehicle_2_at_station && !vehicle_2_submitted_){
+        throw std::runtime_error("Something is wrong: both vehicles are away"
+            " from a station and neither submitted a new trajectory but they"
+            " still collide.");
+    }
+
+    // If both vehicles are at a station, pick one to wait
+    if (vehicle_1_at_station && vehicle_2_at_station){
+        std::map<std::string, double> times_1 = 
+            GetTimeEnteringAndLeavingIntersection(agent_idx_1, intersection);
+        std::map<std::string, double> times_2 = 
+            GetTimeEnteringAndLeavingIntersection(agent_idx_2, intersection);
+        if (times_1["leaving_time"] < times_2["leaving_time"]){
+            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
+                                                agent_idx_1, intersection);
             logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "Agent " + std::to_string(agent_idx_1) + " instructed to wait for agent " + 
-                std::to_string(agent_idx_2));
-            return std::make_pair(true, false);
-        } else if (!agent_1_planned_while_waiting && agent_2_planned_while_waiting){
-            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
-            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "Agent " + std::to_string(agent_idx_2) + " instructed to wait for agent " + 
-                std::to_string(agent_idx_1));
+                "Agent " + std::to_string(agent_idx_2) + " is waiting for agent " 
+                + std::to_string(agent_idx_1));
             return std::make_pair(false, true);
+        } else {
+            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
+                                            agent_idx_2, intersection);
+            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+                "Agent " + std::to_string(agent_idx_1) + " is waiting for agent " 
+                + std::to_string(agent_idx_2));
+            return std::make_pair(true, false);
         }
-
-        // If both agents are moving and neither submitted a new trajectory
-        // while waiting, something is wrong because this should never happen
-        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "ISSUE: Agents " + std::to_string(agent_idx_1) + " and " + 
-                std::to_string(agent_idx_2) + " are both moving and both have no new trajectories");
-        return std::make_pair(false, false);
     }
 
-    // If exactly one vehicles is stationary, that one must wait
-    if (agents_[agent_idx_1]->Stationary() && 
-            !agents_[agent_idx_2]->Stationary()){
-        agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
-                                               agent_idx_2, intersection);
-        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "Agent " + std::to_string(agent_idx_1) + " instructed to wait for agent " + 
-                std::to_string(agent_idx_2));
-        return std::make_pair(true, false);
-    } else if (!agents_[agent_idx_1]->Stationary() && 
-                agents_[agent_idx_2]->Stationary()){
-        agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
-                                               agent_idx_1, intersection);
-        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "Agent " + std::to_string(agent_idx_1) + " instructed to wait for agent " + 
-                std::to_string(agent_idx_2));
-        return std::make_pair(false, true);
-    }
-
-    // If both vehicles are stationary, pick the one leaving last to wait
-    std::map<std::string, double> times_1 = 
-        GetTimeEnteringAndLeavingIntersection(agent_idx_1, intersection);
-    std::map<std::string, double> times_2 = 
-        GetTimeEnteringAndLeavingIntersection(agent_idx_2, intersection);
-    if (times_1["leaving_time"] < times_2["leaving_time"]){
-        agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
-                                               agent_idx_1, intersection);
-        std::cout << "Agent " << agent_idx_2 << " is waiting for agent "
-                    << agent_idx_1 << std::endl;
-        return std::make_pair(false, true);
-    } else {
+    // If one vehicle is at a station, it must wait
+    if (vehicle_1_at_station){
         agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
                                            agent_idx_2, intersection);
-        std::cout << "Agent " << agent_idx_1 << " is waiting for agent "
-                    << agent_idx_2 << std::endl;
+        return std::make_pair(true, false);
+    }
+    if (vehicle_2_at_station){
+        agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
+                                           agent_idx_1, intersection);
+        return std::make_pair(false, true);
+    }
+
+    // If both vehicles submitted a new trajectory, reject both
+    if (vehicle_1_submitted_ && vehicle_2_submitted_){
+        if (agents_[agent_idx_1]->Stationary()){
+            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
+        } else {
+            agents_[agent_idx_1]->ResetWaitForAgent();
+
+        }
+        if (agents_[agent_idx_2]->Stationary()){
+            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
+        } else {
+            agents_[agent_idx_2]->ResetWaitForAgent();
+        }
+        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+            "Both agents " + std::to_string(agent_idx_1) + " and " + 
+            std::to_string(agent_idx_2) + " instructed to reset waiting state");
+        return std::make_pair(true, true);
+    }
+
+    // If only one vehicle submitted a new trajectory, that one must wait
+    if (vehicle_1_submitted_){
+        if (agents_[agent_idx_1]->Stationary()){
+            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
+        } else {
+            agents_[agent_idx_1]->ResetWaitForAgent();
+        }
+        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+            "Agent " + std::to_string(agent_idx_1) + " instructed to reset waiting state");
+        return std::make_pair(true, false);
+    }
+    if (vehicle_2_submitted_){
+        if (agents_[agent_idx_2]->Stationary()){
+            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
+        } else {
+            agents_[agent_idx_2]->ResetWaitForAgent();
+        }
+        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
+            "Agent " + std::to_string(agent_idx_2) + " instructed to reset waiting state");
         return std::make_pair(true, false);
     }
 
 
+    // We shouldn't reach this point
+    throw std::runtime_error("Something is wrong: this point should not be reached. ");
 
     /*
     // get the intersection case
@@ -813,8 +824,27 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
                 std::cout << "deadlock found." << std::endl;
                 std::cout << "Waiting chain: " << waiting_chain << std::endl;
                 std::cout << "States chain:  " << states_chain << std::endl;
-                return true;
-                // return false;
+
+                // a chain has been found. Try to resolve it by moving one agent
+                // to the closest free destination
+                std::string destination = 
+                    env_.GetNearestFreeClaimableDestination(
+                        agents_[curr_agent_idx]->GetCurrentPosition());
+                std::shared_ptr<MoverTask> deadlock_resolving_task = 
+                    std::make_shared<MoverTask>(curr_agent_idx, destination,
+                        nb_simulated_samples_*simulation_time_step_, true);
+                deadlock_resolving_task->RevealTask(nb_simulated_samples_*simulation_time_step_);
+                tasks_.push_back(deadlock_resolving_task);
+                agents_[curr_agent_idx]->ResolveDeadlock(deadlock_resolving_task);
+                logger_.LogEvent(nb_simulated_samples_*simulation_time_step_,
+                    "Deadlock found, resolving by moving agent " + 
+                    std::to_string(curr_agent_idx) + " to destination " + 
+                    destination);
+                return false;
+                // TODO: if this task still leads to deadlock, we should pick
+                // another agent or another destination
+                
+                // return true;
             }
             waiting_chain.push_back(curr_agent_idx);
             state = agents_[curr_agent_idx]->GetState();
@@ -824,6 +854,10 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
             if (state == IDLING){
                 // the current agent is idling, so we are in a temporary deadlock
                 // this agent should move to the closest possible unclaimed destination
+                // Note: only do this if the deadlock seems to persist
+                if (nb_consecutive_deadlocks_found_ < 10){
+                    return true;
+                }
 
                 try{
                     std::cout << "trying to resolve deadlock" << std::endl;

@@ -49,6 +49,11 @@ void MoverTask::NotifyPlanningOccured(double current_time, double planning_time)
     task_events_.emplace_back(current_time, TASK_PLANNING_OCCURED, planning_time);
 }
 
+void MoverTask::NotifyAborted(double current_time){
+    if (completed_){ return;}
+    task_events_.emplace_back(current_time, TASK_ABORTED);
+}
+
 json MoverTask::ToJson() const {
     json j;
     j["agent_idx"] = agent_idx_;

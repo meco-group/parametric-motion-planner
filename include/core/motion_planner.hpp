@@ -165,6 +165,8 @@ class MotionPlanner{
             last_solution_.InsertInitialWaitingTime(waiting_time);
         };
 
+        void StoreResetTrajectory();
+        void ResetTrajectory();
         void RevertToPreviousTrajectory();
 
     private:
@@ -229,6 +231,9 @@ class MotionPlanner{
         bool emergency_mode_ = false;
         Trajectory previous_solution_ = Trajectory();
         int previous_sample_ptr_ = 0;
+
+        Trajectory reset_trajectory_ = Trajectory();
+        int reset_sample_ptr_ = 0;
         
         // P2P method attributes
         std::vector<Point2D<double>> p2p_waypoints_;

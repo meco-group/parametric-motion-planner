@@ -66,6 +66,51 @@ bool Agent::InstructToDestination(const std::string& destination_name,
     planner_.SetDest(final_dest_);
     planner_.UpdateCorridorSequence();
     planner_.LockCorridorSequence();
+    env_.ClearClaimingObject();
+
+    return true;
+}
+
+bool Agent::ResolveDeadlock(std::shared_ptr<MoverTask>& task) {
+    if (state_ != WAITING_AT_INTERSECTION){
+        throw std::runtime_error("Cannot perform deadlock resolution when not waiting at an intersection");
+    }
+
+    // Check if we can claim the destination in the environment
+    if (!env_.ClaimDestination(task->GetDestinationName(), this)){
+        // if we were unable to claim the destination, update the state and
+        // return false
+        ptr_to_object_claiming_destination_ = env_.GetObjectClaimingDestination(task->GetDestinationName());
+        state_ = WAITING_FOR_FREE_DESTINATION;
+        return false;
+    }
+    // release the previously claimed destination
+    env_.ReleaseDestination(claimed_destination_name_, this);
+    
+    // abort the current task for now and store the new task
+    curr_task_->NotifyAborted(curr_time_);
+    aborted_tasks_.push_back(curr_task_);
+
+    curr_task_ = task;
+
+    // if we were able to claim the destination, take note of this such that
+    // we can release it later
+    currently_claiming_ = true;
+    claimed_destination_name_ = task->GetDestinationName();
+
+    final_dest_ = env_.GetClaimableDestinationLocation(
+        claimed_destination_name_);
+    state_ = READY_TO_PLAN;
+
+    // update the corridor sequence and lock it
+    env_.SetClaimingObject(this);
+    planner_.UnlockCorridorSequence();
+    planner_.SetStart(curr_pos_);
+    planner_.SetStartVel(curr_vel_);
+    planner_.SetDest(final_dest_);
+    planner_.UpdateCorridorSequence();
+    planner_.LockCorridorSequence();
+    env_.ClearClaimingObject();
 
     return true;
 }
@@ -187,7 +232,7 @@ void Agent::ResetWaitForAgent(){
 
     // reset the state and the blocking agent
     state_ = MOVING_TO_WAITING_POINT;
-    planner_.RevertToPreviousTrajectory();
+    planner_.ResetTrajectory();
     std::cout << "AGENT " << my_agent_idx_ << " (" << this << 
         ") resetting wait for agent state, reverting to previous trajectory." << std::endl;
 }
@@ -213,6 +258,15 @@ void Agent::SimulateStep(){
         if (curr_task_.get() != nullptr){
             // if we have a task, mark it as completed
             curr_task_->NotifyCompleted(curr_time_);
+        }
+
+        // check if we have some aborted tasks waiting to be continued
+        if (!aborted_tasks_.empty()){
+            curr_task_ = aborted_tasks_.front();
+            Point2D<double> dest = env_.GetClaimableDestinationLocation(
+                curr_task_->GetDestinationName());
+            InstructToDestination(curr_task_->GetDestinationName(), dest, curr_task_);
+            aborted_tasks_.erase(aborted_tasks_.begin());
         }
 
     } else if (state_ == MOVING_TO_WAITING_POINT && 
@@ -316,6 +370,7 @@ bool Agent::UpdateTrajectory(){
                 if (curr_task_.get() != nullptr){
                     curr_task_->NotifyStartedToMove(curr_time_);
                 }
+                submitted_new_trajectory_while_waiting_ = true;
                 return true;
             }
         } else {
@@ -335,8 +390,8 @@ bool Agent::UpdateTrajectory(){
                 // be much more efficient
                 */
                 
-                planner_.RevertToPreviousTrajectory();
-                planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
+                planner_.ResetTrajectory();
+                // planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
                 state_ = MOVING_TO_WAITING_POINT;
                 return false;
                 
@@ -416,6 +471,8 @@ void Agent::PlanToDestination(bool to_waiting_point){
               << std::endl;
     env_.SetClaimingObject(this);
     state_ = to_waiting_point ? MOVING_TO_WAITING_POINT : MOVING_TO_FINAL_DESTINATION;
+
+    planner_.StoreResetTrajectory();
     planner_.SetStart(curr_pos_);
     planner_.SetStartVel(curr_vel_);
     planner_.SetDest(to_waiting_point ? waiting_position_ : final_dest_);

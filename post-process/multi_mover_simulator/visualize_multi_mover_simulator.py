@@ -339,7 +339,98 @@ def visualize_task_completion(data):
 
     plt.tight_layout()
     plt.savefig("post-process/multi_mover_simulator/animations/task_completion_gantt_chart.png")
-    
+
+def visualize_task_completion_pie_chart(data):
+    agent_states = [data["agents"][i]["travelled_states"] for i in range(len(data["agents"]))]
+
+    # loop over all agents
+    agent_timings = []
+    for agent_idx in range(len(agent_states)):
+        timings = {
+            'idling': agent_states[agent_idx].count("IDLING") * data["simulation_time_step"],
+            'moving (final)': agent_states[agent_idx].count("MOVING_TO_FINAL_DESTINATION") * data["simulation_time_step"],
+            'moving (waiting point)': agent_states[agent_idx].count("MOVING_TO_WAITING_POINT") * data["simulation_time_step"],
+            'waiting (waiting point)': agent_states[agent_idx].count("WAITING_AT_INTERSECTION") * data["simulation_time_step"],
+            'waiting (destination)': agent_states[agent_idx].count("WAITING_FOR_FREE_DESTINATION") * data["simulation_time_step"],
+        }
+        agent_timings.append(timings)
+        if sum(timings.values()) == 0:
+            timings['idling'] = 1.0
+        if sum([t for t, k in zip(timings.values(), timings.keys()) if not k == "idling"]) == 0:
+            timings['moving (final)'] = 1.0e-5
+        
+        show_pie(timings, agent_idx, no_idling=False)
+        show_pie(timings, agent_idx, no_idling=True)
+
+    # create average agent
+    avg_timings = {
+        'idling': np.mean([timings['idling'] for timings in agent_timings]),
+        'moving (final)': np.mean([timings['moving (final)'] for timings in agent_timings]),
+        'moving (waiting point)': np.mean([timings['moving (waiting point)'] for timings in agent_timings]),
+        'waiting (waiting point)': np.mean([timings['waiting (waiting point)'] for timings in agent_timings]),
+        'waiting (destination)': np.mean([timings['waiting (destination)'] for timings in agent_timings]),
+    }
+
+    # create single figure with all axes
+    nb_pies = len(agent_timings) + 1
+    rows = int(np.sqrt(nb_pies))
+    cols = rows
+    counter = 0
+    while counter < 100 and rows * cols != nb_pies:
+        if rows*cols < nb_pies:
+            cols += 1
+        else:
+            if rows > 1:
+                rows -= 1
+            else:
+                cols -= 1
+
+        counter += 1
+
+    fig, axs = plt.subplots(rows, cols, figsize=(6*cols, 6*rows), squeeze=False)
+    for agent_idx in range(len(agent_timings)):
+        timings = agent_timings[agent_idx]
+        ax = axs[agent_idx // cols, agent_idx % cols]
+        show_pie(timings, agent_idx, ax=ax, no_idling=True, save=False, legend=agent_idx==0)
+    # show average agent
+    ax = axs[rows - 1, cols - 1]
+    show_pie(avg_timings, "avg", ax=ax, no_idling=True, save=False, legend=False)
+    plt.savefig("post-process/multi_mover_simulator/animations/pie-charts/task_completion_pie_chart_all_agents.png")
+
+def show_pie(timings, agent_idx, ax=None, no_idling=False, save=True, legend=True):
+    timings = timings.copy()
+    if no_idling:
+        timings['idling'] = 0
+
+    colors = {
+        "idling": "lightgray",
+        "moving (final)": "green",
+        "moving (waiting point)": "darkseagreen",
+        "waiting (waiting point)": "firebrick",
+        "waiting (destination)": "rosybrown",
+    }
+
+    if ax is None:
+        fig, axs = plt.subplots(1, 1, figsize=(8, 6), squeeze=False)
+        ax = axs[0,0]
+
+    # create pie chart
+    labels = list(timings.keys())
+    sizes = list(timings.values())
+    pie_colors = [colors[label] for label in labels]
+    ax.pie(sizes, labels=None, colors=pie_colors, autopct='%1.1f%%', textprops={'fontsize':12}, startangle=140)
+    ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    ax.set_title(f'Agent {agent_idx}')
+
+    # add a legend
+    if legend:
+        legend_patches = [mpatches.Patch(color=colors[label], label=label) for label in labels]
+        ax.legend(handles=legend_patches, loc='upper right', bbox_to_anchor=(1.2, 1))
+
+    plt.tight_layout()
+    if save:
+        appendix = "_no_idling" if no_idling else ""
+        plt.savefig(f"post-process/multi_mover_simulator/animations/pie-charts/task_completion_pie_chart_{agent_idx}{appendix}.png")
 
 def visualize_computation_time_per_simulation_step(data):
     computation_times = data["computation_time_per_simulation_step"]
@@ -400,6 +491,7 @@ with open(file) as f:
     data = json.load(f)
 
 # visualize_task_completion(data)
+visualize_task_completion_pie_chart(data)
 # visualize_computation_time_per_simulation_step(data)
 # exit()
 create_multi_mover_motion_video(data, fps=25)

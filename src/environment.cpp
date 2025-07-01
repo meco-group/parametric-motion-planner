@@ -654,3 +654,20 @@ json Environment::ClaimableDestinationsToJson() const {
 
     return j;
 }
+
+bool Environment::VehicleIsAtClaimableDestination(const Point2D<double> &pos,
+                                             const Parameters &params) const {
+    Point2D<int> cell = pos.ConvertWorldToCell(cell_width_, cell_height_);
+    Corridor cell_corridor = Corridor(
+        cell.x()*cell_width_, (cell.x() + 1)*cell_width_,
+        cell.y()*cell_height_, (cell.y() + 1)*cell_height_
+    );
+    if (!cell_corridor.ContainsVehicle(pos, params)){return false;}
+    
+    for (const auto &dest : claimable_destinations_){
+        if (dest.second.DestinationIsAt(cell.x(), cell.y())){
+            return true;
+        }
+    }
+    return false;
+};

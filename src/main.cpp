@@ -1081,6 +1081,62 @@ void TestDeadlockScenario2(){
     mms.PrintLog();
 }
 
+void TestDeadlockScenario3(){
+    // Set the stage
+    double cell_size = 0.12;
+    Environment env = Environment(4, 4, cell_size, cell_size);
+    
+    // Get stations at random boundary positions
+    std::map<std::string, Point2D<int>> stations {
+        {"0", Point2D<int>(1, 0)},
+        {"1", Point2D<int>(1, 3)},
+        {"2", Point2D<int>(2, 3)},
+        {"3", Point2D<int>(2, 0)},
+        {"4", Point2D<int>(0, 0)},
+        {"5", Point2D<int>(3, 3)},
+        {"6", Point2D<int>(3, 0)},
+        {"7", Point2D<int>(0, 3)},
+    };
+
+    Parameters params = Parameters();
+    int nb_movers = 4;
+
+    std::vector<std::string> starting_positions = {"0", "2", "4", "6"};
+
+    // Create tasks
+    std::vector<MoverTask> tasks = {
+        MoverTask(0, "1", 0.0),
+        MoverTask(1, "3", 0.0),
+        MoverTask(2, "5", 0.4),
+        MoverTask(3, "7", 0.41),
+    };
+
+    // Create simulator
+    std::vector<Parameters> params_list(nb_movers);
+    std::vector<const Parameters*> params_ptr_list;
+    for (int i = 0; i < nb_movers; i++){
+        params_list[i] = Parameters();
+        params_ptr_list.push_back(&params_list[i]);
+    }
+    params_list[0].SetAmax(0.4); params_list[0].SetVmax(0.2);
+    params_list[1].SetAmax(0.4); params_list[1].SetVmax(0.2);
+    std::cout << "Creating MultiMoverSimulator..." << std::endl;
+    MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
+                                        stations, starting_positions, tasks);
+    
+    try{
+        // Simulate for a bit
+        std::cout << "Simulating..." << std::endl;
+        mms.SimulateAllTasks();
+        // Dump to json
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    } catch (std::exception &e){
+        std::cout << "something went wrong: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    }
+    mms.PrintLog();
+}
 
 int main(int argc, char *argv[]){
     int nb_runs = 1;
@@ -1101,7 +1157,8 @@ int main(int argc, char *argv[]){
     // TestDynamicIntersections();
     // TestMultiMoverSimulator();
     // TestMultiMoverTasksWithStationsOld();
-    TestMultiMoverTasksWithStations();
+    // TestMultiMoverTasksWithStations();
     // TestDeadlockScenario();
     // TestDeadlockScenario2();
+    TestDeadlockScenario3();
 }

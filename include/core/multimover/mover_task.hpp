@@ -13,6 +13,7 @@ enum TaskEventType {
     TASK_COMPLETED,
     MOVER_WAITING,
     MOVER_MOVING,
+    TASK_ABORTED,
 };
 
 inline std::string TaskEventTypeToString(TaskEventType type) {
@@ -61,6 +62,7 @@ class MoverTask{
         void NotifyStartedToWait(double current_time);
         void NotifyStartedToMove(double current_time);
         void NotifyPlanningOccured(double current_time, double planning_time);
+        void NotifyAborted(double current_time);
 
         // Basic getters
         int GetAgentIdx() const { return agent_idx_;}
