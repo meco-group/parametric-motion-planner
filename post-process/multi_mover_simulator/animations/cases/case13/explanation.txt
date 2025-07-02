@@ -1,0 +1,5 @@
+Mover 3 wants to move to the starting point of mover 0.
+All other movers want to go to the destination to which mover 0 also moves.
+
+As can be seen, whenever a mover reaches the popular destination 0, it 
+immediatly moves to another free destination to prevent a deadlock scenario.
