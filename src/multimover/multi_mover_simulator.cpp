@@ -843,8 +843,6 @@ bool MultiMoverSimulator::CheckIfDeadlockPresent(std::vector<MoverTask> &deadloc
                 return false;
                 // TODO: if this task still leads to deadlock, we should pick
                 // another agent or another destination
-                
-                // return true;
             }
             waiting_chain.push_back(curr_agent_idx);
             state = agents_[curr_agent_idx]->GetState();

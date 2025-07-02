@@ -1138,6 +1138,99 @@ void TestDeadlockScenario3(){
     mms.PrintLog();
 }
 
+void TestDeadlockScenario4(){
+    try{
+    int l = 6;
+    // Set the stage
+    double cell_size = 0.12;
+    Environment env = Environment(2*l+2, 2*l+2, cell_size, cell_size);
+    for (int i = 0; i < 2*l+2; i++){
+        for (int j = 0; j < l+1; j++){
+            if (i == l+1 || (i < l+1 && j == l)){continue;}
+            // env.AddObstacle(Point2D<int>(i, j));
+            env.DeleteCell(Point2D<int>(i, j));
+        }
+    }
+    for (int i = 0; i < 2*l+2; i++){
+        for (int j = l+1; j < 2*l+2; j++){
+            if (i == l || (i >= l && j == l+1) || (i == 2 && j == l+1)){continue;}
+            // env.AddObstacle(Point2D<int>(i, j));
+            env.DeleteCell(Point2D<int>(i, j));
+        }
+    }
+    for (int i = l-2; i < l+3; i++){
+        env.AddCell(Point2D<int>(i, l+3));
+    }
+    env.AddCell(Point2D<int>(0, l+1));
+
+    bool ENFORCE_REACHABILITY = true;
+    if (ENFORCE_REACHABILITY){
+        env.AddCell(Point2D<int>(1, l+1));
+        for (int i = l-2; i < l; i++){
+            env.AddCell(Point2D<int>(i, l+4));
+        }
+    }
+
+    std::cout << env << std::endl;
+    
+    std::map<std::string, Point2D<int>> stations {
+        {"0", Point2D<int>(0, l)},
+        {"1", Point2D<int>(2, l+1)},
+        {"2", Point2D<int>(l, 2*l+1)},
+        {"3", Point2D<int>(l+1, 0)},
+        {"4", Point2D<int>(2*l+1, l+1)},
+        {"5", Point2D<int>(l-1, l+3)},
+        {"6", Point2D<int>(l+2, l+3)},
+        {"7", Point2D<int>(l-2, l+3)},
+        {"8", Point2D<int>(0, l+1)},
+    };
+
+    Parameters params = Parameters();
+    int nb_movers = 7;
+
+    std::vector<std::string> starting_positions = {"2", "4", "3", "0", "5", "7", "8"};
+
+    // Create tasks
+    std::vector<MoverTask> tasks = {
+        MoverTask(0, "1", 0.1),
+        MoverTask(1, "2", 0.34),
+        MoverTask(2, "4", 0.58),
+        MoverTask(3, "3", 0.82),
+        MoverTask(4, "6", 0.01),
+        MoverTask(5, "5", 0.01),
+        MoverTask(6, "0", 1.0),
+    };
+
+    // Create simulator
+    std::vector<Parameters> params_list(nb_movers);
+    std::vector<const Parameters*> params_ptr_list;
+    for (int i = 0; i < nb_movers; i++){
+        params_list[i] = Parameters();
+        params_list[i].SetVmax(0.8);
+        params_ptr_list.push_back(&params_list[i]);
+    }
+    params_list[4].SetVmax(0.1);
+    std::cout << "Creating MultiMoverSimulator..." << std::endl;
+    MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
+                                        stations, starting_positions, tasks);
+    
+    try{
+        // Simulate for a bit
+        std::cout << "Simulating..." << std::endl;
+        mms.SimulateAllTasks();
+        // Dump to json
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    } catch (std::exception &e){
+        std::cout << "something went wrong: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    }
+    mms.PrintLog();
+    } catch (std::exception &e){
+        std::cout << "caught all: " << e.what() << std::endl;
+    }
+}
+
 int main(int argc, char *argv[]){
     int nb_runs = 1;
     if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
@@ -1160,5 +1253,6 @@ int main(int argc, char *argv[]){
     // TestMultiMoverTasksWithStations();
     // TestDeadlockScenario();
     // TestDeadlockScenario2();
-    TestDeadlockScenario3();
+    // TestDeadlockScenario3();
+    TestDeadlockScenario4();
 }
