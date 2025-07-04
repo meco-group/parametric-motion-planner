@@ -11,8 +11,10 @@ json MoverTaskEvent::ToJson() const {
     return j;
 }
 
-bool MoverTask::RevealTask(double current_time) {
-    if (current_time >= (time_to_reveal_task_ + task_delay_)){
+bool MoverTask::RevealTask(double current_time, int nb_completed_tasks_by_agent) {
+    if (current_time >= (time_to_reveal_task_ + task_delay_) &&
+            (nb_completed_tasks_by_agent < 0 || task_sequence_nb_< 0 ||
+             nb_completed_tasks_by_agent == task_sequence_nb_)) {
         if (!has_been_revealed_) {
             task_events_.emplace_back(current_time, TASK_REVEALED);
         }
@@ -57,6 +59,7 @@ void MoverTask::NotifyAborted(double current_time){
 json MoverTask::ToJson() const {
     json j;
     j["agent_idx"] = agent_idx_;
+    j["task_sequence_nb"] = task_sequence_nb_;
     j["destination_name"] = destination_name_;
     j["time_to_reveal_task"] = time_to_reveal_task_;
     j["task_delay"] = task_delay_;

@@ -6,7 +6,8 @@ import numpy as np
 
 
 def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
-    vehicle_colors = ['b', 'green', 'k', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
+    vehicle_colors = ['b', 'green', 'k', 'orange', 'purple', 'powderblue', 'hotpink', 'gold', 'teal', 'indigo', 'grey', 'coral', 'tomato']
+    vehicle_colors = vehicle_colors + vehicle_colors + vehicle_colors
     
     planners = [d["planner"] for d in data["agents"]]
     travelled_trajectories = [d["travelled_trajectory"] for d in data["agents"]]
@@ -22,8 +23,8 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     agent_addresses = [d["memory_address"] for d in data["agents"]]
     claimable_destinations_info = data["claimed_destinations_info"]
 
-    SHOW_CORRIDORS = 1
-    SHOW_INTERSECTIONS = 1
+    SHOW_CORRIDORS = 0
+    SHOW_INTERSECTIONS = 0
     SHOW_CLAIMED_CELLS = 1
     SHOW_CURRENT_PLANS = 0
     SHOW_TRAVELLED_TRAJECTORIES = 0
@@ -37,7 +38,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     T = max(0, min(max_T, T))
     traj_sample_idx = int(T/travelled_trajectories[0]["dt"])
 
-    plt.figure(fig.number, dpi=200)
+    plt.figure(fig.number, dpi=kwargs.get('dpi', 200))
     plt.clf()
 
     # show environment
@@ -173,6 +174,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
 
 def create_multi_mover_motion_video(data, **kwargs):
     fps = kwargs.get('fps', 25)
+    dpi = kwargs.get('dpi', 200)
     mp4_dt = 1.0/fps
     total_time = max([d["travelled_trajectory"]["Tf"] for d in data["agents"]]) + 1.0
 
@@ -183,7 +185,7 @@ def create_multi_mover_motion_video(data, **kwargs):
     from matplotlib.animation import FFMpegWriter
 
     writer = FFMpegWriter(fps=fps, codec="libx264", extra_args=['-pix_fmt', 'yuv420p'])
-    fig = plt.figure()
+    fig = plt.figure(dpi=dpi)
     def update(frame):
         if frame % 5 == 0:
             print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
@@ -494,4 +496,4 @@ with open(file) as f:
 visualize_task_completion_pie_chart(data)
 # visualize_computation_time_per_simulation_step(data)
 # exit()
-create_multi_mover_motion_video(data, fps=25)
+# create_multi_mover_motion_video(data, fps=25, dpi=300)

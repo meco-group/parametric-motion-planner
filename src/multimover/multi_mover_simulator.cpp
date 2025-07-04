@@ -17,7 +17,7 @@ std::string DecisionToString(CollisionResolutionDecision d){
 
 
 MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
-                std::vector<const Parameters*> params,
+                std::vector<Parameters*> params,
                 std::map<std::string, Point2D<int>> possible_destinations,
                 std::vector<std::string> starting_positions,
                 std::vector<MoverTask> tasks)
@@ -49,6 +49,7 @@ MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
 
     // add all possible destinations to the environment
     for (const auto& [name, pos] : possible_destinations){
+        std::cout << "adding claimable destination: " << name << std::endl;
         env_.AddClaimableDestination(name, pos);
     }
 
@@ -94,7 +95,7 @@ void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling)
 
 void MultiMoverSimulator::SimulateAllTasks(){
     bool all_tasks_completed = false;
-    int max_nb_steps = 600;//10000;
+    int max_nb_steps = 10000;//10000;
     int step_counter = 0;
     bool deadlock_detected = false;
     simulation_step_computation_times_.reserve(max_nb_steps);
@@ -895,7 +896,8 @@ bool MultiMoverSimulator::AllAgentsIdling() const{
 void MultiMoverSimulator::ProcessPotentialNewTasks(){
     for (auto& task : tasks_){
         if (!task->HasBeenRevealed() && 
-                task->RevealTask(nb_simulated_samples_*simulation_time_step_)){
+                task->RevealTask(nb_simulated_samples_*simulation_time_step_,
+                                 agents_[task->GetAgentIdx()]->GetNbTasksCompleted())){
             // check if the agent is ready for the new task
             if (agents_[task->GetAgentIdx()]->GetState() == IDLING || 
                     agents_[task->GetAgentIdx()]->GetState() == WAITING_FOR_FREE_DESTINATION){
@@ -903,6 +905,8 @@ void MultiMoverSimulator::ProcessPotentialNewTasks(){
                 std::string name = task->GetDestinationName();
                 Point2D<double> dest = possible_destinations_[name].
                     ConvertCellToWorld(env_.CellWidth(), env_.CellHeight());
+                if (task->GetAMax() > 0){params_[task->GetAgentIdx()]->SetAmax(task->GetAMax());}
+                if (task->GetVMax() > 0){params_[task->GetAgentIdx()]->SetVmax(task->GetVMax());}
                 bool success = agents_[task->GetAgentIdx()]->
                     InstructToDestination(name, dest, task);
                 if (!success){

@@ -886,7 +886,7 @@ void TestMultiMoverTasksWithStations(){
 
     // Create simulator
     std::vector<Parameters> params_list(nb_movers);
-    std::vector<const Parameters*> params_ptr_list;
+    std::vector<Parameters*> params_ptr_list;
     for (int i = 0; i < nb_movers; i++){
         params_list[i] = Parameters();
         params_ptr_list.push_back(&params_list[i]);
@@ -996,7 +996,7 @@ void TestDeadlockScenario(){
 
     // Create simulator
     std::vector<Parameters> params_list(nb_movers);
-    std::vector<const Parameters*> params_ptr_list;
+    std::vector<Parameters*> params_ptr_list;
     for (int i = 0; i < nb_movers; i++){
         params_list[i] = Parameters();
         params_ptr_list.push_back(&params_list[i]);
@@ -1057,7 +1057,7 @@ void TestDeadlockScenario2(){
 
     // Create simulator
     std::vector<Parameters> params_list(nb_movers);
-    std::vector<const Parameters*> params_ptr_list;
+    std::vector<Parameters*> params_ptr_list;
     for (int i = 0; i < nb_movers; i++){
         params_list[i] = Parameters();
         params_ptr_list.push_back(&params_list[i]);
@@ -1082,6 +1082,7 @@ void TestDeadlockScenario2(){
 }
 
 void TestDeadlockScenario3(){
+    // scenario where two movers get into a deadlock by waiting for each other
     // Set the stage
     double cell_size = 0.12;
     Environment env = Environment(4, 4, cell_size, cell_size);
@@ -1113,7 +1114,7 @@ void TestDeadlockScenario3(){
 
     // Create simulator
     std::vector<Parameters> params_list(nb_movers);
-    std::vector<const Parameters*> params_ptr_list;
+    std::vector<Parameters*> params_ptr_list;
     for (int i = 0; i < nb_movers; i++){
         params_list[i] = Parameters();
         params_ptr_list.push_back(&params_list[i]);
@@ -1139,6 +1140,10 @@ void TestDeadlockScenario3(){
 }
 
 void TestDeadlockScenario4(){
+    // Complex case where four movers get into a deadlock (with three other 
+    // movers also moving around)
+    // The environment consists more or less of four narrow corridors that all
+    // end up on a central square
     try{
     int l = 6;
     // Set the stage
@@ -1203,13 +1208,104 @@ void TestDeadlockScenario4(){
 
     // Create simulator
     std::vector<Parameters> params_list(nb_movers);
-    std::vector<const Parameters*> params_ptr_list;
+    std::vector<Parameters*> params_ptr_list;
     for (int i = 0; i < nb_movers; i++){
         params_list[i] = Parameters();
         params_list[i].SetVmax(0.8);
         params_ptr_list.push_back(&params_list[i]);
     }
     params_list[4].SetVmax(0.1);
+    std::cout << "Creating MultiMoverSimulator..." << std::endl;
+    MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
+                                        stations, starting_positions, tasks);
+    
+    try{
+        // Simulate for a bit
+        std::cout << "Simulating..." << std::endl;
+        mms.SimulateAllTasks();
+        // Dump to json
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    } catch (std::exception &e){
+        std::cout << "something went wrong: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
+        mms.DumpToJson("output/multi_mover_simulator.json");
+    }
+    mms.PrintLog();
+    } catch (std::exception &e){
+        std::cout << "caught all: " << e.what() << std::endl;
+    }
+}
+
+void TestDeadlockScenario5(){
+   try{
+    int nb_cycling_movers = 10;
+    int nb_movers = nb_cycling_movers + 1;
+    int e = 1;
+
+    // Set the stage
+    double cell_size = 0.12;
+    Environment env = Environment(nb_cycling_movers+2+e+1, 2*nb_movers+1, cell_size, cell_size);
+    for (int i = 0; i < env.NbCellCols(); i++){
+        for (int j = env.NbCellRows()-1; j > env.NbCellRows()-2-e; j--){
+            if (i == nb_movers){continue;}
+            env.DeleteCell(Point2D<int>(i, j));
+        }
+    }
+    env.AddObstacle(Point2D<int>(nb_movers, nb_cycling_movers));
+    std::cout << env << std::endl;
+    
+    std::map<std::string, Point2D<int>> stations {
+        {"special_first_station",  Point2D<int>(0, nb_cycling_movers)},
+        {"special_second_station",  Point2D<int>(nb_movers, nb_cycling_movers+2+e)},
+        {"special_third_station",  Point2D<int>(2*nb_movers, nb_cycling_movers)},
+    };
+    for (int i = 0; i < nb_cycling_movers; i++){
+        stations["first_operation_" + std::to_string((i+1)%nb_cycling_movers)] = Point2D<int>(1+i, nb_cycling_movers);
+        stations["second_operation_" + std::to_string(i)] = Point2D<int>(nb_movers+1+nb_cycling_movers-1-i, nb_cycling_movers);
+        stations["third_operation_" + std::to_string(i)] = Point2D<int>(nb_movers+1, i);
+    }
+
+    std::vector<std::string> starting_positions = {};
+    for (int i = 0; i < nb_cycling_movers; i++){
+        starting_positions.push_back("first_operation_" + std::to_string(i));
+    }
+    starting_positions.push_back("special_first_station");
+    
+
+    // Create tasks
+    int nb_task_waves = 5;
+    std::vector<MoverTask> tasks = {};
+    for (int i = 0; i < nb_cycling_movers; i++){
+        double movement_duration = 1.0;
+        int idx = i;
+        int task_nb = 0;
+        for (int j = 0; j < nb_task_waves; j++){
+            tasks.push_back(MoverTask(i, 
+                "second_operation_" + std::to_string(idx), task_nb));
+            tasks[tasks.size()-1].SetVMax(0.4);
+            tasks.push_back(MoverTask(i, 
+                "third_operation_" + std::to_string(idx), task_nb + 1));
+            tasks[tasks.size()-1].SetVMax(2.0);
+            idx = (idx + 1) % nb_cycling_movers;
+            tasks.push_back(MoverTask(i, 
+                "first_operation_" + std::to_string(idx), task_nb + 2));
+            tasks[tasks.size()-1].SetVMax(2.0);
+            task_nb += 3;
+        }
+    }
+    std::cout << "tasks:\n" << tasks << std::endl;
+    // add special route
+    tasks.push_back(MoverTask(nb_cycling_movers, "special_second_station", 0, 4.0));
+    tasks.push_back(MoverTask(nb_cycling_movers, "special_third_station", 1));
+    tasks[tasks.size()-1].SetAMax(1.0);
+
+    // Create simulator
+    std::vector<Parameters> params_list(nb_movers);
+    std::vector<Parameters*> params_ptr_list;
+    for (int i = 0; i < nb_movers; i++){
+        params_list[i] = Parameters();
+        params_ptr_list.push_back(&params_list[i]);
+    }
     std::cout << "Creating MultiMoverSimulator..." << std::endl;
     MultiMoverSimulator mms = MultiMoverSimulator(env, params_ptr_list, 
                                         stations, starting_positions, tasks);
@@ -1254,5 +1350,6 @@ int main(int argc, char *argv[]){
     // TestDeadlockScenario();
     // TestDeadlockScenario2();
     // TestDeadlockScenario3();
-    TestDeadlockScenario4();
+    // TestDeadlockScenario4();
+    TestDeadlockScenario5();
 }

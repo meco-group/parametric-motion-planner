@@ -50,9 +50,20 @@ class MoverTask{
             agent_idx_(agent_idx), destination_name_(destination), 
             time_to_reveal_task_(time_to_reveal_task), 
             deadlock_resolution_task_(deadlock_resolution_task) {};
+        MoverTask(int agent_idx, const std::string& destination, 
+                  int task_sequence_nb, double time_to_reveal_task=0.0) :
+            agent_idx_(agent_idx), destination_name_(destination), 
+            time_to_reveal_task_(time_to_reveal_task), 
+            task_sequence_nb_(task_sequence_nb) {};
+
+        int GetTaskSequenceNb() const { return task_sequence_nb_; }
+        double GetVMax() const { return v_max_; }
+        double GetAMax() const { return a_max_; }
+        void SetVMax(double v_max) { v_max_ = v_max; }
+        void SetAMax(double a_max) { a_max_ = a_max; }
         
         // check if now is the time to reveal the task
-        bool RevealTask(double current_time);
+        bool RevealTask(double current_time, int nb_completed_tasks_by_agent=-1);
 
         // if a task cannot be processed because the agent is not yet ready,
         // postpone the task
@@ -72,6 +83,7 @@ class MoverTask{
         // printing
         friend std::ostream& operator<<(std::ostream& os, const MoverTask& task) {
             os << "MoverTask(agent_idx: " << task.agent_idx_ 
+               << ", task_sequence_nb: " << task.task_sequence_nb_
                << ", destination: " << task.destination_name_ 
                << ", time_to_reveal_task: " << task.time_to_reveal_task_ 
                << ", task_delay: " << task.task_delay_ 
@@ -84,11 +96,14 @@ class MoverTask{
     private:
         int agent_idx_ = -1;
         std::string destination_name_;
-        double time_to_reveal_task_;
+        double time_to_reveal_task_ = 0.0;
         double task_delay_ = 0;
         bool has_been_revealed_ = false;
         bool completed_ = false; // whether the task has been completed
         bool deadlock_resolution_task_ = false; // whether this task is a deadlock resolution task
+        int task_sequence_nb_ = -1;
+        double v_max_ = -1;
+        double a_max_ = -1;
 
         std::vector<MoverTaskEvent> task_events_; // events related to this task
 };

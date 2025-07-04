@@ -85,7 +85,7 @@ class MultiMoverLogger {
 class MultiMoverSimulator {
     public:
         MultiMoverSimulator(Environment& environment,
-                            std::vector<const Parameters*> params,
+                            std::vector<Parameters*> params,
                             std::map<std::string, Point2D<int>> possible_destinations,
                             std::vector<std::string> starting_positions,
                             std::vector<MoverTask> tasks);
@@ -138,7 +138,7 @@ class MultiMoverSimulator {
         bool AllTasksRevealed() const;
 
         Environment& env_;
-        std::vector<const Parameters*> params_;
+        std::vector<Parameters*> params_;
         std::vector<std::shared_ptr<Agent>> agents_;
         std::map<std::string, Point2D<int>> possible_destinations_;
 

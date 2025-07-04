@@ -83,6 +83,7 @@ class Agent {
             return Stationary() && env_.VehicleIsAtClaimableDestination(
                     GetCurrentPosition(), planner_.GetParameters());
         }
+        int GetNbTasksCompleted() const { return nb_tasks_completed;};
         
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
@@ -157,6 +158,7 @@ class Agent {
 
         // mover task logging
         std::shared_ptr<MoverTask> curr_task_; // the current task that is being executed by this agent
+        int nb_tasks_completed = 0;
 
         // while resolving deadlock, store the aborted task
         std::vector<std::shared_ptr<MoverTask>> aborted_tasks_;

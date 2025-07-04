@@ -104,12 +104,14 @@ bool Agent::ResolveDeadlock(std::shared_ptr<MoverTask>& task) {
 
     // update the corridor sequence and lock it
     env_.SetClaimingObject(this);
+    planner_.SetMaxNbCorridorGrowingIterations(5);
     planner_.UnlockCorridorSequence();
     planner_.SetStart(curr_pos_);
     planner_.SetStartVel(curr_vel_);
     planner_.SetDest(final_dest_);
     planner_.UpdateCorridorSequence();
     planner_.LockCorridorSequence();
+    planner_.SetMaxNbCorridorGrowingIterations(1);
     env_.ClearClaimingObject();
 
     return true;
@@ -258,6 +260,11 @@ void Agent::SimulateStep(){
         if (curr_task_.get() != nullptr){
             // if we have a task, mark it as completed
             curr_task_->NotifyCompleted(curr_time_);
+            
+            // if this is a task in a sequence, increment the number of completed tasks
+            if (curr_task_->GetTaskSequenceNb() >= 0){
+                nb_tasks_completed++;
+            }
         }
 
         // check if we have some aborted tasks waiting to be continued
