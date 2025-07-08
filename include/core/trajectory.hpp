@@ -96,6 +96,9 @@ class Trajectory{
         // Function to sample the current trajectory
         void GetSample(int idx, double &time, Point2D<double> &pos, 
                        Point2D<double> &vel, Point2D<double> &acc) const;
+        
+        void GetVehicleFootprint(int sample_idx, double width_offset, 
+                                 double height_offset, Corridor &footprint) const;
 
         // Check if two vehicles will collide
         bool CheckCollision(Trajectory const &other, 
@@ -105,6 +108,11 @@ class Trajectory{
                             Point2D<double>& pos_at_collision_this,
                             Point2D<double>& pos_at_collision_other,
                             double& collision_time) const;
+        bool CheckGeometricCollision(Trajectory const &other, 
+                                    Parameters const &params_this, 
+                                    Parameters const &params_other,
+                                    int this_start_idx=0, int other_start_idx=0,
+                                    int this_end_idx=-1, int other_end_idx=-1) const;
         
         double GetWaitingTimeThis(Trajectory const &other,
                                   Parameters const &params_this,

@@ -496,4 +496,4 @@ with open(file) as f:
 visualize_task_completion_pie_chart(data)
 # visualize_computation_time_per_simulation_step(data)
 # exit()
-# create_multi_mover_motion_video(data, fps=25, dpi=300)
+create_multi_mover_motion_video(data, fps=25, dpi=100)

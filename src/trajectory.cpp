@@ -1,6 +1,7 @@
 #include <vector>
 #include <casadi/casadi.hpp>
 #include <nlohmann/json.hpp>
+#include <algorithm>
 
 #include "core/trajectory.hpp"
 
@@ -542,6 +543,15 @@ void Trajectory::GetSample(int idx, double &time, Point2D<double> &pos,
     acc.SetY(ay_[idx]);
 }
 
+void Trajectory::GetVehicleFootprint(int sample_idx, double width_offset, 
+                                     double height_offset, Corridor &footprint) const {
+    sample_idx = std::max(0, std::min(sample_idx, curr_nb_samples_ - 1));
+    footprint.SetXmin(px_[sample_idx] - width_offset);
+    footprint.SetXmax(px_[sample_idx] + width_offset);
+    footprint.SetYmin(py_[sample_idx] - height_offset);
+    footprint.SetYmax(py_[sample_idx] + height_offset);
+}
+
 bool Trajectory::CheckCollision(Trajectory const &other, 
                                 Parameters const &params_this, 
                                 Parameters const &params_other,
@@ -589,6 +599,76 @@ bool Trajectory::CheckCollision(Trajectory const &other,
     }
 
     return false;
+}
+
+bool Trajectory::CheckGeometricCollision(Trajectory const &other,
+        Parameters const &params_this, Parameters const &params_other,
+        int this_start_idx, int other_start_idx, int this_end_idx, 
+        int other_end_idx) const {
+    this_end_idx = std::min(this_end_idx, NbSamples() - 1);
+    if (this_end_idx < 0){ this_end_idx = NbSamples() - 1;}
+
+    other_end_idx = std::min(other_end_idx, other.NbSamples() - 1);
+    if (other_end_idx < 0){ other_end_idx = other.NbSamples() - 1;}
+
+    Corridor footprint_this;
+    Corridor footprint_other;
+    double w_this = params_this.GetWidthOffset();
+    double h_this = params_this.GetHeightOffset();
+    double w_other = params_other.GetWidthOffset();
+    double h_other = params_other.GetHeightOffset();
+    Corridor o;
+
+    // Base case
+    if (this_start_idx >= this_end_idx && other_start_idx >= other_end_idx){
+        GetVehicleFootprint(this_start_idx, w_this, h_this, footprint_this);
+        other.GetVehicleFootprint(other_start_idx, w_other, h_other, footprint_other);
+        return footprint_this.GetOverlap(footprint_other, o);
+    }
+
+    // Otherwise, construct bounding box around this trajectory
+    const auto [xmin_this, xmax_this] = 
+        std::minmax_element(px_.begin() + this_start_idx, px_.begin() + this_end_idx + 1);
+    footprint_this.SetXmin(*xmin_this);
+    footprint_this.SetXmax(*xmax_this);
+    const auto [ymin_this, ymax_this] = 
+        std::minmax_element(py_.begin() + this_start_idx, py_.begin() + this_end_idx + 1);
+    footprint_this.SetYmin(*ymin_this);
+    footprint_this.SetYmax(*ymax_this);
+
+    // construct bounding box around other trajectory
+    std::vector<double> other_px = other.Px();
+    std::vector<double> other_py = other.Py();
+    const auto [xmin_other, xmax_other] = 
+        std::minmax_element(other_px.begin() + other_start_idx, other_px.begin() + other_end_idx + 1);
+    footprint_other.SetXmin(*xmin_other);
+    footprint_other.SetXmax(*xmax_other);
+    const auto [ymin_other, ymax_other] = 
+        std::minmax_element(other_py.begin() + other_start_idx, other_py.begin() + other_end_idx + 1);
+    footprint_other.SetYmin(*ymin_other);
+    footprint_other.SetYmax(*ymax_other);
+
+    std::cout << "bounding box this:  " << footprint_this << std::endl;
+    std::cout << "bounding box other: " << footprint_other << std::endl;
+
+    if (footprint_this.GetOverlap(footprint_other, o)){
+        int this_middle = this_start_idx + std::floor(this_end_idx-this_start_idx)/2;
+        int other_middle = other_start_idx + std::floor(other_end_idx-other_start_idx)/2;
+        return CheckGeometricCollision(other, params_this, params_other, 
+                                       this_start_idx, other_start_idx,
+                                       this_middle, other_middle) ||
+               CheckGeometricCollision(other, params_this, params_other, 
+                                       this_start_idx, other_middle,
+                                       this_middle, other_end_idx) ||
+               CheckGeometricCollision(other, params_this, params_other, 
+                                       this_middle, other_start_idx,
+                                       this_end_idx, other_middle) ||
+               CheckGeometricCollision(other, params_this, params_other,
+                                       this_middle + 1, other_middle+1, 
+                                       this_end_idx, other_end_idx);
+    } else {
+        return false;
+    }
 }
 
 double Trajectory::GetWaitingTimeThis(Trajectory const &other,

@@ -115,6 +115,9 @@ class MultiMoverSimulator {
         // Deal with the collision by instructing agents to wait
         bool ProcessPotentialNewCollsions();
 
+        // Check if the agent collides with any virtual trajectory
+        void ProcessPotentialVirtualCollision(int agent_idx);
+
         bool CheckForCollision(int agent_idx_1, int agent_idx_2);
         std::pair<bool, bool> DealWithCollision(int agent_idx_1, int agent_idx_2);
 
@@ -137,9 +140,12 @@ class MultiMoverSimulator {
         // Check if all provided tasks are revealed
         bool AllTasksRevealed() const;
 
+        void AddPrioritizedAgent(std::optional<VirtualAgent>& agent);
+
         Environment& env_;
         std::vector<Parameters*> params_;
         std::vector<std::shared_ptr<Agent>> agents_;
+        std::vector<VirtualAgent> prioritized_agents_;
         std::map<std::string, Point2D<int>> possible_destinations_;
 
         // simulation attributes
@@ -150,6 +156,7 @@ class MultiMoverSimulator {
 
         // options
         double collision_check_margin_ = 0.01;
+        bool write_simulation_progress_to_file_ = true;
 
         // stored information
         std::vector<IntersectionLog> intersection_logs_;

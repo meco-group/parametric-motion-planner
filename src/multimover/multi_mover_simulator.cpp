@@ -1,3 +1,5 @@
+#include <filesystem>
+
 #include "core/multimover/multi_mover_simulator.hpp"
 #include "core/corridor.hpp"
 
@@ -120,6 +122,15 @@ void MultiMoverSimulator::SimulateAllTasks(){
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> elapsed = end - start;
         simulation_step_computation_times_.push_back(elapsed.count());
+
+        if (write_simulation_progress_to_file_ /*&& nb_steps%10 == 0*/){
+            std::string filename = "simulation_progress.txt";
+            double current_time = nb_simulated_samples_ * simulation_time_step_;
+            // clear the file and write the current time 
+            std::ofstream file(filename, std::ios::trunc);
+            file << "current simulation time: " << current_time << " seconds" << std::endl;
+            file.close();                        
+        }
     }
 
     logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
@@ -326,6 +337,10 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
         collision_found = false;
         for (int i = 0; i < agents_.size(); i++){
             if (new_trajectories_[i]){
+                // check collision with prioritized trajectories
+                ProcessPotentialVirtualCollision(i);
+
+                // check collision with other agents
                 for (int j = 0; j < agents_.size(); j++){
                     if (i == j){
                         continue;
@@ -344,6 +359,30 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     }
 
     return false;
+}
+
+void MultiMoverSimulator::ProcessPotentialVirtualCollision(int agent_idx){
+    if (!agents_[agent_idx]->Stationary()){
+        return;
+    }
+
+    for (int i = 0; i < prioritized_agents_.size(); i++){
+        std::cout << "checking prioitized agents (i = " << i << ")" << std::endl;
+        if (prioritized_agents_[i].GetAgentIdx() == agent_idx){
+            continue;
+        }
+        if (prioritized_agents_[i].GetTrajectory().CheckGeometricCollision(
+                agents_[agent_idx]->GetTrajectory(), *params_[agent_idx], 
+                *params_[prioritized_agents_[i].GetAgentIdx()])){
+            // reject the new trajectory
+            std::cout << "interesting: wait for prioritized agent "
+                      << prioritized_agents_[i].GetAgentIdx() << std::endl;
+            agents_[agent_idx]->WaitForPrioritizedVehicle(
+                agents_[prioritized_agents_[i].GetAgentIdx()], 
+                prioritized_agents_[i].GetAgentIdx());
+            return;
+        }
+    }
 }
 
 bool MultiMoverSimulator::CheckForCollision(int agent_idx_1, int agent_idx_2){
@@ -422,6 +461,10 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
             " still collide.");
     }
 
+    double t = nb_simulated_samples_*simulation_time_step_;
+    std::string idx1 = " " + std::to_string(agent_idx_1) + " ";
+    std::string idx2 = " " + std::to_string(agent_idx_2) + " ";
+
     // If both vehicles are at a station, pick one to wait
     if (vehicle_1_at_station && vehicle_2_at_station){
         std::map<std::string, double> times_1 = 
@@ -429,72 +472,90 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
         std::map<std::string, double> times_2 = 
             GetTimeEnteringAndLeavingIntersection(agent_idx_2, intersection);
         if (times_1["leaving_time"] < times_2["leaving_time"]){
-            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
-                                                agent_idx_1, intersection);
-            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "Agent " + std::to_string(agent_idx_2) + " is waiting for agent " 
-                + std::to_string(agent_idx_1));
+            std::optional<VirtualAgent> prioritized_agent = 
+                agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
+                                                   agent_idx_1, intersection);
+            AddPrioritizedAgent(prioritized_agent);
+
+            logger_.LogEvent(t, "Agent" + idx2 + "is waiting for agent" + idx1);
             return std::make_pair(false, true);
         } else {
-            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
-                                            agent_idx_2, intersection);
-            logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-                "Agent " + std::to_string(agent_idx_1) + " is waiting for agent " 
-                + std::to_string(agent_idx_2));
+            std::optional<VirtualAgent> prioritized_agent = 
+                agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
+                                                   agent_idx_2, intersection);
+            AddPrioritizedAgent(prioritized_agent);
+            
+            logger_.LogEvent(t, "Agent" + idx1 + "is waiting for agent" + idx2);
             return std::make_pair(true, false);
         }
     }
 
     // If one vehicle is at a station, it must wait
     if (vehicle_1_at_station){
-        agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
-                                           agent_idx_2, intersection);
+        std::optional<VirtualAgent> prioritized_agent = 
+            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
+                                               agent_idx_2, intersection);
+        AddPrioritizedAgent(prioritized_agent);
         return std::make_pair(true, false);
     }
     if (vehicle_2_at_station){
-        agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
-                                           agent_idx_1, intersection);
+        std::optional<VirtualAgent> prioritized_agent = 
+            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
+                                               agent_idx_1, intersection);
+        AddPrioritizedAgent(prioritized_agent);
         return std::make_pair(false, true);
     }
 
     // If both vehicles submitted a new trajectory, reject both
     if (vehicle_1_submitted_ && vehicle_2_submitted_){
         if (agents_[agent_idx_1]->Stationary()){
-            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
+            std::optional<VirtualAgent> prioritized_agent = 
+                agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
+            AddPrioritizedAgent(prioritized_agent);
         } else {
             agents_[agent_idx_1]->ResetWaitForAgent();
 
         }
         if (agents_[agent_idx_2]->Stationary()){
-            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
+            std::optional<VirtualAgent> prioritized_agent = 
+                agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
+            AddPrioritizedAgent(prioritized_agent);
         } else {
             agents_[agent_idx_2]->ResetWaitForAgent();
         }
-        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-            "Both agents " + std::to_string(agent_idx_1) + " and " + 
-            std::to_string(agent_idx_2) + " instructed to reset waiting state");
+        logger_.LogEvent(t, "Both agents" + idx1 + "and" + idx2 + "instructed to reset waiting state");
         return std::make_pair(true, true);
     }
 
     // If only one vehicle submitted a new trajectory, that one must wait
     if (vehicle_1_submitted_){
+        if (agent_idx_1 == 10) { std::cout << "HERE: stationary? " 
+                      << agents_[agent_idx_1]->Stationary() << std::endl; }
         if (agents_[agent_idx_1]->Stationary()){
-            agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
+            std::optional<VirtualAgent> prioritized_agent = 
+                agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
+            AddPrioritizedAgent(prioritized_agent);
+            std::cout << "Added prioritized agent for agent " 
+                      << agent_idx_1 << std::endl;
         } else {
             agents_[agent_idx_1]->ResetWaitForAgent();
         }
-        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-            "Agent " + std::to_string(agent_idx_1) + " instructed to reset waiting state");
+        logger_.LogEvent(t, "Agent" + idx1 + "instructed to reset waiting state");
         return std::make_pair(true, false);
     }
     if (vehicle_2_submitted_){
+        if (agent_idx_2 == 10) { std::cout << "HERE: stationary? " 
+                      << agents_[agent_idx_2]->Stationary() << std::endl; }
         if (agents_[agent_idx_2]->Stationary()){
-            agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
+            std::optional<VirtualAgent> prioritized_agent = 
+                agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
+            AddPrioritizedAgent(prioritized_agent);
+            std::cout << "Added prioritized agent for agent " 
+                      << agent_idx_1 << std::endl;
         } else {
             agents_[agent_idx_2]->ResetWaitForAgent();
         }
-        logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
-            "Agent " + std::to_string(agent_idx_2) + " instructed to reset waiting state");
+        logger_.LogEvent(t, "Agent" + idx2 + "instructed to reset waiting state");
         return std::make_pair(true, false);
     }
 
@@ -951,3 +1012,12 @@ bool MultiMoverSimulator::AllTasksRevealed() const{
     }
     return true;
 }
+
+void MultiMoverSimulator::AddPrioritizedAgent(std::optional<VirtualAgent>& agent){
+    if (!agent.has_value()){
+        return;
+    }
+
+    // add the agent to the prioitized list
+    prioritized_agents_.push_back(agent.value());
+};

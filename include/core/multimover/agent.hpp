@@ -12,6 +12,7 @@ enum AgentState {
     FAILED_TO_PLAN_TO_DEST,         // planner failed, trying emergency stop
     FAILED_TO_PLAN_TO_WAITING_POINT,// planner failed, trying emergency stop
     WAITING_FOR_FREE_DESTINATION,   // destination is not free so needs to wait
+    WAITING_FOR_PRIORITIZED_VEHICLE,// some vehicle is in an implicit deadlock, so we wait until it starts to move
 };
 
 inline std::string AgentStateToString(AgentState s){
@@ -31,10 +32,30 @@ inline std::string AgentStateToString(AgentState s){
         return "FAILED_TO_PLAN_TO_WAITING_POINT";
     } else if (s == WAITING_FOR_FREE_DESTINATION){
         return "WAITING_FOR_FREE_DESTINATION";
+    } else if (s == WAITING_FOR_PRIORITIZED_VEHICLE){
+        return "WAITING_FOR_PRIORITIZED_VEHICLE";
     } else {
         return "?";
     }
 }
+
+// Light-weight class for an agent. This is used by the MultiMoverSimulator to
+// store priorizited trajectories (= trajectories that keep being rejeceted)
+class VirtualAgent {
+    public:
+        VirtualAgent(int idx, const Parameters& params, 
+                     double collision_check_margin, Trajectory trajectory);
+
+        Trajectory GetTrajectory() const {return prioritized_trajectory_;};
+        int GetAgentIdx() const {return my_agent_idx_;};
+
+    private:
+        Trajectory prioritized_trajectory_;
+        Parameters params_;
+        const int my_agent_idx_ = -1;
+        double collision_check_margin_ = 0.01;
+};
+
 
 
 // Wrapper around a mover with some additional attributes needed for it to 
@@ -84,21 +105,27 @@ class Agent {
                     GetCurrentPosition(), planner_.GetParameters());
         }
         int GetNbTasksCompleted() const { return nb_tasks_completed;};
+        Trajectory GetTrajectory() const {return planner_.GetLastSolution();}
         
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
-        void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_, 
-                          CorridorUnion &intersection);
+        std::optional<VirtualAgent> WaitForAgent(
+            std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_, 
+            CorridorUnion &intersection);
         // Special case: if this agent was waiting and found a collision-free
         // way around the blocking agent, but still collides with another
         // moving vehicle, it must just continue to the waiting point is was
-        // already moving towards. --> Might easily lead to deadlock!
-        void WaitForAgent(std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_);
+        // already moving towards. --> Might lead to deadlock!
+        std::optional<VirtualAgent> WaitForAgent(
+            std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_);
         // Special case: if this agent was waiting and found a collision-free
         // way around the blocking agent, but still collides with another
         // moving vehicle, just keep waiting for the original agent and try
-        // again later
+        // again later (this happens while this agent is moving)
         void ResetWaitForAgent();
+
+        void WaitForPrioritizedVehicle(std::shared_ptr<Agent> prioritized_agent,
+                                       int prioritized_agent_idx);
 
         // Simulate a time-step and potentially update the current state
         void SimulateStep();
@@ -113,6 +140,12 @@ class Agent {
 
         // check if the agent can avoid an intersection
         bool CanAvoidIntersection(const CorridorUnion& intersection) const;
+
+        VirtualAgent GetVirtualAgent() const {
+            return VirtualAgent(my_agent_idx_, planner_.GetParameters(), 
+                                collision_check_margin_, 
+                                planner_.GetLastSolution());
+        }
 
         json ToJson() const;
 
@@ -133,6 +166,12 @@ class Agent {
         int blocking_agent_idx_ = -1;
         CorridorUnion intersection_;
         bool submitted_new_trajectory_while_waiting_ = false;
+        
+        // attributes related to prioitized vehicles
+        int curr_nb_rejections_ = 0;
+        int max_nb_accepted_rejections_ = 5;
+        std::shared_ptr<Agent> prioritized_agent_;
+        int prioritized_agent_idx_ = -1;
 
         // attributes related to claiming a destination
         bool currently_claiming_ = false; // should actually always be true 

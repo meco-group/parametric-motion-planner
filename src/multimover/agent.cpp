@@ -160,12 +160,13 @@ double Agent::GetTimeAtTimeStep(int future_time_step) const{
     return local_time + planner_.GetLastSolution().T0();
 }
 
-void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent, 
-                         int blocking_agent_idx, 
-                         CorridorUnion &intersection){
+std::optional<VirtualAgent> Agent::WaitForAgent(
+        std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx, 
+        CorridorUnion &intersection){
     if (state_ == IDLING){
         throw std::runtime_error("Agent cannot wait for another agent when idling");
     }
+    std::optional<VirtualAgent> virtual_agent;
     if (state_ == WAITING_AT_INTERSECTION || state_ == MOVING_TO_WAITING_POINT){
         std::cout << "WARNING: This agent was already waiting for another agent" << std::endl;
         // if the current agent was already waiting for the blocking agent,
@@ -183,6 +184,17 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
                          waiting_position_.y() - ch/2,
                          waiting_position_.y() + ch/2)
                 );
+        } else if (Stationary()) {
+            // if we are instructed to wait for another agent, increment our 
+            // rejection counter
+            curr_nb_rejections_++;
+            if (my_agent_idx_ == 10){ std::cout << "Incremented curr nb rejections!" << std::endl;}
+            if (curr_nb_rejections_ > max_nb_accepted_rejections_){
+                // too many rejections --> return a virtual agent containing
+                // our desired trajectory such that the multimoversimulator
+                // can consider it
+                virtual_agent.emplace(GetVirtualAgent());
+            }
         }
 
     }
@@ -209,15 +221,29 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
     intersection_ = intersection;
 
     PlanToDestination(true);
+
+    return virtual_agent;
 }
 
-void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent, 
-                         int blocking_agent_idx){
+std::optional<VirtualAgent> Agent::WaitForAgent(
+        std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx){
     if (state_ == IDLING){
         throw std::runtime_error("Agent cannot wait for another agent when idling");
     }
     if (blocking_agent_idx < 0){
         throw std::runtime_error("Invalid blocking agent index");
+    }
+
+    std::optional<VirtualAgent> virtual_agent;
+    if (Stationary()){
+        curr_nb_rejections_++;
+        if (my_agent_idx_ == 10){ std::cout << "Incremented curr nb rejections!" << std::endl;}
+        if (curr_nb_rejections_ > max_nb_accepted_rejections_){
+            // too many rejections --> return a virtual agent containing
+            // our desired trajectory such that the multimoversimulator
+            // can consider it
+            virtual_agent.emplace(GetVirtualAgent());
+        }
     }
     
     state_ = MOVING_TO_WAITING_POINT;
@@ -225,6 +251,8 @@ void Agent::WaitForAgent(std::shared_ptr<Agent> blocking_agent,
     blocking_agent_idx_ = blocking_agent_idx;
 
     PlanToDestination(true);
+
+    return virtual_agent;
 }
 
 void Agent::ResetWaitForAgent(){
@@ -239,7 +267,30 @@ void Agent::ResetWaitForAgent(){
         ") resetting wait for agent state, reverting to previous trajectory." << std::endl;
 }
 
+void Agent::WaitForPrioritizedVehicle(std::shared_ptr<Agent> prioritized_agent,
+                                      int prioritized_agent_idx){
+    if (!Stationary()){
+        throw std::runtime_error("Cannot wait for a prioritized vehicle when not moving");
+    }
+
+    waiting_position_ = curr_pos_;
+    PlanToDestination(true);
+
+    // set the state and the prioritized agent
+    state_ = WAITING_FOR_PRIORITIZED_VEHICLE;
+    prioritized_agent_ = prioritized_agent;
+    prioritized_agent_idx_ = prioritized_agent_idx;
+
+    std::cout << "\n\n\nWaiting for prioritized vehicle: " << prioritized_agent_idx << "\n\n\n" << std::endl;
+}
+
 void Agent::SimulateStep(){
+    if (my_agent_idx_ == 10) {
+        std::cout << "curr nb rejections: " << curr_nb_rejections_ << std::endl; 
+        std::cout << "stationary: " << Stationary() << std::endl;
+    }
+
+
     nb_simulated_samples_++;
     planner_.GetSample(t, curr_pos_, curr_vel_, curr_acc_);
     curr_time_ = nb_simulated_samples_*planner_.GetLastSolution().Dt();
@@ -288,6 +339,9 @@ void Agent::SimulateStep(){
         
     }
 
+    // If we are currently moving, reset the rejection counter
+    if (!Stationary()) { curr_nb_rejections_ = 0; }
+
     // Check if we can release a destination
     std::vector<int> indices_to_be_released;
     Point2D<double> destination;
@@ -325,6 +379,17 @@ bool Agent::UpdateTrajectory(){
     if (state_ == MOVING_TO_FINAL_DESTINATION || state_ == IDLING || 
             state_ == WAITING_FOR_FREE_DESTINATION){
         // nothing to be done
+        return false;
+    }
+
+    // if we were waiting for a prioritized vehicle that has started moving, 
+    // we can proceed again
+    if (state_ == WAITING_FOR_PRIORITIZED_VEHICLE){
+        // if (prioritized_agent_ != nullptr && !prioritized_agent_->Stationary()){
+        //     state_ = READY_TO_PLAN;
+        // } else {
+        //     return false;
+        // }
         return false;
     }
 
@@ -539,3 +604,26 @@ bool Agent::CheckForCollisionWithBlockingAgent(){
     }
     return false;
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+VirtualAgent::VirtualAgent(int idx, const Parameters& params,
+             double collision_check_margin, Trajectory trajectory) : 
+        my_agent_idx_(idx), params_(params), prioritized_trajectory_(trajectory){
+    collision_check_margin_ = collision_check_margin;
+}
