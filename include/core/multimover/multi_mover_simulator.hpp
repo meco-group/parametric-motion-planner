@@ -81,6 +81,77 @@ class MultiMoverLogger {
         std::vector<std::string> events_;
 };
 
+
+// Class to profile simulation
+class Profiler {
+    public:
+        Profiler() = default;
+        Profiler(std::initializer_list<const char*> simulation_step_names)
+            : simulation_step_names_(simulation_step_names.begin(), simulation_step_names.end()) {};
+
+        void StartSimulationStep(){
+            if (current_intermediate_step_idx != -1){
+                throw std::runtime_error("Previous simulation step has not correctly been profiled. You must call EndSimulationStep()");
+            }
+            time_durations_ms_.push_back(
+                std::vector<double>(simulation_step_names_.size(), 0.0));
+            current_intermediate_step_idx = 0;
+            start_time_ = std::chrono::high_resolution_clock::now();
+        };
+        void RecordIntermediateSimulationStep(){
+            if (current_intermediate_step_idx >= simulation_step_names_.size()){
+                throw std::runtime_error("No more intermediate steps can be recorded. You must call EndSimulationStep() first.");
+            }
+            if (current_intermediate_step_idx == -1){
+                throw std::runtime_error("You must call StartSimulationStep() before recording intermediate steps.");
+            }
+            curr_time_ = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(curr_time_ - start_time_).count()/1000;
+            time_durations_ms_.back()[current_intermediate_step_idx] = duration;
+            current_intermediate_step_idx++;
+            start_time_ = std::chrono::high_resolution_clock::now();
+        };
+        void EndSimulationStep(){
+            if (current_intermediate_step_idx != simulation_step_names_.size() - 1){
+                throw std::runtime_error("Not all simulation steps have been recorded. You must call RecordIntermediateSimulationStep() for each step.");
+            }
+            curr_time_ = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(curr_time_ - start_time_).count()/1000;
+            time_durations_ms_.back()[current_intermediate_step_idx] = duration;
+            current_intermediate_step_idx++;
+            current_intermediate_step_idx = -1;
+            start_time_ = std::chrono::high_resolution_clock::now();
+        };
+
+        json ToJson() const {
+            json j;
+            std::vector<double> total_durations(simulation_step_names_.size(), 0.0);
+            for (int i = 0; i < time_durations_ms_.size(); i++){
+                for (int j = 0; j < simulation_step_names_.size(); j++){
+                    total_durations[j] += time_durations_ms_[i][j];
+                }
+            }
+            
+            for (int i = 0; i < simulation_step_names_.size(); i++){
+                json j_step;
+                j_step["total_ms"] = total_durations[i];
+                j_step["average_ms"] = total_durations[i] / time_durations_ms_.size();
+                j[simulation_step_names_[i]] = j_step;
+            }
+
+            return j;
+        }
+
+    private:
+        std::chrono::high_resolution_clock::time_point start_time_;
+        std::chrono::high_resolution_clock::time_point curr_time_;
+        int current_intermediate_step_idx = -1;
+        std::vector<std::string> simulation_step_names_;
+        
+        std::vector<std::vector<double>> time_durations_ms_;
+};
+
+
 // Class to simulate multiple movers preventing collisions
 class MultiMoverSimulator {
     public:
@@ -140,12 +211,12 @@ class MultiMoverSimulator {
         // Check if all provided tasks are revealed
         bool AllTasksRevealed() const;
 
-        void AddPrioritizedAgent(std::optional<VirtualAgent>& agent);
+        void AddPrioritizedAgent(std::shared_ptr<VirtualAgent>& agent);
 
         Environment& env_;
         std::vector<Parameters*> params_;
         std::vector<std::shared_ptr<Agent>> agents_;
-        std::vector<VirtualAgent> prioritized_agents_;
+        std::vector<std::shared_ptr<VirtualAgent>> prioritized_agents_;
         std::map<std::string, Point2D<int>> possible_destinations_;
 
         // simulation attributes
@@ -153,6 +224,10 @@ class MultiMoverSimulator {
         double simulation_time_step_ = 0.01;
         std::vector<std::shared_ptr<MoverTask>> tasks_;
         int nb_consecutive_deadlocks_found_ = 0;
+
+        // profiling of simulation
+        constexpr static bool perform_profiling_ = true;
+        std::map<std::string, Profiler> profilers_;
 
         // options
         double collision_check_margin_ = 0.01;

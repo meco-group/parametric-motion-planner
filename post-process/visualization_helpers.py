@@ -86,17 +86,24 @@ def set_env_plot_limits(env):
 
 def show_corridors(corridors, color='green', max_alpha=1, clip_on=False, **kwargs):
     hatch = kwargs.get("hatch", None)
+    handles_to_plotted_elements = []
     for c in corridors["sequence"]:
-        plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
+        r = Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=True, facecolor=color, alpha=0.2*max_alpha, 
-                            edgecolor=None, clip_on=clip_on))
-        plt.gca().add_patch(Rectangle((c["x_min"], c["y_min"]), 
+                            edgecolor=None, clip_on=clip_on)
+        plt.gca().add_patch(r)
+        handles_to_plotted_elements.append(r)
+        r = Rectangle((c["x_min"], c["y_min"]), 
                                       c["x_max"]-c["x_min"], 
                                       c["y_max"]-c["y_min"], 
                             fill=False, edgecolor=color, linewidth=1,
-                            clip_on=clip_on, hatch=hatch))
+                            clip_on=clip_on, hatch=hatch)
+        plt.gca().add_patch(r)
+        handles_to_plotted_elements.append(r)
+    
+    return handles_to_plotted_elements
         
 def show_corridor_union(corridors, color='green', max_alpha=1, clip_on=False, **kwargs):
     hatch = kwargs.get("hatch", None)
@@ -105,14 +112,18 @@ def show_corridor_union(corridors, color='green', max_alpha=1, clip_on=False, **
     for c in corridors["sequence"]:
         seq.append(sg.box(c["x_min"], c["y_min"], c["x_max"], c["y_max"]))
     union = so.unary_union(seq)
+
+    handles = []
     try:
         x, y = union.exterior.xy
         # plt.gca().fill(x, y, color=color, alpha=0.2*max_alpha, edgecolor=None, clip_on=clip_on)
-        plt.gca().fill(x, y, color=color, fill=False, edgecolor=color, clip_on=clip_on)
+        h = plt.gca().fill(x, y, color=color, fill=False, edgecolor=color, clip_on=clip_on)
+        handles.append(h)
         
     except:
         print("No corridor union to plot")
 
+    return handles
         
 def show_waypoints(parametrization):
     for w in range(0, parametrization["nb_corridors"] + 1):
@@ -147,6 +158,8 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
     else:
         start_index = max(0, nb_samples_to_show - unfaded_nb_samples)
 
+    handles_to_clear = []
+
     if with_trace:
         footprints = []
         for j in range(start_index, nb_samples_to_show-1):
@@ -167,36 +180,43 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
         try:
             x, y = footprint_trace.exterior.xy
             trace_alpha = kwargs.get("trace_alpha", 0.2)
-            plt.gca().fill(x, y, color=color, alpha=0.2, edgecolor='none', zorder=1)
-            # plt.gca().fill(x, y, color='none', alpha=0.5, edgecolor=color)
-            # plt.plot(x, y, color=colors[i], linewidth=1)
+            h = plt.gca().fill(x, y, color=color, alpha=0.2, edgecolor='none', zorder=1)
+            handles_to_clear.append(h)
         except:
             print("No footprint to plot")
 
     if show_markers and with_line:
-        plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
+        h = plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
                 trajectory["py"][start_index:nb_samples_to_show], 'o-', color=color, 
                 markersize=1, linewidth=linewidth, zorder=3)
+        handles_to_clear.append(h)
     elif show_markers:
-        plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
+        h = plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
                 trajectory["py"][start_index:nb_samples_to_show], 'o', color=color, 
                 markersize=1, linewidth=0, zorder=3)
+        handles_to_clear.append(h)
     elif with_line:
-        plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
+        h = plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
                 trajectory["py"][start_index:nb_samples_to_show], '-', color=color, 
                 linewidth=linewidth, zorder=3)
+        handles_to_clear.append(h)
     
+    footprint_handles = []
     if with_footprints:
         # show vehicle footprint
         if show_initial_footprint_if_showing_footprints and len(trajectory["px"]) > 0:
-            plot_vehicle_footprint(plt.gca(), trajectory["px"][start_index], 
+            h = plot_vehicle_footprint(plt.gca(), trajectory["px"][start_index], 
                                 trajectory["py"][start_index], width, height, 
                                 virtual_position=virtual_initial_footprint)
+            footprint_handles.extend(h)
         if show_final_footprint_if_showing_footprints and len(trajectory["px"]) > 0:
             final_ind = min(nb_samples_to_show, len(trajectory["px"])-1)
-            plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
+            h = plot_vehicle_footprint(plt.gca(), trajectory["px"][final_ind], 
                                 trajectory["py"][final_ind], width, height,
                                 virtual_position=virtual_final_footprint)
+            footprint_handles.extend(h)
+
+    return handles_to_clear, footprint_handles
         
 def show_moving_obstacle(obstacle, sample_idx, color):
     x = obstacle["travelled_trajectory"]["px"][sample_idx]
@@ -229,12 +249,17 @@ def plot_vehicle_footprint(ax, px, py, veh_width, veh_height, virtual_position=F
     color_inner = kwargs.get("color", 'gainsboro' if not virtual_position else 'whitesmoke')
 
     # create a fancybox with rounded corners
+    footprint_handles = []
     rect = FancyBboxPatch(anchor, width, height, boxstyle=boxstyle, 
                             fill=True, facecolor=color, 
                             edgecolor='k', linestyle=linestyle, alpha=alpha, zorder=zorder)
     ax.add_patch(rect)
+    footprint_handles.append(rect)
     rect = FancyBboxPatch(anchor_inner, width_inner, height_inner, 
                             boxstyle=boxstyle_inner, fill=True, 
                             facecolor=color_inner, edgecolor=color_inner, 
                             alpha=alpha_inner, zorder=zorder)
     ax.add_patch(rect)
+    footprint_handles.append(rect)
+
+    return footprint_handles

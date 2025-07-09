@@ -109,14 +109,14 @@ class Agent {
         
         // Instruct this agent to wait for another agent. This agent is assumed
         // to continue moving once the other agent has passed.
-        std::optional<VirtualAgent> WaitForAgent(
+        std::shared_ptr<VirtualAgent> WaitForAgent(
             std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_, 
             CorridorUnion &intersection);
         // Special case: if this agent was waiting and found a collision-free
         // way around the blocking agent, but still collides with another
         // moving vehicle, it must just continue to the waiting point is was
         // already moving towards. --> Might lead to deadlock!
-        std::optional<VirtualAgent> WaitForAgent(
+        std::shared_ptr<VirtualAgent> WaitForAgent(
             std::shared_ptr<Agent> blocking_agent, int blocking_agent_idx_);
         // Special case: if this agent was waiting and found a collision-free
         // way around the blocking agent, but still collides with another
@@ -141,8 +141,8 @@ class Agent {
         // check if the agent can avoid an intersection
         bool CanAvoidIntersection(const CorridorUnion& intersection) const;
 
-        VirtualAgent GetVirtualAgent() const {
-            return VirtualAgent(my_agent_idx_, planner_.GetParameters(), 
+        std::shared_ptr<VirtualAgent> GetVirtualAgent() const {
+            return std::make_unique<VirtualAgent>(my_agent_idx_, planner_.GetParameters(), 
                                 collision_check_margin_, 
                                 planner_.GetLastSolution());
         }
@@ -169,7 +169,7 @@ class Agent {
         
         // attributes related to prioitized vehicles
         int curr_nb_rejections_ = 0;
-        int max_nb_accepted_rejections_ = 5;
+        int max_nb_accepted_rejections_ = 3;
         std::shared_ptr<Agent> prioritized_agent_;
         int prioritized_agent_idx_ = -1;
 

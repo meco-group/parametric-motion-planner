@@ -79,6 +79,24 @@ MultiMoverSimulator::MultiMoverSimulator(Environment& environment,
                                      + starting_positions[i]);
         }
     }
+
+    // create profilers
+    if (perform_profiling_){
+        profilers_["SimulateAllTasks"] = Profiler(
+            {"ProcessPotentialNewTasks", "SimulateSingleStep", "Finish loop", "Write simulation progress to file"}
+        );
+
+        profilers_["SimulateSingleStep"] = Profiler(
+            {"UpdateTrajectory", "ProcessPotentialNewCollisions", 
+             "CheckIfDeadlockPresent", "UpdateSingleStep"}
+        );
+
+        profilers_["ProcessPotentialVirtualCollision"] = Profiler(
+            {"ProcessPotentialVirtualCollision"}
+        );
+        profilers_["CheckForCollision"] = Profiler({"CheckForCollision"});
+        profilers_["DealWithCollision"] = Profiler({"DealWithCollision"});
+    }
 }
 
 void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling){
@@ -97,17 +115,20 @@ void MultiMoverSimulator::SimulateSteps(int nb_steps, bool stop_when_all_idling)
 
 void MultiMoverSimulator::SimulateAllTasks(){
     bool all_tasks_completed = false;
-    int max_nb_steps = 10000;//10000;
+    int max_nb_steps = 100;//10000;
     int step_counter = 0;
     bool deadlock_detected = false;
     simulation_step_computation_times_.reserve(max_nb_steps);
     while (!all_tasks_completed && step_counter < max_nb_steps && !deadlock_detected){
         auto start = std::chrono::high_resolution_clock::now();
+        if (perform_profiling_){ profilers_["SimulateAllTasks"].StartSimulationStep();}
 
         // check if new tasks are available
         ProcessPotentialNewTasks();
+        if (perform_profiling_){ profilers_["SimulateAllTasks"].RecordIntermediateSimulationStep();}
 
         deadlock_detected = SimulateSingleStep();
+        if (perform_profiling_){ profilers_["SimulateAllTasks"].RecordIntermediateSimulationStep();}
 
         // check if all tasks are completed
         if (AllTasksRevealed() && AllAgentsIdling()){
@@ -122,6 +143,7 @@ void MultiMoverSimulator::SimulateAllTasks(){
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> elapsed = end - start;
         simulation_step_computation_times_.push_back(elapsed.count());
+        if (perform_profiling_){ profilers_["SimulateAllTasks"].RecordIntermediateSimulationStep();}
 
         if (write_simulation_progress_to_file_ /*&& nb_steps%10 == 0*/){
             std::string filename = "simulation_progress.txt";
@@ -131,6 +153,7 @@ void MultiMoverSimulator::SimulateAllTasks(){
             file << "current simulation time: " << current_time << " seconds" << std::endl;
             file.close();                        
         }
+        if (perform_profiling_){ profilers_["SimulateAllTasks"].EndSimulationStep();}
     }
 
     logger_.LogEvent(nb_simulated_samples_*simulation_time_step_, 
@@ -162,6 +185,12 @@ void MultiMoverSimulator::DumpToJson(std::string const &filename) const {
         j["computation_time_per_simulation_step"].push_back(
             simulation_step_computation_times_[i]
         );
+    }
+    if (perform_profiling_){
+        j["profilers"] = json::object();
+        for (const auto& [name, profiler] : profilers_){
+            j["profilers"][name] = profiler.ToJson();
+        }
     }
     std::ofstream o(filename);
     o << std::setw(4) << j << std::endl;
@@ -250,6 +279,7 @@ bool MultiMoverSimulator::SanityCheckOnPossibleDestinations(
 }
 
 bool MultiMoverSimulator::SimulateSingleStep(){
+    if (perform_profiling_){ profilers_["SimulateSingleStep"].StartSimulationStep();}
     // Update trajectories if needed
     for (int j = 0; j < agents_.size(); j++){
         new_trajectories_[j] = agents_[j]->UpdateTrajectory();
@@ -258,10 +288,12 @@ bool MultiMoverSimulator::SimulateSingleStep(){
                 "Agent " + std::to_string(j) + " updated trajectory");
         }
     }
+    if (perform_profiling_){ profilers_["SimulateSingleStep"].RecordIntermediateSimulationStep();}
     // std::cout << "updated trajectories: " << new_trajectories << std::endl;
 
     // Check for new collisions
     ProcessPotentialNewCollsions();
+    if (perform_profiling_){ profilers_["SimulateSingleStep"].RecordIntermediateSimulationStep();}
 
     // Check for deadlocks
     std::vector<MoverTask> deadlock_resolving_tasks;
@@ -285,11 +317,13 @@ bool MultiMoverSimulator::SimulateSingleStep(){
             return nb_consecutive_deadlocks_found_ > 20;
         }
     } else { nb_consecutive_deadlocks_found_ = 0; }
+    if (perform_profiling_){ profilers_["SimulateSingleStep"].RecordIntermediateSimulationStep();}
 
     claimed_destinations_info_.push_back(env_.ClaimableDestinationsToJson());
 
     // Update positions of all agents
     UpdateSingleStep();
+    if (perform_profiling_){ profilers_["SimulateSingleStep"].EndSimulationStep();}
 
     return false;
 }
@@ -326,6 +360,16 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
     //     }
     // }
 
+    // update virtual trajectories (= remove virtual agents that are not stationary)
+    for (int i = 0; i < prioritized_agents_.size(); i++){
+        if (!agents_[prioritized_agents_[i]->GetAgentIdx()]->Stationary()){
+            prioritized_agents_.erase(prioritized_agents_.begin() + i);
+            i--;
+        }
+    }
+    std::cout << "number of prioritized agents: " 
+              << prioritized_agents_.size() << std::endl;
+
     // as long as there collisions found, keep checking
     bool collision_found = true;
     int counter = 0;
@@ -337,17 +381,26 @@ bool MultiMoverSimulator::ProcessPotentialNewCollsions(){
         collision_found = false;
         for (int i = 0; i < agents_.size(); i++){
             if (new_trajectories_[i]){
+
                 // check collision with prioritized trajectories
+                if (perform_profiling_){ profilers_["ProcessPotentialVirtualCollision"].StartSimulationStep();}
                 ProcessPotentialVirtualCollision(i);
+                if (perform_profiling_){ profilers_["ProcessPotentialVirtualCollision"].EndSimulationStep();}
 
                 // check collision with other agents
                 for (int j = 0; j < agents_.size(); j++){
                     if (i == j){
                         continue;
                     }
+                    if (perform_profiling_){ profilers_["CheckForCollision"].StartSimulationStep();}
                     if (CheckForCollision(i, j)){
+                        if (perform_profiling_){ profilers_["CheckForCollision"].EndSimulationStep();}
+                        if (perform_profiling_){ profilers_["DealWithCollision"].StartSimulationStep();}
                         DealWithCollision(i, j);
+                        if (perform_profiling_){ profilers_["DealWithCollision"].EndSimulationStep();}
                         collision_found = true;
+                    } else {
+                        if (perform_profiling_){ profilers_["CheckForCollision"].EndSimulationStep();}
                     }
                 }
             }
@@ -368,18 +421,18 @@ void MultiMoverSimulator::ProcessPotentialVirtualCollision(int agent_idx){
 
     for (int i = 0; i < prioritized_agents_.size(); i++){
         std::cout << "checking prioitized agents (i = " << i << ")" << std::endl;
-        if (prioritized_agents_[i].GetAgentIdx() == agent_idx){
+        if (prioritized_agents_[i]->GetAgentIdx() == agent_idx){
             continue;
         }
-        if (prioritized_agents_[i].GetTrajectory().CheckGeometricCollision(
+        if (prioritized_agents_[i]->GetTrajectory().CheckGeometricCollision(
                 agents_[agent_idx]->GetTrajectory(), *params_[agent_idx], 
-                *params_[prioritized_agents_[i].GetAgentIdx()])){
+                *params_[prioritized_agents_[i]->GetAgentIdx()])){
             // reject the new trajectory
             std::cout << "interesting: wait for prioritized agent "
-                      << prioritized_agents_[i].GetAgentIdx() << std::endl;
+                      << prioritized_agents_[i]->GetAgentIdx() << std::endl;
             agents_[agent_idx]->WaitForPrioritizedVehicle(
-                agents_[prioritized_agents_[i].GetAgentIdx()], 
-                prioritized_agents_[i].GetAgentIdx());
+                agents_[prioritized_agents_[i]->GetAgentIdx()], 
+                prioritized_agents_[i]->GetAgentIdx());
             return;
         }
     }
@@ -472,7 +525,7 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
         std::map<std::string, double> times_2 = 
             GetTimeEnteringAndLeavingIntersection(agent_idx_2, intersection);
         if (times_1["leaving_time"] < times_2["leaving_time"]){
-            std::optional<VirtualAgent> prioritized_agent = 
+            std::shared_ptr<VirtualAgent> prioritized_agent = 
                 agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
                                                    agent_idx_1, intersection);
             AddPrioritizedAgent(prioritized_agent);
@@ -480,7 +533,7 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
             logger_.LogEvent(t, "Agent" + idx2 + "is waiting for agent" + idx1);
             return std::make_pair(false, true);
         } else {
-            std::optional<VirtualAgent> prioritized_agent = 
+            std::shared_ptr<VirtualAgent> prioritized_agent = 
                 agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
                                                    agent_idx_2, intersection);
             AddPrioritizedAgent(prioritized_agent);
@@ -492,14 +545,14 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
 
     // If one vehicle is at a station, it must wait
     if (vehicle_1_at_station){
-        std::optional<VirtualAgent> prioritized_agent = 
+        std::shared_ptr<VirtualAgent> prioritized_agent = 
             agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], 
                                                agent_idx_2, intersection);
         AddPrioritizedAgent(prioritized_agent);
         return std::make_pair(true, false);
     }
     if (vehicle_2_at_station){
-        std::optional<VirtualAgent> prioritized_agent = 
+        std::shared_ptr<VirtualAgent> prioritized_agent = 
             agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], 
                                                agent_idx_1, intersection);
         AddPrioritizedAgent(prioritized_agent);
@@ -509,7 +562,7 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
     // If both vehicles submitted a new trajectory, reject both
     if (vehicle_1_submitted_ && vehicle_2_submitted_){
         if (agents_[agent_idx_1]->Stationary()){
-            std::optional<VirtualAgent> prioritized_agent = 
+            std::shared_ptr<VirtualAgent> prioritized_agent = 
                 agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
             AddPrioritizedAgent(prioritized_agent);
         } else {
@@ -517,7 +570,7 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
 
         }
         if (agents_[agent_idx_2]->Stationary()){
-            std::optional<VirtualAgent> prioritized_agent = 
+            std::shared_ptr<VirtualAgent> prioritized_agent = 
                 agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
             AddPrioritizedAgent(prioritized_agent);
         } else {
@@ -529,10 +582,8 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
 
     // If only one vehicle submitted a new trajectory, that one must wait
     if (vehicle_1_submitted_){
-        if (agent_idx_1 == 10) { std::cout << "HERE: stationary? " 
-                      << agents_[agent_idx_1]->Stationary() << std::endl; }
         if (agents_[agent_idx_1]->Stationary()){
-            std::optional<VirtualAgent> prioritized_agent = 
+            std::shared_ptr<VirtualAgent> prioritized_agent = 
                 agents_[agent_idx_1]->WaitForAgent(agents_[agent_idx_2], agent_idx_2);
             AddPrioritizedAgent(prioritized_agent);
             std::cout << "Added prioritized agent for agent " 
@@ -544,10 +595,8 @@ std::pair<bool, bool> MultiMoverSimulator::DealWithCollision(int agent_idx_1, in
         return std::make_pair(true, false);
     }
     if (vehicle_2_submitted_){
-        if (agent_idx_2 == 10) { std::cout << "HERE: stationary? " 
-                      << agents_[agent_idx_2]->Stationary() << std::endl; }
         if (agents_[agent_idx_2]->Stationary()){
-            std::optional<VirtualAgent> prioritized_agent = 
+            std::shared_ptr<VirtualAgent> prioritized_agent = 
                 agents_[agent_idx_2]->WaitForAgent(agents_[agent_idx_1], agent_idx_1);
             AddPrioritizedAgent(prioritized_agent);
             std::cout << "Added prioritized agent for agent " 
@@ -1013,11 +1062,18 @@ bool MultiMoverSimulator::AllTasksRevealed() const{
     return true;
 }
 
-void MultiMoverSimulator::AddPrioritizedAgent(std::optional<VirtualAgent>& agent){
-    if (!agent.has_value()){
+void MultiMoverSimulator::AddPrioritizedAgent(std::shared_ptr<VirtualAgent>& agent){
+    if (!agent){
         return;
     }
 
+    for (int i = 0; i < prioritized_agents_.size(); i++){
+        if (prioritized_agents_[i]->GetAgentIdx() == agent->GetAgentIdx()){
+            // already in the list, so do not add again
+            return;
+        }
+    }
+
     // add the agent to the prioitized list
-    prioritized_agents_.push_back(agent.value());
+    prioritized_agents_.push_back(agent);
 };

@@ -5,162 +5,164 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 
-def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
-    vehicle_colors = ['b', 'green', 'k', 'orange', 'purple', 'powderblue', 'hotpink', 'gold', 'teal', 'indigo', 'grey', 'coral', 'tomato']
-    vehicle_colors = vehicle_colors + vehicle_colors + vehicle_colors
-    
-    planners = [d["planner"] for d in data["agents"]]
-    travelled_trajectories = [d["travelled_trajectory"] for d in data["agents"]]
-    planned_trajectories = [d["planned_trajectories"] for d in data["agents"]]
-    planned_times = [d["planned_times"] for d in data["agents"]]
-    travelled_final_destinations = [d["travelled_final_destinations"] for d in data["agents"]]
-    travelled_states = [d["travelled_states"] for d in data["agents"]]
-    travelled_blocking_agent_idx = [d["travelled_blocking_agent_idx"] for d in data["agents"]]
-
-    environments = [planner["environment"] for planner in planners]
-    corridor_sequences = [d["planned_corridor_sequences"] for d in data["agents"]]
-
-    agent_addresses = [d["memory_address"] for d in data["agents"]]
-    claimable_destinations_info = data["claimed_destinations_info"]
-
-    SHOW_CORRIDORS = 0
-    SHOW_INTERSECTIONS = 0
-    SHOW_CLAIMED_CELLS = 1
-    SHOW_CURRENT_PLANS = 0
-    SHOW_TRAVELLED_TRAJECTORIES = 0
-
-
-    max_T = max([traj["Tf"] for traj in travelled_trajectories])
-
-    tt = travelled_trajectories[0]["t"]
+def create_multi_mover_motion_snapshot(data, prepared_data, handles_to_clear, footprint_handles, vehicle_nb_handles, vehicle_state_handles, T, fig=None, **kwargs):
+    max_T = max([traj["Tf"] for traj in prepared_data["travelled_trajectories"]])
 
     original_T = T
     T = max(0, min(max_T, T))
-    traj_sample_idx = int(T/travelled_trajectories[0]["dt"])
+    traj_sample_idx = int(T/prepared_data["travelled_trajectories"][0]["dt"])
 
-    plt.figure(fig.number, dpi=kwargs.get('dpi', 200))
-    plt.clf()
+    # plt.figure(fig.number, dpi=kwargs.get('dpi', 200))
+    # plt.clf()
 
-    # show environment
-    for i in range(len(environments)):
-        show_environment(environments[i], obstacle_color=vehicle_colors[i], obstacles_alpha=1.0)
-        idx = min(traj_sample_idx, travelled_trajectories[i]["nb_samples"] - 2)
-        plt.plot(travelled_final_destinations[i][idx]["x"], 
-                 travelled_final_destinations[i][idx]["y"], 
-                 color=vehicle_colors[i], markersize=5, label="goal")
+    for h in handles_to_clear:
+        if isinstance(h, list):
+            for hh in h:
+                if hh is not None:
+                    hh.remove()
+        else:
+            h.remove()
+
+    handles_to_clear = []
 
     # show corridors
-    if SHOW_CORRIDORS:
-        for i in range(len(corridor_sequences)):
-            if (travelled_states[i][min(len(travelled_states[i])-1, traj_sample_idx)] == "IDLING"):
+    if prepared_data["SHOW_CORRIDORS"]:
+        for i in range(len(prepared_data["corridor_sequences"])):
+            if (prepared_data["travelled_states"][i][min(len(prepared_data["travelled_states"][i])-1, traj_sample_idx)] == "IDLING"):
                 continue
 
             replan_idx = 0
-            while replan_idx < len(planned_times[i]) - 1 and \
-                    T > planned_times[i][replan_idx+1]:
+            while replan_idx < len(prepared_data["planned_times"][i]) - 1 and \
+                    T > prepared_data["planned_times"][i][replan_idx+1]:
                 replan_idx += 1
-            corridors = corridor_sequences[i][replan_idx]
-            show_corridors(corridors, color=vehicle_colors[i], max_alpha=0.2)
+            corridors = prepared_data["corridor_sequences"][i][replan_idx]
+            h = show_corridors(corridors, color=prepared_data["vehicle_colors"][i], max_alpha=0.2)
+            handles_to_clear.extend(h)
 
     # show intersections
-    if SHOW_INTERSECTIONS:
+    if prepared_data["SHOW_INTERSECTIONS"]:
         for log in data["intersection_logs"]:
             if (T >= log["time_entering"] and T <= log["time_leaving"]):
                 # show_corridors({"sequence":[log["intersection"]]}, color='red')
 
-                show_corridor_union(log["intersection"], color='red')
-                # agent1 = log["agent_idx_1"]
-                # agent2 = log["agent_idx_2"]
-
-                # # check if agent1 is waiting for agent2
-                # if (travelled_states[agent1][min(len(travelled_states[agent1])-1, traj_sample_idx)] == "MOVING_TO_WAITING_POINT" or \
-                #     travelled_states[agent1][min(len(travelled_states[agent1])-1, traj_sample_idx)] == "WAITING_AT_INTERSECTION") and \
-                #    travelled_blocking_agent_idx[agent1][min(len(travelled_states[agent2])-1, traj_sample_idx)] == agent2:
-                #     show_corridor_union(log["intersection"], color=vehicle_colors[agent1])
-                # elif (travelled_states[agent2][min(len(travelled_states[agent2])-1, traj_sample_idx)] == "MOVING_TO_WAITING_POINT" or \
-                #       travelled_states[agent2][min(len(travelled_states[agent2])-1, traj_sample_idx)] == "WAITING_AT_INTERSECTION") and \
-                #       travelled_blocking_agent_idx[agent2][min(len(travelled_states[agent1])-1, traj_sample_idx)] == agent1:
-                #     show_corridor_union(log["intersection"], color=vehicle_colors[agent2])
-                # else:
-                #     show_corridor_union(log["intersection"], color='red')
-
-
+                h = show_corridor_union(log["intersection"], color='red')
+                handles_to_clear.extend(h)
+                
 
     # show claimed cells
-    if SHOW_CLAIMED_CELLS:
-        for (dest_name, destination) in claimable_destinations_info[min(len(claimable_destinations_info)-1, traj_sample_idx)].items():
+    if prepared_data["SHOW_CLAIMED_CELLS"]:
+        for (dest_name, destination) in prepared_data["claimable_destinations_info"][min(len(prepared_data["claimable_destinations_info"])-1, traj_sample_idx)].items():
             cell = destination["location"]
             color = 'lightgray'
             if destination["claimed"]:
                 agent_memory_address = destination["claimed_by"]
-                if agent_memory_address in agent_addresses:
-                    agent_idx = agent_addresses.index(agent_memory_address)
-                    color = vehicle_colors[agent_idx]
+                if agent_memory_address in prepared_data["agent_addresses"]:
+                    agent_idx = prepared_data["agent_addresses"].index(agent_memory_address)
+                    color = prepared_data["vehicle_colors"][agent_idx]
             
-            cell_width = environments[0]["cell_width"]
-            cell_height = environments[0]["cell_height"]
+            cell_width = prepared_data["environments"][0]["cell_width"]
+            cell_height = prepared_data["environments"][0]["cell_height"]
             corridor = {"x_min":cell["x"]*cell_width,
                         "x_max":(cell["x"]+1)*cell_width,
                         "y_min":cell["y"]*cell_height,
                         "y_max":(cell["y"]+1)*cell_height}    
-            show_corridors({"sequence":[corridor]}, color=color, max_alpha=0.5)
-
+            h = show_corridors({"sequence":[corridor]}, color=color, max_alpha=0.5)
+            handles_to_clear.extend(h)
 
     # show current plans completely
-    if SHOW_CURRENT_PLANS:
-        for i in range(len(planners)):
+    if prepared_data["SHOW_CURRENT_PLANS"]:
+        for i in range(len(prepared_data["planners"])):
             curr_plan_idx = 0
-            while curr_plan_idx < len(planned_times[i]) - 1 and T > planned_times[i][curr_plan_idx+1]:
+            while curr_plan_idx < len(prepared_data["planned_times"][i]) - 1 and T > prepared_data["planned_times"][i][curr_plan_idx+1]:
                 curr_plan_idx += 1
 
-            show_trajectory(planned_trajectories[i][curr_plan_idx], 'gray', show_markers=False)
-                
+            h, footprints = show_trajectory(prepared_data["planned_trajectories"][i][curr_plan_idx], 'gray', show_markers=False)
+            handles_to_clear.extend(h)
+            handles_to_clear.extend(footprints)                
 
     # show travelled trajectories
-    for i in range(len(planners)):
-        nb_of_unfaded_samples = 100 if SHOW_TRAVELLED_TRAJECTORIES else 0
-        if original_T > travelled_trajectories[i]["Tf"]:
-            normal_unfaded_time = nb_of_unfaded_samples*travelled_trajectories[i]["dt"]
-            unfaded_time = max(0, normal_unfaded_time - (original_T - travelled_trajectories[i]["Tf"]))
-            nb_of_unfaded_samples = int(unfaded_time/travelled_trajectories[i]["dt"])
-        show_trajectory(travelled_trajectories[i], vehicle_colors[i], with_trace=SHOW_TRAVELLED_TRAJECTORIES,
-                        width=planners[i]["parameters"]["veh_width"],
-                        height=planners[i]["parameters"]["veh_height"],
-                        with_footprints=True, 
-                        nb_samples_to_show=min(traj_sample_idx, len(travelled_trajectories[i]["px"])),
+    store_footprint_handles = len(footprint_handles) == 0
+    if store_footprint_handles:
+        footprint_handles = [[] for _ in range(len(prepared_data["planners"]))]
+        vehicle_nb_handles = [None for _ in range(len(prepared_data["planners"]))]
+        vehicle_state_handles = [None for _ in range(len(prepared_data["planners"]))]
+    for i in range(len(prepared_data["planners"])):
+        nb_of_unfaded_samples = 100 if prepared_data["SHOW_TRAVELLED_TRAJECTORIES"] else 0
+        if original_T >= prepared_data["travelled_trajectories"][i]["Tf"]:
+            normal_unfaded_time = nb_of_unfaded_samples*prepared_data["travelled_trajectories"][i]["dt"]
+            unfaded_time = max(0, normal_unfaded_time - (original_T - prepared_data["travelled_trajectories"][i]["Tf"]))
+            nb_of_unfaded_samples = int(unfaded_time/prepared_data["travelled_trajectories"][i]["dt"])
+        [h, footprints] = show_trajectory(prepared_data["travelled_trajectories"][i], prepared_data["vehicle_colors"][i], with_trace=prepared_data["SHOW_TRAVELLED_TRAJECTORIES"],
+                        width=prepared_data["planners"][i]["parameters"]["veh_width"],
+                        height=prepared_data["planners"][i]["parameters"]["veh_height"],
+                        with_footprints=store_footprint_handles, 
+                        nb_samples_to_show=min(traj_sample_idx, len(prepared_data["travelled_trajectories"][i]["px"])),
                         virtual_final_footprint=False, 
                         unfaded_nb_samples=nb_of_unfaded_samples, 
                         show_initial_footprint_if_showing_footprints=False,
                         trace_alpha=0.1)
-        if len(travelled_trajectories[i]['px']) > 0:
-            # plt.plot(travelled_trajectories[i]["px"][0], travelled_trajectories[i]["py"][0], 'o', 
-            #         color=vehicle_colors[i], markersize=5)
-            # plt.plot(travelled_trajectories[i]["px"][-1], travelled_trajectories[i]["py"][-1], 'o', 
-            #         color=vehicle_colors[i], markersize=5)
-            plt.plot(travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["x"],
-                    travelled_final_destinations[i][min(traj_sample_idx, len(travelled_final_destinations[i])-1)]["y"], 'o',
-                    color=vehicle_colors[i], markersize=5)
+        handles_to_clear.extend(h)
+        if store_footprint_handles:
+            footprint_handles[i] = footprints
+        else:
+            handles_to_clear.extend(footprints)
+            # update the positions
+            # NOTE: assuming we only have the final footprints
+            for j in range(len(footprint_handles[i])):
+                width=prepared_data["planners"][i]["parameters"]["veh_width"]
+                height=prepared_data["planners"][i]["parameters"]["veh_height"]
+                if j == 1:
+                    width *= 0.8
+                    height *= 0.8
+                # update the anchor of the fancybox
+                footprint_handles[i][j].set_x(
+                    prepared_data["travelled_trajectories"][i]["px"][min(traj_sample_idx, len(prepared_data["travelled_trajectories"][i]["px"])-1)]-width/2)
+                footprint_handles[i][j].set_y(
+                    prepared_data["travelled_trajectories"][i]["py"][min(traj_sample_idx, len(prepared_data["travelled_trajectories"][i]["py"])-1)]-height/2)
+
+        if len(prepared_data["travelled_trajectories"][i]['px']) > 0:
+            h = plt.plot(prepared_data["travelled_final_destinations"][i][min(traj_sample_idx, len(prepared_data["travelled_final_destinations"][i])-1)]["x"],
+                    prepared_data["travelled_final_destinations"][i][min(traj_sample_idx, len(prepared_data["travelled_final_destinations"][i])-1)]["y"], 'o',
+                    color=prepared_data["vehicle_colors"][i], markersize=5)
 
     # show vehicle numbers and states
-    for i in range(len(planners)):
-        if len(travelled_trajectories[i]['px']) > 0:
-            # vehicle number
-            plt.text(travelled_trajectories[i]["px"][traj_sample_idx] - 
-                        planners[i]["parameters"]["veh_width"]/4, 
-                     travelled_trajectories[i]["py"][traj_sample_idx] + 
-                        planners[i]["parameters"]["veh_height"]/4, 
-                     str(i), color=vehicle_colors[i], fontsize=10, ha='center', 
-                     va='center')
-            # vehicle state
-            local_idx = min(traj_sample_idx, len(travelled_states[i]) - 1)
-            state_string = str(travelled_states[i][local_idx])
-            if "WAIT" in state_string and "FREE" not in state_string:
-                state_string += " (" + str(data["agents"][i]["travelled_blocking_agent_idx"][local_idx]) + ")"
-            plt.text(0.66, 0.9 - i*0.05, state_string, 
-                     color=vehicle_colors[i], fontsize=8, ha='left', 
-                     va='top', transform=fig.transFigure)
+    for i in range(len(prepared_data["planners"])):
+        if len(prepared_data["travelled_trajectories"][i]['px']) > 0:
+            if store_footprint_handles:
+                # vehicle number
+                h = plt.text(prepared_data["travelled_trajectories"][i]["px"][traj_sample_idx] - 
+                            prepared_data["planners"][i]["parameters"]["veh_width"]/4, 
+                        prepared_data["travelled_trajectories"][i]["py"][traj_sample_idx] + 
+                            prepared_data["planners"][i]["parameters"]["veh_height"]/4, 
+                        str(i), color=prepared_data["vehicle_colors"][i], fontsize=10, ha='center', 
+                        va='center')
+                vehicle_nb_handles[i] = h
 
-    set_env_plot_limits(environments[0])
+                # vehicle state
+                local_idx = min(traj_sample_idx, len(prepared_data["travelled_states"][i]) - 1)
+                state_string = str(prepared_data["travelled_states"][i][local_idx])
+                if "WAIT" in state_string and "FREE" not in state_string:
+                    state_string += " (" + str(data["agents"][i]["travelled_blocking_agent_idx"][local_idx]) + ")"
+                h = plt.text(0.66, 0.9 - i*0.05, state_string, 
+                        color=prepared_data["vehicle_colors"][i], fontsize=8, ha='left', 
+                        va='top', transform=fig.transFigure)
+                vehicle_state_handles[i] = h
+            else:
+                # update position of vehicle nb
+                vehicle_nb_handles[i].set_position(
+                    [prepared_data["travelled_trajectories"][i]["px"][traj_sample_idx] - 
+                     prepared_data["planners"][i]["parameters"]["veh_width"]/4, 
+                     prepared_data["travelled_trajectories"][i]["py"][traj_sample_idx] + 
+                     prepared_data["planners"][i]["parameters"]["veh_height"]/4])
+                # update text of vehicle state
+                local_idx = min(traj_sample_idx, len(prepared_data["travelled_states"][i]) - 1)
+                state_string = str(prepared_data["travelled_states"][i][local_idx])
+                if "WAIT" in state_string and "FREE" not in state_string:
+                    state_string += " (" + str(data["agents"][i]["travelled_blocking_agent_idx"][local_idx]) + ")"
+                vehicle_state_handles[i].set_text(state_string)
+
+
+    set_env_plot_limits(prepared_data["environments"][0])
     plt.xticks([])
     plt.yticks([])
 
@@ -170,7 +172,7 @@ def create_multi_mover_motion_snapshot(data, T, fig=None, **kwargs):
     ax = plt.gca()
     ax.set_position([0.02, 0.1, 0.65, 0.8])
 
-    return
+    return handles_to_clear, footprint_handles, vehicle_nb_handles, vehicle_state_handles
 
 def create_multi_mover_motion_video(data, **kwargs):
     fps = kwargs.get('fps', 25)
@@ -184,18 +186,78 @@ def create_multi_mover_motion_video(data, **kwargs):
     import matplotlib.animation as animation
     from matplotlib.animation import FFMpegWriter
 
+    # prepare data
+    vehicle_colors = ['b', 'green', 'k', 'orange', 'purple', 'powderblue', 'hotpink', 'gold', 'teal', 'indigo', 'grey', 'coral', 'tomato']
+    vehicle_colors = vehicle_colors + vehicle_colors + vehicle_colors
+    planners = [d["planner"] for d in data["agents"]]
+    travelled_trajectories = [d["travelled_trajectory"] for d in data["agents"]]
+    planned_trajectories = [d["planned_trajectories"] for d in data["agents"]]
+    planned_times = [d["planned_times"] for d in data["agents"]]
+    travelled_final_destinations = [d["travelled_final_destinations"] for d in data["agents"]]
+    travelled_states = [d["travelled_states"] for d in data["agents"]]
+    travelled_blocking_agent_idx = [d["travelled_blocking_agent_idx"] for d in data["agents"]]
+    environments = [planner["environment"] for planner in planners]
+    corridor_sequences = [d["planned_corridor_sequences"] for d in data["agents"]]
+    agent_addresses = [d["memory_address"] for d in data["agents"]]
+    claimable_destinations_info = data["claimed_destinations_info"]
+    SHOW_CORRIDORS = 0
+    SHOW_INTERSECTIONS = 0
+    SHOW_CLAIMED_CELLS = 1
+    SHOW_CURRENT_PLANS = 0
+    SHOW_TRAVELLED_TRAJECTORIES = 0
+    prepared_data = {
+        "vehicle_colors": vehicle_colors,
+        "planners": planners,
+        "travelled_trajectories": travelled_trajectories,
+        "planned_trajectories": planned_trajectories,
+        "planned_times": planned_times,
+        "travelled_final_destinations": travelled_final_destinations,
+        "travelled_states": travelled_states,
+        "travelled_blocking_agent_idx": travelled_blocking_agent_idx,
+        "environments": environments,
+        "corridor_sequences": corridor_sequences,
+        "agent_addresses": agent_addresses,
+        "claimable_destinations_info": claimable_destinations_info,
+        "SHOW_CORRIDORS": SHOW_CORRIDORS,
+        "SHOW_INTERSECTIONS": SHOW_INTERSECTIONS,
+        "SHOW_CLAIMED_CELLS": SHOW_CLAIMED_CELLS,
+        "SHOW_CURRENT_PLANS": SHOW_CURRENT_PLANS,
+        "SHOW_TRAVELLED_TRAJECTORIES": SHOW_TRAVELLED_TRAJECTORIES
+    }
+
     writer = FFMpegWriter(fps=fps, codec="libx264", extra_args=['-pix_fmt', 'yuv420p'])
     fig = plt.figure(dpi=dpi)
-    def update(frame):
+    # show environment
+    for i in range(len(environments)):
+        show_environment(environments[i], obstacle_color=vehicle_colors[i], obstacles_alpha=1.0)
+    
+    handles = {
+    'handles_to_clear' : [],
+    'footprint_handles' : [],
+    'vehicle_nb_handles' : [],
+    'vehicle_state_handles' : [],
+    }
+
+    def update(frame, state):
         if frame % 5 == 0:
             print(f"creating figure at t = {frame*mp4_dt:.3f} ({frame*mp4_dt/total_time*100:.2f}%)")
-        create_multi_mover_motion_snapshot(data, T=mp4_dt*frame, fig=fig, kwargs=kwargs)
+        (state['handles_to_clear'],
+        state['footprint_handles'],
+        state['vehicle_nb_handles'],
+        state['vehicle_state_handles']) = create_multi_mover_motion_snapshot(
+            data, prepared_data,
+            state['handles_to_clear'],
+            state['footprint_handles'],
+            state['vehicle_nb_handles'],
+            state['vehicle_state_handles'],
+            T=mp4_dt*frame, fig=fig, kwargs=kwargs)
         return fig
     
     anim = animation.FuncAnimation(fig, update, 
                                     range(int((start_time/mp4_dt)), 
                                           int((stop_time/mp4_dt))), 
-                                    repeat=False)
+                                    repeat=False,
+                                    fargs=(handles,))
     anim.save(f"post-process/multi_mover_simulator/animations/animation.mp4", writer=writer)
 
 def extract_segments(task):
@@ -473,7 +535,7 @@ def visualize_computation_time_per_simulation_step(data):
     # plt.savefig("post-process/multi_mover_simulator/animations/buffered_samples_over_time.png")
 
     # Plotting: a bar plot with computation times under 10ms in blue and others in red
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12, 6), squeeze=False)
     computation_times = np.array(computation_times)
     time_grid = np.arange(0, len(computation_times)) * data["simulation_time_step"]
     colors = np.where(computation_times < 10, 'blue', 'red')
@@ -484,7 +546,122 @@ def visualize_computation_time_per_simulation_step(data):
     plt.ylim(0, 100)
     plt.savefig("post-process/multi_mover_simulator/animations/buffered_samples_over_time.png")
     
+def visualize_profilers(data):
+    profiler_colors = [[0.8, 0.2, 0.2], [0.2, 0.8, 0.2], [0.2, 0.2, 0.8], [0.6, 0.6, 0.0], [0.6, 0.0, 0.6], [0.0, 0.6, 0.6]]
+    profilers = data["profilers"]
     
+    for (p, pp) in zip(profilers.keys(), profilers.values()):
+        print(f"{p}: {pp.keys()}")
+
+    if len(profilers) > len(profiler_colors):
+        raise ValueError("Not enough colors defined for the number of profilers. Please add more colors to the profiler_colors list.")
+    
+    nb_pies = len(profilers) + 1
+    rows = int(np.sqrt(nb_pies))
+    cols = rows
+    counter = 0
+    while counter < 100 and rows * cols != nb_pies:
+        if rows*cols < nb_pies:
+            cols += 1
+        elif rows > 1:
+            rows -= 1
+        else:
+            cols -= 1
+
+        counter += 1
+
+    fig, axs = plt.subplots(rows, cols, figsize=(3*cols, 3*rows), squeeze=False)
+    main_averages = []
+    main_labels = []
+    main_colors = []
+    for profiler_idx, profiler_name in zip(range(len(profilers)), profilers.keys()):
+        c = profiler_colors[profiler_idx % len(profiler_colors)]
+        averages = [a["total_ms"] for k, a in zip(profilers[profiler_name].keys(), profilers[profiler_name].values())]
+        labels = profilers[profiler_name].keys()
+        colors = [[min(cc*s, 1.0) for cc in c] for s in np.linspace(1.0, 1.6, len(averages))]
+        ax = axs[profiler_idx // cols, profiler_idx % cols]
+        ax.pie(averages, labels=labels, colors=colors, autopct='%1.1f%%',
+               textprops={'fontsize':6}, startangle=140)
+        # ax.legend(labels)
+        ax.set_title(f'{profiler_name}', fontsize=8)
+
+        main_averages += averages
+        main_labels += labels
+        main_colors += colors
+
+    # show main profiler
+    ax = axs[-1, -1]
+    ax.cla()
+    ax.pie([profilers["ProcessPotentialVirtualCollision"]["ProcessPotentialVirtualCollision"]["total_ms"],
+            profilers["CheckForCollision"]["CheckForCollision"]["total_ms"],
+            profilers["DealWithCollision"]["DealWithCollision"]["total_ms"]], 
+            labels=["ProcessPotentialVritualCollisions", 
+                    "CheckForCollisions",
+                    "DealWithCollision"], autopct='%1.1f%%',
+           textprops={'fontsize':6}, startangle=140)
+
+    fig.subplots_adjust(bottom=0.1)  # adjust these as needed
+    from matplotlib.patches import Patch
+    handles = [Patch(facecolor=col, label=label) for col, label in zip(main_colors, main_labels)]
+    fig.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, 0.1),
+            ncol=min(len(main_labels), 6), fontsize=6)
+
+    # ax.set_title(f'Global profiling', fontsize=8)
+
+    print(profilers["SimulateAllTasks"])
+
+    plt.show()
+    return
+    
+    nested_profiler = profilers["SimulateAllTasks"]
+
+    # add SimulateSingleStep sub-parts (with overhead)
+    simulate_single_step_overhead = nested_profiler["SimulateSingleStep"]["total_ms"] - \
+        sum([profilers["SimulateSingleStep"][k]["total_ms"] for k in profilers["SimulateSingleStep"].keys()])
+    nested_profiler["SimulateSingleStep"] = profilers["SimulateSingleStep"]
+    nested_profiler["SimulateSingleStep"]["Overhead"] = {"total_ms" : max(0, simulate_single_step_overhead)}
+
+    # add ProcessPotentialNewCollisions sub-parts (with overhead)
+    process_potential_new_collisions_overhead = nested_profiler["SimulateSingleStep"]["ProcessPotentialNewCollisions"]["total_ms"] - \
+        sum([profilers["SimulateSingleStep"]["ProcessPotentialNewCollisions"]["total_ms"] for k in profilers["SimulateSingleStep"]["ProcessPotentialNewCollisions"].keys()])
+    nested_profiler["SimulateSingleStep"]["ProcessPotentialNewCollisions"] = {
+        "CheckForCollision": profilers["CheckForCollision"]["CheckForCollision"],
+        "DealWithCollision": profilers["DealWithCollision"]["DealWithCollision"],
+        "ProcessPotentialVirtualCollision": profilers["ProcessPotentialVirtualCollision"]["ProcessPotentialVirtualCollision"],
+        "Overhead": max(0, process_potential_new_collisions_overhead)
+    }
+
+    print("Nested profiler structure:")
+    for (k, v) in nested_profiler.items():
+        if isinstance(v, dict):
+            for (kk, vv) in v.items():
+                if isinstance(vv, dict):
+                    for (kkk, vvv) in vv.items():
+                        print(f"\t\t\t{kkk}: {vvv}")
+                else:
+                    print(f"\t\t{kk}: {vv}")
+        else:
+            print(f"\t{k}: {v}")
+
+    # main_colors = []
+    # main_labels = []
+    # main_values = []
+    # idx = 0
+
+    # # start with copying everything that will not be split
+    # for k, v in profilers["SimulateAllTasks"]:
+    #     if (k == "SimulateSingleStep"):
+    #         continue
+
+    #     main_colors.append(colors[idx])
+    #     main_labels.append(k)
+    #     main_values = v["total_ms"]
+    #     idx += 1
+    
+    # # compute the SimulateSingleStep overhead
+    # overhead = profilers["SimulateAllTasks"]["SimulateSingleStep"]["total_ms"] - \
+    #     sum([profilers["SimulateSingleStep"][k]["total_ms"] for k in profilers["SimulateSingleStep"].keys()])
+
 
 # Load the data
 file = "build/output/multi_mover_simulator.json"
@@ -493,7 +670,8 @@ with open(file) as f:
     data = json.load(f)
 
 # visualize_task_completion(data)
-visualize_task_completion_pie_chart(data)
+# visualize_task_completion_pie_chart(data)
 # visualize_computation_time_per_simulation_step(data)
+visualize_profilers(data)
 # exit()
-create_multi_mover_motion_video(data, fps=25, dpi=100)
+# create_multi_mover_motion_video(data, fps=25, dpi=300)
