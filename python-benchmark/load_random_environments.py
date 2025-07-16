@@ -16,8 +16,8 @@ def extract_data(file_name_appendix):
                             env_json['cell_width'], env_json['cell_height'])
         for i in range(env_json["nb_cell_rows"]):
             for j in range(env_json["nb_cell_cols"]):
-                if env_json["occupancy_grid"][i][j] != 0:
-                    env.AddObstacle(pmp.Point2Di(i, j))
+                if env_json["occupancy_grid"][j][i] != 0:
+                    env.AddObstacle(pmp.Point2Di(j, i))
 
         envs.append(env)
 

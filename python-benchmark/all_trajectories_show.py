@@ -167,7 +167,8 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
                             308: [0.94, 1.79, 0.11, 0.92],
                             363: [0.80, 1.48, 0.12, 0.72],
                             476: [0.39, 1.00, 1.15, 1.65]}
-    fig_folder = 'python-benchmark/benchmark_environments/large_double_more_obstacles_10/figures/'
+    benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
+    fig_folder = f'python-benchmark/benchmark_environments/{benchmark_name}/figures/'
 
     # modify the zoomboxes minimally to make them square
     for key in suboptimal_zoomboxes:
@@ -183,8 +184,8 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
             suboptimal_zoomboxes[key][0] = x_center - y_diff / 2
             suboptimal_zoomboxes[key][1] = x_center + y_diff /2
 
-    if fig_nb not in filtered_list and fig_nb not in suboptimal_list:
-        return
+    # if fig_nb not in filtered_list and fig_nb not in suboptimal_list:
+    #     return
 
 
     first_arena_idx = 0
@@ -203,8 +204,10 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
             colors.append('r')
         elif planner_methods[i] == "ARENA":
             colors.append('b')
-        else:
+        elif planner_methods[i] == "OMG":
             colors.append('k')
+        else:
+            colors.append('goldenrod')
 
     ### plot trajectory ###
     plt.figure(figsize=(4,4))
@@ -220,7 +223,8 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
         if fig_nb not in suboptimal_list or (fig_nb in suboptimal_list and planner_methods[i] in ["ARENA", "OCP"]):
             show_trajectory(trajectories[i], colors[i], parametrization["waypoints"][0], 
                             parametrization["waypoints"][parametrization["nb_corridors"]],
-                            planner_methods[i] == "ARENA", params["veh_width"], 
+                            planner_methods[i] == "ARENA" or "VP-STO" in planner_methods[i], 
+                            params["veh_width"], 
                             params["veh_height"], i == first_arena_idx)
 
  
@@ -257,9 +261,13 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.pdf')
         plt.show()
 
-    # plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=60)
-
-    plt.close()
+    plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=100)
+    travel_times = [traj["t"][-1] if len(traj["t"]) > 0 else -1 for traj in trajectories]
+    travel_times[-1] = round(travel_times[-1]*100)/100
+    for i in range(len(trajectories)):
+        print(f"{planner_methods[i]}: " + (f"\t" if i < 3 else "") + f"\t{travel_times[i]:.3f}s")
+    plt.show()
+    # plt.close()
 
 ###############################################################################
 ###############################################################################
@@ -267,38 +275,58 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
 ###############################################################################
 
 # bechmark_name = "large_double"
-benchmark_name = "large_double_more_obstacles_10"
+# benchmark_name = "large_double_more_obstacles_10"
+# benchmark_name = json.loads("structured_1")
+    
+# read benchmark name from python-benchmark/benchmark_environments.json
+benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
 
 N = 500
 
-for i in range(N):
+for i in range(300+0*N):
     print(f"{100.0*i/(N-1):.2f}% completion")
     digit = f'00{i}' if i < 10 else f'0{i}' if i < 100 else f'{i}'
     file_prefix = f"python-benchmark/benchmark_environments/{benchmark_name}/json_files/"
     file_appendix = f"_{digit}.json"
     files = [file_prefix + f"P2P{file_appendix}", 
              file_prefix + f"OMG{file_appendix}", 
-             file_prefix + f"OCP{file_appendix}", 
-             file_prefix + f"ARENA{file_appendix}"]
+             file_prefix + f"OCP-30-FATROP{file_appendix}", 
+             file_prefix + f"ARENA-FATROP{file_appendix}",
+             file_prefix + f"VP-STO-5{file_appendix}",
+             file_prefix + f"VP-STO-10{file_appendix}",
+             file_prefix + f"VP-STO-15{file_appendix}"]
              
     data = []
     for output_file in files:
-        with open(output_file) as f:
-            data.append(json.load(f))
-    
-    env = data[-1]["environment"]
-    params = data[-1]["parameters"]
-    corridors = data[-1]["corridor_sequence"]
-    planner_methods_list = ["P2P", "OMG", "OCP", "ARENA"]
+        try:
+            with open(output_file) as f:
+                data.append(json.load(f))
+        except:
+            print(f"File {output_file} not found, skipping...")
+            data.append({"trajectory": {"px": [], "py": [], "t": []},
+                        "environment": {}, "parameters": {}, 
+                        "corridor_sequence": {"sequence": [], "dest": {}}})
+            
+    arena_idx = 0
+    for j, file in enumerate(files):
+        if "ARENA" in file:
+            arena_idx = j
+            break
+
+    env = data[arena_idx]["environment"]
+    params = data[arena_idx]["parameters"]
+    corridors = data[arena_idx]["corridor_sequence"]
+    planner_methods_list = ["P2P", "OMG", "OCP", "ARENA", "VP-STO-5", "VP-STO-10", "VP-STO-15"]
     trajectories_list = [data[i]["trajectory"] for i in range(len(files))]
 
-    actually_used_methods = [0, 1, 2, 3]
+    actually_used_methods = [2, 3, 4, 5, 6]
+    # actually_used_methods = [1, 2, 3, 4]
     planner_methods_list = [pm for i, pm in enumerate(planner_methods_list) if i in actually_used_methods]
     trajectories_list = [tr for i, tr in enumerate(trajectories_list) if i in actually_used_methods]
 
     # if P2P is shown, cut the trajectory at the destination
     if 0 in actually_used_methods:
-        dest = data[-1]["corridor_sequence"]["dest"]
+        dest = data[arena_idx]["corridor_sequence"]["dest"]
         dist = 1.0e10
         for j in range(len(trajectories_list[0]["px"])-1, -1, -1):
             new_dist = (trajectories_list[0]["px"][j] - dest["x"])**2 + \
@@ -311,4 +339,4 @@ for i in range(N):
                 dist = new_dist
 
     visualize_output(env, params, corridors, planner_methods_list, 
-                     trajectories_list, i, data[-1]["parametrization"])
+                     trajectories_list, i, data[arena_idx]["parametrization"])

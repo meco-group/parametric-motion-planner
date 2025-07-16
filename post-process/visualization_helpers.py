@@ -34,7 +34,8 @@ def show_environment(env, obstacle_color='firebrick', **kwargs):
             elif occupancy[i][j] == 5:
                 color = obstacle_color
             else:
-                color = 'white'
+                # color = 'white'
+                color = None
 
             # check if user set the obstacles_only option
             obstacles_only = kwargs.get("obstacles_only", False)
@@ -43,7 +44,7 @@ def show_environment(env, obstacle_color='firebrick', **kwargs):
                 obstacles_alpha = 1.0
             if not obstacles_only or occupancy[i][j] == 2 or occupancy[i][j] == 5:
                 plt.gca().add_patch(Rectangle((i*cell_width, j*cell_height), 
-                                            cell_width, cell_height, fill=True,
+                                            cell_width, cell_height, fill=True if color is not None else False,
                                             facecolor=color, edgecolor=None,
                                             alpha=obstacles_alpha))
             

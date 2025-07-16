@@ -28,8 +28,10 @@ SAVE_FIGURES = False
 # with open('python-benchmark/files/results_large.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double.json', 'r') as f:
 # with open('python-benchmark/files/results_large_double_more_obstacles.json', 'r') as f:
-with open('python-benchmark/files/results_new_new_large_double_more_obstacles_10.json', 'r') as f:
+# with open('python-benchmark/files/results_new_new_large_double_more_obstacles_10.json', 'r') as f:
 # with open('python-benchmark/files/results_new_large_double_more_obstacles_25.json', 'r') as f:
+benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
+with open(f'python-benchmark/files/results_{benchmark_name}.json', 'r') as f:
     results = json.load(f)
 
 def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
@@ -101,7 +103,7 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     # plt.gcf().legend(loc='lower center', ncol = 3, frameon=False)
     plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = len(methods), frameon=False)
 
-    plt.yscale('log'); 
+    # plt.yscale('log'); 
     plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
 
     plt.tight_layout(rect=[0, 0.12, 1, 1])
@@ -182,6 +184,52 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
             my_xticks.sort()
 
     plt.xticks(my_xticks, my_xticks)
+
+def optimality_comparison_violin(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
+    Tf_baseline = np.array(results[baseline_method]["Tf"])
+    Tfs = [np.array(results[method]["Tf"]) for method in methods]
+    og_idxs = [np.arange(len(Tf_baseline)) for Tf in Tfs]
+
+    # get indices where all methods are succesfull and feasible
+    idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
+    idx = np.logical_and(idx, np.array(results[baseline_method]["corridor_infeasibilities_detected"] == False))
+    for Tf in Tfs:
+        idx = np.logical_and(idx, Tf >= 0)
+        idx = np.logical_and(idx, np.array(results[method]["corridor_infeasibilities_detected"] == False))
+    Tf_baseline = Tf_baseline[idx]
+    Tfs = [Tf[idx] for Tf in Tfs]
+    og_idxs = [og_idx[idx] for og_idx in og_idxs]
+
+    # compute errors
+    rel_errors = [100*(Tf - Tf_baseline) / Tf_baseline for Tf in Tfs]
+    if use_abs_error:
+        rel_errors = [Tf - Tf_baseline for Tf in Tfs]
+
+    # visualize
+    plt.figure(figsize=(2,3))
+    
+    # for each method, show the relative error as a violin plot
+    import pandas as pd
+    data = pd.DataFrame()
+    for i in range(len(rel_errors)):
+        data[f"{methods[i]}"] = rel_errors[i]
+    
+    # show boxplots
+    # sns.violinplot(data=data, width=0.5, palette=colors)
+    sns.boxplot(data=data, linewidth=.5, width=0.5, palette=colors, showfliers=True)
+    plt.axhline(0, color='k', linestyle='-', lw=0.5)
+
+    plt.xlabel("\% of Benchmark Environments")
+    if use_abs_error:
+        plt.ylabel("Absolute suboptimality [s]")
+    else:
+        plt.ylabel("Relative error\non $t_{\mathrm{move}}$ [\%]")
+    plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = len(methods), frameon=False)
+
+    # plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
+
+    plt.tight_layout(rect=[0, 0.12, 1, 1])
+
 
 def show_relative_difference_density(results, baseline_method, other_method, colors, idx_map, use_abs_error=False):
     Tf_baseline = np.array(results[baseline_method]["Tf"]) + 0*np.array(results[baseline_method]["t_comp_total"]) / 1000
@@ -451,6 +499,9 @@ def create_latex_table(results, corridor_evaluation=False):
         failures = np.logical_or(failures, np.array(results[method]["t_comp_total"]) < 0)
         failures = np.logical_or(failures, np.array(results[method]["Tf"]) < 0)
 
+        # if method == "vp-sto-5" or method == "vp-sto-10" or method == "vp-sto-15":
+        #     failures = np.logical_or(failures, np.array(results[method]["corridor_infeasibilities_detected"]) == True)
+
     
     for method in results.keys():
         results[method]["t_comp_solver"] = np.array(results[method]["t_comp_solver"])
@@ -483,7 +534,7 @@ def create_latex_table(results, corridor_evaluation=False):
     if corridor_evaluation:
         methods = ["ARENA-FATROP", "OCP-30-FATROP", "ARENA-EXTENDED-FATROP", "OCP-30-EXTENDED-FATROP"]
     else:
-        methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P"]
+        methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P", "VP-STO-5", "VP-STO-10", "VP-STO-15"]
     
     for method in methods:
     # for method in data.keys():
@@ -568,7 +619,19 @@ def filter_results_for_fair_comparison(results):
         if not failures[i]:
             idx_map[len(idx_map)] = i
 
-    return filtered_results, idx_map
+    filtered_feasible_results = {}
+    infeasibles = np.array(results["OCP-30-FATROP"]["corridor_infeasibilities_detected"]) == True
+    for method in results.keys():
+        infeasibles = np.logical_or(infeasibles, np.array(results[method]["corridor_infeasibilities_detected"]) == True)
+
+    for method in results.keys():
+        filtered_feasible_results[method] = {}
+        filtered_feasible_results[method]["t_comp_solver"] = np.array(results[method]["t_comp_solver"])[~infeasibles]
+        filtered_feasible_results[method]["t_comp_total"] = np.array(results[method]["t_comp_total"])[~infeasibles]
+        filtered_feasible_results[method]["Tf"] = np.array(results[method]["Tf"])[~infeasibles]
+        filtered_feasible_results[method]["corridor_infeasibilities_detected"] = np.array(results[method]["corridor_infeasibilities_detected"])[~infeasibles]
+
+    return filtered_results, idx_map, filtered_feasible_results
 
 def translate_method_names(method_names):
     translation = []
@@ -584,6 +647,12 @@ def translate_method_names(method_names):
             translation.append("OCP-F")
         elif method == "OCP-30-EXTENDED-FATROP":
             translation.append("OCP-F")
+        elif method == "vp-sto-5":
+            translation.append("VP-STO-5")
+        elif method == "vp-sto-10":
+            translation.append("VP-STO-10")
+        elif method == "vp-sto-15":
+            translation.append("VP-STO-15")
         else:
             translation.append(method)
 
@@ -592,12 +661,14 @@ def translate_method_names(method_names):
 def visualize_avg_moving_time(results, methods, colors):
     plt.figure(figsize=(6,3))
 
-    Tfs = [np.mean(np.array(results["ARENA-FATROP"]["Tf"])),
-           np.mean(np.array(results["OCP-30-FATROP"]["Tf"])),
-           np.mean(np.array(results["OmgTools"]["Tf"])),
-           np.mean(np.array(results["P2P"]["Tf"]))]
-    labels = ["PMP-F", "OCP-F", "OmgTools", "P2P"]
-    colors = ["royalblue", "red", "black", "orange"]
+    # Tfs = [np.mean(np.array(results["ARENA-FATROP"]["Tf"])),
+    #        np.mean(np.array(results["OCP-30-FATROP"]["Tf"])),
+    #        np.mean(np.array(results["OmgTools"]["Tf"])),
+    #        np.mean(np.array(results["P2P"]["Tf"]))]
+    # labels = ["PMP-F", "OCP-F", "OmgTools", "P2P"]
+    # colors = ["royalblue", "red", "black", "orange"]
+    Tfs = [np.mean(np.array(results[method]["Tf"])) for method in methods]
+    labels = methods
 
     # create horizontal bar plot
     plt.barh(labels, Tfs, color=colors)
@@ -611,7 +682,8 @@ def visualize_avg_moving_time(results, methods, colors):
     plt.xlim([0, 1.1*np.max(Tfs)])
     plt.tight_layout()
 
-    plt.savefig("python-benchmark/figures/avg_moving_time_bars.png", dpi=300)
+    if SAVE_FIGURES:
+        plt.savefig("python-benchmark/figures/avg_moving_time_bars.png", dpi=300)
 
 def visualize_avg_solver_and_total_time(results, methods, colors):
     t_solvers = [np.mean(np.array(results["ARENA-FATROP"]["t_comp_solver"])),
@@ -640,7 +712,8 @@ def visualize_avg_solver_and_total_time(results, methods, colors):
     # plt.legend(loc='upper right', ncol=2)
     plt.tight_layout()
 
-    plt.savefig("python-benchmark/figures/avg_solver_time_bars.png", dpi=300)
+    if SAVE_FIGURES:
+        plt.savefig("python-benchmark/figures/avg_solver_time_bars.png", dpi=300)
 
     # create horizontal bar plot for total time
     plt.figure(figsize=(6,3))
@@ -657,41 +730,31 @@ def visualize_avg_solver_and_total_time(results, methods, colors):
     plt.legend(loc='upper right', ncol=2)
     plt.tight_layout()
 
-    plt.savefig("python-benchmark/figures/avg_total_time_bars.png", dpi=300)
+    if SAVE_FIGURES:
+        plt.savefig("python-benchmark/figures/avg_total_time_bars.png", dpi=300)
 
     # plt.show()
 
 
 # print out all infeasible cases
-for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTools"]:
-    infeasibles = []
-    if method in results.keys():
-        for i in range(len(results[method]["corridor_infeasibilities_detected"])):
-            if results[method]["corridor_infeasibilities_detected"][i]:
-                infeasibles.append(i)
-    print(f"{method} infeasible cases ({len(infeasibles)}): {infeasibles}")
+# for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTools", "vp-sto-5", "vp-sto-10", "vp-sto-15"]:
+#     infeasibles = []
+#     if method in results.keys():
+#         for i in range(len(results[method]["corridor_infeasibilities_detected"])):
+#             if results[method]["corridor_infeasibilities_detected"][i]:
+#                 infeasibles.append(i)
+#     print(f"{method} infeasible cases ({len(infeasibles)}): {infeasibles}")
 
 import matplotlib.pyplot as plt
 
-filtered_results, idx_map = filter_results_for_fair_comparison(results)
+filtered_results, idx_map, filtered_feasible_results = filter_results_for_fair_comparison(results)
 
-# tfs_arena = np.array(filtered_results["ARENA"]["Tf"])
-# tfs_arena_fatrop = np.array(filtered_results["ARENA-FATROP"]["Tf"])
-# diff = tfs_arena - tfs_arena_fatrop
-# plt.figure()
-# sns.kdeplot(diff, color='royalblue', label="ARENA - ARENA-FATROP", fill=True, alpha=0.5)
-# plt.show()
-
-# print(f"OCP failure case: {np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0)}")
-optimality_comparison_extended_new_new(filtered_results, "OCP-30-FATROP", 
-                                   ["P2P", "OmgTools", "ARENA"], 
-                                   ["orange", "black", "royalblue"], idx_map)
+# optimality_comparison_extended_new_new(filtered_results, "OCP-30-FATROP", 
+#                                    ["P2P", "OmgTools", "ARENA", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
+#                                    ["orange", "black", "royalblue", "red", "firebrick", "darkred"], idx_map)
 if SAVE_FIGURES:
     plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
     plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
-
-# plt.figure()
-# compare_travel_time_plus_total_comp_time(results, "OCP-30", "ARENA", "red", "royalblue")
 
 show_histogram_densities(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
 if SAVE_FIGURES:
@@ -702,22 +765,30 @@ create_latex_table(results)
 create_latex_table(results, True)
 
 ## CORRIDOR EVALUATION
-optimality_comparison_extended_new_new(filtered_results, "OCP-30-EXTENDED-FATROP",
-                                ["ARENA-FATROP", "OCP-30-FATROP"], 
-                                ["royalblue", "red"], idx_map)
+# optimality_comparison_extended_new_new(filtered_results, "OCP-30-EXTENDED-FATROP",
+#                                 ["ARENA-FATROP", "OCP-30-FATROP"], 
+#                                 ["royalblue", "red"], idx_map)
 # if SAVE_FIGURES:
 #     plt.savefig("python-benchmark/figures/optimality_comparison_corridor_extension.png", dpi=300)
+# optimality_comparison_extended_new_new(filtered_results, "OCP-30-FATROP",
+#                              ["OmgTools", "ARENA", "VP-STO-5", 
+#                               "VP-STO-10", "VP-STO-15"], 
+#                              ["black", "royalblue", "gold", "goldenrod", "darkgoldenrod"], idx_map)
 
-# filtered_results["OCP-30-FATROP"] = filtered_results["OCP-30-EXTENDED-FATROP"]
-# show_histogram_densities(filtered_results, 
-#     ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], 
-#     ["royalblue", "royalblue", "red", "orange", "black"])
-show_relative_difference_density(filtered_results, "OCP-30-EXTENDED-FATROP",
-    "OCP-30-FATROP", ["red"], idx_map)
+# show_relative_difference_density(filtered_results, "OCP-30-EXTENDED-FATROP",
+#     "OCP-30-FATROP", ["red"], idx_map)
 if SAVE_FIGURES:
     plt.savefig("python-benchmark/figures/relative-reduction-corridor-extension.png", dpi=300)
 
-visualize_avg_moving_time(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
-visualize_avg_solver_and_total_time(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
-
-# plt.show()
+visualize_avg_moving_time(filtered_results, 
+                          ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
+                           "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
+                           ["royalblue", "royalblue", "red", "orange", "black",
+                            "gold", "goldenrod", "darkgoldenrod"])
+# visualize_avg_solver_and_total_time(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
+visualize_avg_moving_time(filtered_feasible_results, 
+                          ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
+                           "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
+                           ["royalblue", "royalblue", "red", "orange", "black",
+                            "gold", "goldenrod", "darkgoldenrod"])
+plt.show()

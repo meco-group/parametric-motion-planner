@@ -8,10 +8,12 @@ import json
 # file_name_appendix = "_double"
 # file_name_appendix = "_large"
 # file_name_appendix = "_large_double"
-file_name_appendix = "_large_double_more_obstacles_25"
+# file_name_appendix = "_large_double_more_obstacles_25"
+# file_name_appendix = "_structured_1"
+file_name_appendix = "_" + json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
 
 # create containers for results
-results = json.load(open('python-benchmark/files/results_new' + file_name_appendix + '.json'))
+results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
 results["OmgTools"] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [], 
                        "corridor_infeasibilities_detected": []}
 
@@ -51,5 +53,5 @@ print(travel_times)
 
 # store results as a json
 import json
-with open('python-benchmark/files/results_new' + file_name_appendix + '.json', 'w') as f:
+with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
     json.dump(results, f, indent=4)

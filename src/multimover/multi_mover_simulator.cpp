@@ -439,6 +439,7 @@ void MultiMoverSimulator::ProcessPotentialVirtualCollision(int agent_idx){
 }
 
 bool MultiMoverSimulator::CheckForCollision(int agent_idx_1, int agent_idx_2){
+    // NOTE: this function is a huge bottleneck --> do better!
     std::cout << "Checking for collision between agents " << agent_idx_1;
     std::cout << " and " << agent_idx_2 << std::endl;
     int nb_time_steps_to_check = std::max(

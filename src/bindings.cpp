@@ -60,6 +60,7 @@ PYBIND11_MODULE(parametric_motion_planner_module, m){
         .def(pybind11::init<>())
         .def(pybind11::init<int, int, double, double>())
         .def("AddObstacle", &Environment::AddObstacle)
+        .def("DeleteCell", &Environment::DeleteCell)
         .def("AddRandomObstacles", &Environment::AddRandomObstacles)
         .def("GetRandomFreeVehiclePosition", [](Environment& self, Point2D<double>& pos,
             double vehicle_width, double vehicle_height, double margin){
