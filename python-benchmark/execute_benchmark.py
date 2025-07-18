@@ -53,15 +53,16 @@ method_names = ["OCP-30",
                 "VP-STO-10",
                 "VP-STO-15"]
 default_selection = [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-arena_selection = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]
+arena_selection = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
 extended_selection = [0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0]
 vp_sto_selection = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]
 assert len(methods) == len(method_names)
 
-my_selection = default_selection
+# my_selection = default_selection
 # my_selection = arena_selection
 # my_selection = extended_selection
 # my_selection = vp_sto_selection
+my_selection = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
@@ -123,6 +124,9 @@ for method, method_name in zip(methods, method_names):
             results[method_name]["Tf"].append(vp_sto_solver.GetTravelTime())
             results[method_name]["t_comp_total"].append(1000*vp_sto_solver.GetTotalComputationTime())
             results[method_name]["t_comp_solver"].append(1000*vp_sto_solver.GetSolverTime())
+            if vp_sto_solver.SolverFailed():
+                failures.append(i)
+                results[method_name]["t_comp_solver"][-1] = -1
             results[method_name]["corridor_infeasibilities_detected"].append(
                 vp_sto_solver.GetFeasible() == False)
             
@@ -202,13 +206,12 @@ for method, method_name in zip(methods, method_names):
                 print("Planning...")
                 try:
                     motion_planner.Plan()
+                    print("\n\n\n\n\n\n\n\nPLANNER FAILED\n\n\n\n\n\n\n\n")
                     if STORE_TRAJECTORIES:
                         motion_planner.DumpToJson(
                             f'python-benchmark/benchmark_environments/{file_name_appendix[1:]}/json_files/{method_name}_{digit}.json', False)
                 except Exception as e:
-                    print("\n\n\n\n\n\n\n\nPLANNER FAILED\n\n\n\n\n\n\n\n")
                     print(e)
-                    pass
                 # motion_planner.Plan()
                 print("Done.")
                 print("Travel time: ", motion_planner.GetTravelTime())
@@ -223,6 +226,11 @@ for method, method_name in zip(methods, method_names):
                     motion_planner.CorridorInfeasibilitiesDetected())
                 if motion_planner.GetTotalComputationTime() < 0 or motion_planner.GetSolverTime() < 0:
                     failures.append(i)
+                    if STORE_TRAJECTORIES:
+                        motion_planner.SetDest(starts[i])
+                        motion_planner.Plan()
+                        motion_planner.DumpToJson(
+                            f'python-benchmark/benchmark_environments/{file_name_appendix[1:]}/json_files/{method_name}_{digit}.json', False)
                 else:
                     avg_travel_time += motion_planner.GetTravelTime()
                 avg_solver_time += motion_planner.GetSolverTime()
@@ -264,7 +272,7 @@ for method, method_name in zip(methods, method_names):
                     False)
 
 
-# store results as a json
-import json
-with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
-    json.dump(results, f, indent=4)
+    # store results as a json
+    import json
+    with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
+        json.dump(results, f, indent=4)

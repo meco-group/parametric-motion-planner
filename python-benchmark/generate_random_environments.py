@@ -22,8 +22,38 @@ a_max_ub = 6.5
 USE_CELL_POSITIONS = False
 
 # create random parameters and environments
-N = 5
-env = pmp.Environment(9, 11, 0.12, 0.12)
+N = 100
+
+# STRUCTURED_1
+# env = pmp.Environment(9, 11, 0.12, 0.12)
+# start = pmp.Point2Dd(0, 0)
+# dest = pmp.Point2Dd(0, 0)
+# p = pmp.Parameters(2.0, 6.0, 0.115, 0.115, 0.001)
+# mp = pmp.MotionPlanner(pmp.PlannerMethod.OCP, p, env)
+# counter = 0
+# max_normal_corridors = -1
+# max_extended_corridors = -1
+# xx = [2, 2, 2, 2, 3, 3, 3, 3, 6, 6, 6, 6, 6, 8, 8, 8, 8, 9, 9, 9, 9]
+# yy = [2, 3, 5, 6, 2, 3, 5, 6, 2, 3, 4, 5, 6, 2, 3, 5, 6, 2, 3, 5, 6]
+# for x, y in zip(xx, yy):
+#     env.DeleteCell(pmp.Point2Di(x, y))
+
+# STRUCTURED_2
+# env = pmp.Environment(9, 11, 0.12, 0.12)
+# start = pmp.Point2Dd(0, 0)
+# dest = pmp.Point2Dd(0, 0)
+# p = pmp.Parameters(2.0, 6.0, 0.115, 0.115, 0.001)
+# mp = pmp.MotionPlanner(pmp.PlannerMethod.OCP, p, env)
+# counter = 0
+# max_normal_corridors = -1
+# max_extended_corridors = -1
+# xx = [2, 3, 4, 6, 7, 8]
+# yy = [4, 4, 4, 4, 4, 4]
+# for x, y in zip(xx, yy):
+#     env.DeleteCell(pmp.Point2Di(x, y))
+
+# STRUCTURED_3
+env = pmp.Environment(1+2+2+11+2, 2+1+3+1+2+1+3+3+1+2+1, 0.12, 0.12)
 start = pmp.Point2Dd(0, 0)
 dest = pmp.Point2Dd(0, 0)
 p = pmp.Parameters(2.0, 6.0, 0.115, 0.115, 0.001)
@@ -31,16 +61,21 @@ mp = pmp.MotionPlanner(pmp.PlannerMethod.OCP, p, env)
 counter = 0
 max_normal_corridors = -1
 max_extended_corridors = -1
-
-# STRUCTURED_1
-# xx = [2, 2, 2, 2, 3, 3, 3, 3, 6, 6, 6, 6, 6, 8, 8, 8, 8, 9, 9, 9, 9]
-# yy = [2, 3, 5, 6, 2, 3, 5, 6, 2, 3, 4, 5, 6, 2, 3, 5, 6, 2, 3, 5, 6]
-# for x, y in zip(xx, yy):
-#     env.DeleteCell(pmp.Point2Di(x, y))
-
-# STRUCTURED_2
-xx = [2, 3, 4, 6, 7, 8]
-yy = [4, 4, 4, 4, 4, 4]
+xx = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,  
+      6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+      13, 14, 15, 13, 14, 15, 13, 14, 15, 16, 13, 14, 15,
+      14, 15, 14, 15,
+      17, 18, 17, 18,
+      4, 5, 4, 5]
+yy = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 
+      2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+      2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+      2, 2, 2, 5, 5, 5, 8, 8, 8, 8, 11, 11, 11,
+      14, 14, 15, 15,
+      1, 1, 2, 2,
+      15, 15, 16, 16]
+assert len(xx) == len(yy)
 for x, y in zip(xx, yy):
     env.DeleteCell(pmp.Point2Di(x, y))
 
@@ -110,7 +145,8 @@ print(f"Max extended corridors: {max_extended_corridors}")
 # file_appendix = "_large_double_more_obstacles" # 0.15 obstacle probability
 # file_appendix = "_large_double_more_obstacles_25"
 # file_appendix = "_structured_1"
-file_appendix = "_structured_2"
+# file_appendix = "_structured_3_large"
+file_appendix = "_none"
         
 with open('python-benchmark/files/random_environments' + file_appendix + '.json', 'w') as f:
     json.dump(j, f, indent=4)

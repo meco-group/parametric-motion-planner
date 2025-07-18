@@ -4,6 +4,7 @@ from matplotlib.patches import Rectangle, FancyBboxPatch
 import sys
 import shapely.geometry as sg
 import shapely.ops as so
+import os
 import matplotlib.ticker as ticker
 sys.path.append('build/')
 sys.path.append('python-benchmark/')
@@ -161,12 +162,13 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     # fig_folder = 'python-benchmark/benchmark_environments/large_double/figures/'
 
     # large_double_more_obstacles_10:
-    filtered_list = [64, 446, 252, 131]
-    suboptimal_list = [476, 308, 112, 363]
-    suboptimal_zoomboxes = {112: [1.11, 1.55, 1.11, 1.59],
-                            308: [0.94, 1.79, 0.11, 0.92],
-                            363: [0.80, 1.48, 0.12, 0.72],
-                            476: [0.39, 1.00, 1.15, 1.65]}
+    # filtered_list = [64, 446, 252, 131]
+    # suboptimal_list = [476, 308, 112, 363]
+    # suboptimal_zoomboxes = {112: [1.11, 1.55, 1.11, 1.59],
+    #                         308: [0.94, 1.79, 0.11, 0.92],
+    #                         363: [0.80, 1.48, 0.12, 0.72],
+    #                         476: [0.39, 1.00, 1.15, 1.65]}
+    filtered_list = []; suboptimal_list = []; suboptimal_zoomboxes = {}
     benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
     fig_folder = f'python-benchmark/benchmark_environments/{benchmark_name}/figures/'
 
@@ -207,7 +209,12 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
         elif planner_methods[i] == "OMG":
             colors.append('k')
         else:
-            colors.append('goldenrod')
+            if "15" in planner_methods[i]:
+                colors.append('darkgoldenrod')
+            elif "10" in planner_methods[i]:
+                colors.append('goldenrod')
+            elif "5" in planner_methods[i]:
+                colors.append('gold')
 
     ### plot trajectory ###
     plt.figure(figsize=(4,4))
@@ -226,8 +233,9 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
                             planner_methods[i] == "ARENA" or "VP-STO" in planner_methods[i], 
                             params["veh_width"], 
                             params["veh_height"], i == first_arena_idx)
+    
 
- 
+
     # pts = [0.511041, 0.172393, 0.511041, 0.177022, 0.54149, 0.1785, 0.84088, 0.178954, 0.953821, 0.155781, 1.01849, 0.1815, 1.24629, 0.181509, 1.25851, 0.30149, 1.25851, 0.30149, 1.29906, 0.3015, 1.29906, 0.3015, 1.29937, 0.336515]
     # pts_x = [pts[2*i] for i in range(len(pts)//2)]
     # pts_y = [pts[2*i+1] for i in range(len(pts)//2)]
@@ -266,7 +274,7 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     travel_times[-1] = round(travel_times[-1]*100)/100
     for i in range(len(trajectories)):
         print(f"{planner_methods[i]}: " + (f"\t" if i < 3 else "") + f"\t{travel_times[i]:.3f}s")
-    plt.show()
+    # plt.show()
     # plt.close()
 
 ###############################################################################
@@ -280,10 +288,23 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     
 # read benchmark name from python-benchmark/benchmark_environments.json
 benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
+SKIP_EXISTING_FILES = True
 
-N = 500
+# set N equal to the largest number found in the json files folder
+# those files are all named XXXX_{digit}.json, where digit is a number from 0 to N-1
+file_prefix = f"python-benchmark/benchmark_environments/{benchmark_name}/json_files/"
+files = [f for f in os.listdir(file_prefix) if f.endswith('.json')]
+N = 0
+for f in files:
+    try:
+        digit = int(f.split('_')[-1].split('.')[0])
+        if digit >= N:
+            N = digit + 1
+    except ValueError:
+        print(f"File {f} does not have a valid digit, skipping...")
+        
 
-for i in range(300+0*N):
+for i in range(N):
     print(f"{100.0*i/(N-1):.2f}% completion")
     digit = f'00{i}' if i < 10 else f'0{i}' if i < 100 else f'{i}'
     file_prefix = f"python-benchmark/benchmark_environments/{benchmark_name}/json_files/"
@@ -319,7 +340,7 @@ for i in range(300+0*N):
     planner_methods_list = ["P2P", "OMG", "OCP", "ARENA", "VP-STO-5", "VP-STO-10", "VP-STO-15"]
     trajectories_list = [data[i]["trajectory"] for i in range(len(files))]
 
-    actually_used_methods = [2, 3, 4, 5, 6]
+    actually_used_methods = [1, 2, 3, 4, 5, 6]
     # actually_used_methods = [1, 2, 3, 4]
     planner_methods_list = [pm for i, pm in enumerate(planner_methods_list) if i in actually_used_methods]
     trajectories_list = [tr for i, tr in enumerate(trajectories_list) if i in actually_used_methods]
@@ -338,5 +359,11 @@ for i in range(300+0*N):
             else:
                 dist = new_dist
 
+    # if the file already exists, skip
+    if SKIP_EXISTING_FILES:
+        file_name = f'python-benchmark/benchmark_environments/{benchmark_name}/figures/traj_{digit}.png'
+        if os.path.exists(file_name):
+            print(f"File {file_name} already exists, skipping...")
+            continue
     visualize_output(env, params, corridors, planner_methods_list, 
                      trajectories_list, i, data[arena_idx]["parametrization"])

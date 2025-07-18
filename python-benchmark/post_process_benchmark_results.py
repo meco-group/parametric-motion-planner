@@ -20,7 +20,7 @@ def latexify():
  
 latexify()
 
-SAVE_FIGURES = False
+SAVE_FIGURES = True
 
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
@@ -103,7 +103,7 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     # plt.gcf().legend(loc='lower center', ncol = 3, frameon=False)
     plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = len(methods), frameon=False)
 
-    # plt.yscale('log'); 
+    plt.yscale('log'); 
     plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
 
     plt.tight_layout(rect=[0, 0.12, 1, 1])
@@ -136,28 +136,28 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
                             )
             plt.vlines(idx1, ymin=0.001, ymax=1, colors='k', ls='-', lw=1, zorder=10)
             
-            p = 5
-            idx = np.where(rel_errors[i] > p)[0]
-            idx2 = 100*idx[0]/len(rel_errors[i])
-            plt.plot(idx2, p, 'o', color='royalblue', markersize=7, zorder=11)
-            if not REMOVE_ANNOTATION:
-                arrow_start = (idx2, p)
-                arrow_end = (71, 252)
-                plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx2:.0f}\% of\nenvironments",
-                            xy=arrow_start, xycoords='data',
-                            xytext=arrow_end, textcoords='data',
-                            # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
-                            # show a slightly curved arrow with a solid arrowhead
-                            arrowprops=dict(arrowstyle="-|>", 
-                                            connectionstyle="arc3,rad=-.1", 
-                                            lw=1,
-                                            color='royalblue'),
-                            fontsize=15, color='royalblue'
-                            )
-            plt.vlines(idx2, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
+            # p = 5
+            # idx = np.where(rel_errors[i] > p)[0]
+            # idx2 = 100*idx[0]/len(rel_errors[i])
+            # plt.plot(idx2, p, 'o', color='royalblue', markersize=7, zorder=11)
+            # if not REMOVE_ANNOTATION:
+            #     arrow_start = (idx2, p)
+            #     arrow_end = (71, 252)
+            #     plt.annotate(f"error less\nthan {p:.0f}\%\nin {idx2:.0f}\% of\nenvironments",
+            #                 xy=arrow_start, xycoords='data',
+            #                 xytext=arrow_end, textcoords='data',
+            #                 # arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0.2"),
+            #                 # show a slightly curved arrow with a solid arrowhead
+            #                 arrowprops=dict(arrowstyle="-|>", 
+            #                                 connectionstyle="arc3,rad=-.1", 
+            #                                 lw=1,
+            #                                 color='royalblue'),
+            #                 fontsize=15, color='royalblue'
+            #                 )
+            # plt.vlines(idx2, ymin=0.001, ymax=5, colors='k', ls='-', lw=1, zorder=10)
                 
             my_xticks.append(round(idx1))
-            my_xticks.append(round(idx2))
+            # my_xticks.append(round(idx2))
             my_xticks.sort()
             
         if methods[i] == "OmgTools":
@@ -185,17 +185,20 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
 
     plt.xticks(my_xticks, my_xticks)
 
-def optimality_comparison_violin(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
+def optimality_comparison_violin(results, baseline_method, methods, colors, 
+                                 idx_map, use_abs_error=False, include_infeasibles=False):
     Tf_baseline = np.array(results[baseline_method]["Tf"])
     Tfs = [np.array(results[method]["Tf"]) for method in methods]
     og_idxs = [np.arange(len(Tf_baseline)) for Tf in Tfs]
 
     # get indices where all methods are succesfull and feasible
     idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
-    idx = np.logical_and(idx, np.array(results[baseline_method]["corridor_infeasibilities_detected"] == False))
-    for Tf in Tfs:
+    if not include_infeasibles:
+        idx = np.logical_and(idx, np.array(results[baseline_method]["corridor_infeasibilities_detected"] == False))
+    for Tf, method in zip(Tfs, methods):
         idx = np.logical_and(idx, Tf >= 0)
-        idx = np.logical_and(idx, np.array(results[method]["corridor_infeasibilities_detected"] == False))
+        if not include_infeasibles:
+            idx = np.logical_and(idx, np.array(results[method]["corridor_infeasibilities_detected"] == False))
     Tf_baseline = Tf_baseline[idx]
     Tfs = [Tf[idx] for Tf in Tfs]
     og_idxs = [og_idx[idx] for og_idx in og_idxs]
@@ -206,20 +209,23 @@ def optimality_comparison_violin(results, baseline_method, methods, colors, idx_
         rel_errors = [Tf - Tf_baseline for Tf in Tfs]
 
     # visualize
-    plt.figure(figsize=(2,3))
+    plt.figure(figsize=(6, 4))
     
     # for each method, show the relative error as a violin plot
     import pandas as pd
     data = pd.DataFrame()
     for i in range(len(rel_errors)):
-        data[f"{methods[i]}"] = rel_errors[i]
+        # data[f"{methods[i]}"] = rel_errors[i]
+        data[translate_method_names([methods[i]])[0]] = rel_errors[i]
+        # print(f"{f"{methods[i]}"}\t\t-\t\t{translate_method_names(methods[i])}")
     
     # show boxplots
     # sns.violinplot(data=data, width=0.5, palette=colors)
-    sns.boxplot(data=data, linewidth=.5, width=0.5, palette=colors, showfliers=True)
+    sns.boxplot(data=data, linewidth=.5, width=0.5, palette=colors, 
+                showfliers=False, boxprops={'alpha': 0.4})
+    sns.stripplot(data=data, palette=colors, dodge=False)
     plt.axhline(0, color='k', linestyle='-', lw=0.5)
-
-    plt.xlabel("\% of Benchmark Environments")
+    
     if use_abs_error:
         plt.ylabel("Absolute suboptimality [s]")
     else:
@@ -228,7 +234,9 @@ def optimality_comparison_violin(results, baseline_method, methods, colors, idx_
 
     # plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
 
-    plt.tight_layout(rect=[0, 0.12, 1, 1])
+    # rotate xticks 90 degrees
+    plt.xticks(rotation=90)
+    plt.tight_layout()
 
 
 def show_relative_difference_density(results, baseline_method, other_method, colors, idx_map, use_abs_error=False):
@@ -307,8 +315,8 @@ def show_histogram_densities(results, methods, colors):
         # Solver computation time
         plt.sca(axes)
         t_comp_solver = [np.array(results[method]["t_comp_solver"]) for method in methods]
-        # method_sequence = {"OCP-30-FATROP":2, "OmgTools":3, "ARENA":1, "ARENA-FATROP":0, "P2P":4}
-        method_sequence = {2:"OCP-30-FATROP", 1:"OmgTools", 3:"ARENA", 4:"ARENA-FATROP", 0:"P2P"}
+        # method_sequence = {2:"OCP-30-FATROP", 1:"OmgTools", 3:"ARENA", 4:"ARENA-FATROP", 0:"P2P"}
+        method_sequence = {1:"OCP-30-FATROP", 0:"OmgTools", 2:"ARENA-FATROP"}
         idx = [methods.index(method_sequence[i]) for i in range(len(method_sequence))]
         t_comp_solver = [t_comp_solver[i] for i in idx]
         colors = [colors[i] for i in idx]
@@ -318,8 +326,8 @@ def show_histogram_densities(results, methods, colors):
         handles, labels = axes.get_legend_handles_labels()  # Get legend items from one subplot
         all_handles = handles + extra_handles
         all_labels = labels + extra_labels
-        # permutation = [4, 2, 0, 1, 3]
-        permutation = [2, 3, 1, 4, 0, 5]
+        # permutation = [2, 3, 1, 4, 0, 5]
+        permutation = [2, 3, 1, 4, 0]
         all_handles = [all_handles[i] for i in permutation]
         all_labels = [all_labels[i] for i in permutation]
         all_labels = translate_method_names(all_labels)
@@ -371,24 +379,48 @@ def show_histogram_densities(results, methods, colors):
         axes[1].set_xlim(right=85)
         axes[0].set_xlim(right=85)
 
+def show_computation_time_boxplots(results, methods, colors):
+    plt.figure(figsize=(6, 4))
+    import pandas as pd
+    data = pd.DataFrame()
+    max_t_comp = 0
+    for i in range(len(methods)):
+        data[translate_method_names([methods[i]])[0]] = results[methods[i]]["t_comp_solver"]
+        max_t_comp = max(max_t_comp, np.max(results[methods[i]]["t_comp_solver"]))
+    
+    # show boxplots
+    # sns.violinplot(data=data, width=0.5, palette=colors)
+    sns.boxplot(data=data, linewidth=.5, width=0.5, palette=colors, 
+                showfliers=False, boxprops={'alpha': 0.4})
+    sns.stripplot(data=data, palette=colors, dodge=False)
+    # plt.axhline(6.46, color='k', linestyle='-', lw=0.5)
+    
+    plt.ylabel("$t_{\mathrm{solver}}$ [ms]")
+    
+    plt.ylim([0, 1.1*max_t_comp])
+    # rotate xticks 90 degrees
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+
 def plot_densities(data, colors, labels, xlabel, ylabel):
     # plt.figure()
     density_lines = []
+    bw_adjust_val = 0.5
     for i in range(len(data)):
         if labels[i] == "P2P":
             continue
         
         # plot density
-        if labels[i] == "ARENA-FATROP":
-            sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0., hatch='//')
-        else:
-            sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0.5)
+        # if labels[i] == "ARENA-FATROP":
+        #     sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0., hatch='//')
+        # else:
+        sns.kdeplot(data[i], color=colors[i], label=labels[i], fill=True, alpha=0.5, bw_adjust=bw_adjust_val)
 
         # compute the mean
         mean = np.mean(data[i])
 
         # find the value of the density plot at the mean
-        kde = sns.kdeplot(data[i], color=colors[i], label=None, fill=False, alpha=0)
+        kde = sns.kdeplot(data[i], color=colors[i], label=None, fill=False, alpha=0, bw_adjust=bw_adjust_val)
         density_lines.append(kde.get_lines()[-1])
         xdata, ydata = kde.get_lines()[-1].get_data()
         mean_density = np.interp(mean, xdata, ydata)
@@ -415,11 +447,11 @@ def plot_densities(data, colors, labels, xlabel, ylabel):
                 max_height = height
 
         # plt.plot(worst_case, 0*2*max_height, 'x', color=colors[i], label=f"{labels[i]} worst case", zorder=99, clip_on=False)
-        if labels[i] == "ARENA-FATROP":
-            plt.scatter(worst_case, 0, s=70, marker='D', facecolor='white', color=colors[i], label=None, zorder=99, clip_on=False, alpha=0.2)
-            plt.scatter(worst_case, 0, s=70, marker='D', hatch='////', facecolor='none', color=colors[i], label=None, zorder=99, clip_on=False)
-        else:
-            plt.plot(worst_case, 0, 'D', ms=8, color=colors[i], label=None, zorder=99, clip_on=False, alpha=0.5)
+        # if labels[i] == "ARENA-FATROP":
+        #     plt.scatter(worst_case, 0, s=70, marker='D', facecolor='white', color=colors[i], label=None, zorder=99, clip_on=False, alpha=0.2)
+        #     plt.scatter(worst_case, 0, s=70, marker='D', hatch='////', facecolor='none', color=colors[i], label=None, zorder=99, clip_on=False)
+        # else:
+        plt.plot(worst_case, 0, 'D', ms=8, color=colors[i], label=None, zorder=99, clip_on=False, alpha=0.5)
         plt.plot(worst_case, 0, 'D', ms=8, mfc='none', color=colors[i], label=None, zorder=99, clip_on=False, alpha=1.0)
 
     extra_legend_handles = [
@@ -482,6 +514,17 @@ def compare_travel_time_plus_total_comp_time(results, baseline_method, other_met
 
     print(idx)
 
+def get_row_value_string(value, column):
+    if column == "\# infeasible cases" or column == "\# solver failures":
+        string = f"{value}"
+        return "-" if string == "0.00" else string
+    
+    if column == "avg $t_\mathrm{move}$ [s]" or column == "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]":
+        string = f"{value:.3f}"
+        return string
+
+    return f"{value:.2e}" if value > 1000 else f"{value:.2f}"
+
 def create_latex_table(results, corridor_evaluation=False):
     # create a table with result.keys() (methods) as columns
     # the rows are:
@@ -534,7 +577,8 @@ def create_latex_table(results, corridor_evaluation=False):
     if corridor_evaluation:
         methods = ["ARENA-FATROP", "OCP-30-FATROP", "ARENA-EXTENDED-FATROP", "OCP-30-EXTENDED-FATROP"]
     else:
-        methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P", "VP-STO-5", "VP-STO-10", "VP-STO-15"]
+        # methods = ["ARENA", "ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "P2P", "VP-STO-5", "VP-STO-10", "VP-STO-15"]
+        methods = ["ARENA-FATROP", "OCP-30-FATROP", "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"]
     
     for method in methods:
     # for method in data.keys():
@@ -555,12 +599,14 @@ def create_latex_table(results, corridor_evaluation=False):
     if corridor_evaluation:
         print("\t\\begin{tabular}{r|cc|c}")
     else:
-        print("\t\\begin{tabular}{r|cccc|c}")
+        # print("\t\\begin{tabular}{r|cccc|c}")
+        print("\t\\begin{tabular}{r|ccc|ccc}")
     print("\t\\toprule")
     
     # print header (method names)
     method_names = list(table.keys())
-    print("\t\t& \\multicolumn{2}{c|}{$\\bm{C}$} & $\\bm{C}^+$ \\\\")
+    if corridor_evaluation:
+        print("\t\t& \\multicolumn{2}{c|}{$\\bm{C}$} & $\\bm{C}^+$ \\\\")
     print("\t\t" + " & ".join([""] + translate_method_names(method_names)) + " \\\\")
     print(f"\t\t\\midrule")
 
@@ -571,11 +617,14 @@ def create_latex_table(results, corridor_evaluation=False):
         min_idx = np.argmin(
             row_values[:-2] if not corridor_evaluation else row_values
         )
-        row_value_strings = [(f"{table[method][row_name]:.2f}" 
-                if row_name != "avg $t_\mathrm{move}$ [s]" and row_name != "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]"
-                else f"{table[method][row_name]:.3f}")
-                if row_name != "\# infeasible cases" and row_name != "\# solver failures" 
-                else f"{table[method][row_name]}" for method in table.keys()]
+        # row_value_strings = [(f"{table[method][row_name]:.2f}" 
+        #         if row_name != "avg $t_\mathrm{move}$ [s]" and row_name != "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]"
+        #         else f"{table[method][row_name]:.3f}")
+        #         if row_name != "\# infeasible cases" and row_name != "\# solver failures" 
+        #         else f"{table[method][row_name]}"
+        #         if table[method][row_name] < 1000 else f"{table[method][row_name]:.2e}"
+        #         for method in table.keys()]
+        row_value_strings = [get_row_value_string(table[method][row_name], row_name) for method in table.keys()]
         row_value_strings[min_idx] = "\\textbf{" + row_value_strings[min_idx] + "}"
 
         for i in range(len(row_value_strings)):
@@ -638,9 +687,9 @@ def translate_method_names(method_names):
 
     for method in method_names:
         if method == "ARENA":
-            translation.append("PMP")
+            translation.append("PMP-I")
         elif method == "ARENA-FATROP":
-            translation.append("PMP-F")
+            translation.append("PMP")
         elif method == "OCP-30":
             translation.append("OCP")
         elif method == "OCP-30-FATROP":
@@ -749,17 +798,21 @@ import matplotlib.pyplot as plt
 
 filtered_results, idx_map, filtered_feasible_results = filter_results_for_fair_comparison(results)
 
-# optimality_comparison_extended_new_new(filtered_results, "OCP-30-FATROP", 
-#                                    ["P2P", "OmgTools", "ARENA", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
-#                                    ["orange", "black", "royalblue", "red", "firebrick", "darkred"], idx_map)
+optimality_comparison_extended_new_new(filtered_results, "OCP-30-FATROP", 
+                                   ["P2P", "OmgTools", "ARENA", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
+                                   ["orange", "black", "royalblue", "red", "firebrick", "darkred"], idx_map)
 if SAVE_FIGURES:
     plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
     plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
 
-show_histogram_densities(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
+show_histogram_densities(filtered_results, ["ARENA-FATROP", "OCP-30-FATROP", "OmgTools"], ["royalblue", "red", "black"])
 if SAVE_FIGURES:
     plt.savefig("python-benchmark/figures/densities.png", dpi=300)
     plt.savefig("python-benchmark/figures/densities.pdf")
+show_computation_time_boxplots(filtered_results, ["OmgTools", "OCP-30-FATROP", "ARENA-FATROP"], ["black", "red", "royalblue"])
+if SAVE_FIGURES:
+    plt.savefig("python-benchmark/figures/densities_boxes.png", dpi=300)
+    plt.savefig("python-benchmark/figures/densities_boxes.pdf")
 
 create_latex_table(results)
 create_latex_table(results, True)
@@ -780,15 +833,29 @@ create_latex_table(results, True)
 if SAVE_FIGURES:
     plt.savefig("python-benchmark/figures/relative-reduction-corridor-extension.png", dpi=300)
 
-visualize_avg_moving_time(filtered_results, 
-                          ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
-                           "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
-                           ["royalblue", "royalblue", "red", "orange", "black",
-                            "gold", "goldenrod", "darkgoldenrod"])
+# visualize_avg_moving_time(filtered_results, 
+#                           ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
+#                            "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
+#                            ["royalblue", "royalblue", "red", "orange", "black",
+#                             "gold", "goldenrod", "darkgoldenrod"])
 # visualize_avg_solver_and_total_time(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
-visualize_avg_moving_time(filtered_feasible_results, 
-                          ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
-                           "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
-                           ["royalblue", "royalblue", "red", "orange", "black",
-                            "gold", "goldenrod", "darkgoldenrod"])
-plt.show()
+# visualize_avg_moving_time(filtered_feasible_results, 
+#                           ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
+#                            "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
+#                            ["royalblue", "royalblue", "red", "orange", "black",
+#                             "gold", "goldenrod", "darkgoldenrod"])
+optimality_comparison_violin(filtered_results, "OCP-30-FATROP",
+                                ["OmgTools", "VP-STO-5", "VP-STO-10", 
+                                 "VP-STO-15", "ARENA-FATROP"], 
+                                ["black", "gold", "goldenrod", "darkgoldenrod",
+                                 "royalblue"], idx_map, use_abs_error=False,
+                                 include_infeasibles=False)
+if SAVE_FIGURES:
+    plt.savefig("python-benchmark/figures/optimality_comparison_violin.png", dpi=300)
+# optimality_comparison_violin(filtered_results, "OCP-30-FATROP",
+#                                 ["OmgTools", "VP-STO-5", "VP-STO-10", 
+#                                  "VP-STO-15", "ARENA-FATROP"], 
+#                                 ["darkgray", "gold", "goldenrod", "darkgoldenrod",
+#                                  "royalblue"], idx_map, use_abs_error=False,
+#                                  include_infeasibles=True)
+# plt.show()

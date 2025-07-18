@@ -12,6 +12,8 @@ import json
 # file_name_appendix = "_structured_1"
 file_name_appendix = "_" + json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
 
+STORE_TRAJECTORIES = True
+
 # create containers for results
 results = json.load(open('python-benchmark/files/results' + file_name_appendix + '.json'))
 results["OmgTools"] = {"Tf": [], "t_comp_total": [], "t_comp_solver": [], 
@@ -47,6 +49,20 @@ for i in range(len(preparation["corridors"])):
     results["OmgTools"]["corridor_infeasibilities_detected"].append(
         False)
     travel_times.append(travel_time)
+
+    if STORE_TRAJECTORIES:
+        # store the trajectory as a json file
+        omg_example(
+            corridors=preparation["corridors"][i], 
+            start=preparation["start"][i], 
+            goal=preparation["dest"][i],
+            v_max=preparation["vmax"][i],
+            a_max=preparation["amax"][i],
+            veh_w=preparation["veh_width"][i] + preparation["margin"][i],
+            veh_h=preparation["veh_height"][i] + preparation["margin"][i],
+            dump_to_json=True, 
+            file_name=f'python-benchmark/benchmark_environments/{file_name_appendix[1:]}/json_files/OMG_{digit}.json',
+            start_vel=preparation["start_vel"][i])
 
 travel_times.sort(reverse=True)
 print(travel_times)
