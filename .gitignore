@@ -13,3 +13,7 @@ settings.json
 *__pycache__*
 
 test.py
+
+ompl-rrt/*
+ompl-rrt-new/*
+python-benchmark/vp-sto-sandbox/vp-sto-venv
