@@ -11,6 +11,23 @@ sys.path.append('python-benchmark/')
 
 import parametric_motion_planner_module as pmp
 
+def latexify():
+    params = {#'backend': 'ps',
+              'axes.labelsize': 15,
+              'axes.titlesize': 15,
+              'legend.fontsize': 15,
+              'xtick.labelsize': 15,
+              'ytick.labelsize': 15,
+              'text.usetex': True,
+              'font.family': 'serif',
+              'figure.figsize': [7,5],
+            #   'text.latex.preamble': [r'\usepackage{bm}'],
+              }
+ 
+    plt.rcParams.update(params)
+ 
+latexify()
+
 def plot_vehicle_footprint(ax, px, py, veh_width, veh_height, virtual_position=False):
     alpha = 1.0 if not virtual_position else 1.0
     anchor = (px-veh_width/2, py-veh_height/2)
@@ -102,7 +119,8 @@ def show_trajectory(trajectory, color, start, dest, with_trace=False, width=0, h
                     with_footprints=False, nb_samples_to_show=-1,
                     virtual_initial_footprint=False,
                     virtual_final_footprint=True,
-                    show_markers=True, linewidth=1, with_line=True):
+                    show_markers=True, linewidth=1, with_line=True,
+                    dashed=False, dotted=False):
     if nb_samples_to_show == -1:
         nb_samples_to_show = len(trajectory["px"])
 
@@ -131,7 +149,17 @@ def show_trajectory(trajectory, color, start, dest, with_trace=False, width=0, h
         except:
             print("No footprint to plot")
 
-    if show_markers and with_line:
+    if dashed:
+        # print("dashed!")
+        plt.plot(trajectory["px"][:nb_samples_to_show], 
+                trajectory["py"][:nb_samples_to_show], '--', color=color, 
+                linewidth=linewidth, zorder=12)
+    elif dotted:
+        # print("dotted!")
+        plt.plot(trajectory["px"][:nb_samples_to_show], 
+            trajectory["py"][:nb_samples_to_show], ':', color=color,
+            linewidth=linewidth, zorder=12)
+    elif show_markers and with_line:
         plt.plot(trajectory["px"][:nb_samples_to_show], 
                 trajectory["py"][:nb_samples_to_show], 'o-', color=color, 
                 markersize=1, linewidth=linewidth, zorder=12)
@@ -168,9 +196,15 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     #                         308: [0.94, 1.79, 0.11, 0.92],
     #                         363: [0.80, 1.48, 0.12, 0.72],
     #                         476: [0.39, 1.00, 1.15, 1.65]}
-    filtered_list = []; suboptimal_list = []; suboptimal_zoomboxes = {}
     benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
     fig_folder = f'python-benchmark/benchmark_environments/{benchmark_name}/figures/'
+    
+    filtered_list = []; suboptimal_list = []; suboptimal_zoomboxes = {}
+    if benchmark_name == "structured_3_large":
+        filtered_list = [31, 39, 86, 32]
+
+    elif benchmark_name == "unstructured_10":
+        filtered_list = [40, 87, 16, 70]
 
     # modify the zoomboxes minimally to make them square
     for key in suboptimal_zoomboxes:
@@ -186,10 +220,6 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
             suboptimal_zoomboxes[key][0] = x_center - y_diff / 2
             suboptimal_zoomboxes[key][1] = x_center + y_diff /2
 
-    # if fig_nb not in filtered_list and fig_nb not in suboptimal_list:
-    #     return
-
-
     first_arena_idx = 0
     while planner_methods[first_arena_idx] != "ARENA":
         first_arena_idx += 1
@@ -199,25 +229,33 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
             break
 
     colors = []
+    planner_names = []
     for i in range(len(trajectories)):
         if planner_methods[i] == "P2P":
             colors.append('orange')
+            planner_names.append("P2P")
         elif planner_methods[i] == "OCP":
             colors.append('r')
+            planner_names.append("OCP")
         elif planner_methods[i] == "ARENA":
             colors.append('b')
+            planner_names.append("PMP")
         elif planner_methods[i] == "OMG":
             colors.append('k')
+            planner_names.append("OMG-tools")
         else:
             if "15" in planner_methods[i]:
                 colors.append('darkgoldenrod')
+                planner_names.append("VP-STO-15")
             elif "10" in planner_methods[i]:
                 colors.append('goldenrod')
+                planner_names.append("VP-STO-10")
             elif "5" in planner_methods[i]:
                 colors.append('gold')
+                planner_names.append("VP-STO-5")
 
     ### plot trajectory ###
-    plt.figure(figsize=(4,4))
+    plt.figure(figsize=(4,4.3))
 
     # show environment
     show_environment(env)
@@ -232,7 +270,10 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
                             parametrization["waypoints"][parametrization["nb_corridors"]],
                             planner_methods[i] == "ARENA" or "VP-STO" in planner_methods[i], 
                             params["veh_width"], 
-                            params["veh_height"], i == first_arena_idx)
+                            params["veh_height"], i == first_arena_idx,
+                            show_markers=False, linewidth=1.5,
+                            dashed=(planner_methods[i] == "OCP"),
+                            dotted=(planner_methods[i] == "OMG"))
     
 
 
@@ -243,13 +284,25 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     
     set_env_plot_limits(env)
 
-    plt.tight_layout()
+    # paste travel times for each method onder the figure
+    travel_time_string = ""
+    for i in range(len(planner_methods_list)):
+        if i > 0 and i%2 == 0: travel_time_string += "\n"
+        # travel_time_string += "T$_\\mathrm{" + planner_names[i] + "} = " + f"{trajectories[i]['t'][-1]:.2f}s$"
+        travel_time_string += planner_names[i] + ": " + f"{trajectories[i]['t'][-1]:.2f}s"
+        if i < len(planner_methods_list) - 1:
+            travel_time_string += ",  "
+
+    # plt.figtext(0.98, 0.9, travel_time_string, ha='right', va='top')
+    # plt.subplots_adjust(0.0, 0.05, 0.8, 0.95)
+    plt.figtext(0.5, 0.01, travel_time_string, ha='center', va='bottom', fontsize=15)
+    plt.subplots_adjust(0.01, 0.15, 0.99, 0.99)
 
     # plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=300)
     
     plt.xticks([])
     plt.yticks([])
-    plt.tight_layout()
+    # plt.tight_layout()
     
     # remove axes box
     # plt.gca().spines['top'].set_visible(False)
@@ -258,8 +311,8 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     # plt.gca().spines['right'].set_visible(False)
     
     if fig_nb in filtered_list:
-        plt.savefig(fig_folder[:-1] + f'_filtered/traj_{fig_nb:03d}.png', dpi=300)
-        plt.savefig(fig_folder[:-1] + f'_filtered/traj_{fig_nb:03d}.pdf')
+        plt.savefig(fig_folder[:-1] + f'/filtered/traj_{fig_nb:03d}.png', dpi=600)
+        plt.savefig(fig_folder[:-1] + f'/filtered/traj_{fig_nb:03d}.pdf')
     if fig_nb in suboptimal_list:
         show_waypoints(parametrization)
         plt.ylim(suboptimal_zoomboxes[fig_nb][2:])
@@ -275,20 +328,73 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     for i in range(len(trajectories)):
         print(f"{planner_methods[i]}: " + (f"\t" if i < 3 else "") + f"\t{travel_times[i]:.3f}s")
     # plt.show()
-    # plt.close()
+    plt.close()
+
+def make_legend():
+    handles = []
+    labels = []
+
+    # obstacle
+    handles.append(Rectangle((0, 0), 1, 1, color='firebrick'))
+    labels.append("Obstacle")
+
+    # corridor
+    handles.append(Rectangle((0, 0), 1, 1, color='green', alpha=0.2))
+    labels.append("Corridor")
+    # handles.append(Rectangle((0, 0), 1, 1, color='green', edgecolor='green', fill=False))
+    # labels.append("Corridor boundary")
+    handles.append(Rectangle((0, 0), 1, 1, color='green', alpha=0.4))
+    labels.append("Corridor overlap")
+
+    lw = 2
+
+    # P2P
+    # handles.append(plt.Line2D([0], [0], color='orange', linewidth=lw))
+    # labels.append("P2P")
+    # OCP
+    handles.append(plt.Line2D([0], [0], linestyle='--', color='r', linewidth=lw))
+    labels.append("OCP")
+    # VP-STO-5
+    handles.append(plt.Line2D([0], [0], color='gold', linewidth=lw))
+    labels.append("VP-STO-5")
+    # OMG
+    handles.append(plt.Line2D([0], [0], linestyle=':', color='k', linewidth=lw))
+    labels.append("OMG-tools")
+    # VP-STO-10
+    handles.append(plt.Line2D([0], [0], color='goldenrod', linewidth=lw))
+    labels.append("VP-STO-10")
+    # ARENA
+    handles.append(plt.Line2D([0], [0], color='b', linewidth=lw))
+    labels.append("PMP")
+    # VP-STO-15
+    handles.append(plt.Line2D([0], [0], color='darkgoldenrod', linewidth=lw))
+    labels.append("VP-STO-15")
+
+    plt.figure(figsize=(8, 1))
+    plt.legend(handles, labels, loc='upper center',
+               ncol=4, frameon=False, handletextpad=0.5,
+               columnspacing=1.0, labelspacing=0.2)
+    
+    # remove axes
+    plt.gca().axis('off')
+    
+    # plt.show()
+    benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
+    plt.savefig(f'python-benchmark/benchmark_environments/{benchmark_name}/figures/legend.png', dpi=600, bbox_inches='tight')
+
 
 ###############################################################################
 ###############################################################################
 ###############################################################################
 ###############################################################################
-
+make_legend()
 # bechmark_name = "large_double"
 # benchmark_name = "large_double_more_obstacles_10"
 # benchmark_name = json.loads("structured_1")
     
 # read benchmark name from python-benchmark/benchmark_environments.json
 benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
-SKIP_EXISTING_FILES = True
+SKIP_EXISTING_FILES = 0
 
 # set N equal to the largest number found in the json files folder
 # those files are all named XXXX_{digit}.json, where digit is a number from 0 to N-1
@@ -302,9 +408,12 @@ for f in files:
             N = digit + 1
     except ValueError:
         print(f"File {f} does not have a valid digit, skipping...")
-        
 
-for i in range(N):
+# indices_to_check = range(N)
+# indices_to_check = [31, 39, 86, 32, 40, 87, 16, 70]
+indices_to_check = []
+
+for i in indices_to_check:
     print(f"{100.0*i/(N-1):.2f}% completion")
     digit = f'00{i}' if i < 10 else f'0{i}' if i < 100 else f'{i}'
     file_prefix = f"python-benchmark/benchmark_environments/{benchmark_name}/json_files/"
@@ -312,7 +421,7 @@ for i in range(N):
     files = [file_prefix + f"P2P{file_appendix}", 
              file_prefix + f"OMG{file_appendix}", 
              file_prefix + f"OCP-30-FATROP{file_appendix}", 
-             file_prefix + f"ARENA-FATROP{file_appendix}",
+             file_prefix + f"ARENA{file_appendix}",
              file_prefix + f"VP-STO-5{file_appendix}",
              file_prefix + f"VP-STO-10{file_appendix}",
              file_prefix + f"VP-STO-15{file_appendix}"]

@@ -55,10 +55,10 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     # sort errors in ascending order
     for i in range(len(rel_errors)):
         idx = np.argsort(rel_errors[i])
-        if methods[i] == "ARENA":
-            for j in range(len(rel_errors[i])):
-                if rel_errors[i][j] < -0.1:
-                    print(f"[{idx_map[og_idxs[i][j]]:3d}] ARENA: {Tfs[i][j]:.4f}\t-\tOCP: {Tf_baseline[j]}\t({rel_errors[i][j]:.4f})")
+        # if "ARENA" in methods[i]:
+        #     for j in range(len(rel_errors[i])):
+        #         if rel_errors[i][j] < -0.1:
+        #             print(f"[{idx_map[og_idxs[i][j]]:3d}] ARENA: {Tfs[i][j]:.4f}\t-\tOCP: {Tf_baseline[j]}\t({rel_errors[i][j]:.4f})")
         rel_errors[i] = rel_errors[i][idx]
         og_idxs[i] = og_idxs[i][idx]
         my_dict = {idx_map[og_idxs[i][j]]: round(rel_errors[i][j],2) for j in range(len(rel_errors[i])-10, len(rel_errors[i]))}
@@ -190,23 +190,35 @@ def optimality_comparison_violin(results, baseline_method, methods, colors,
     Tf_baseline = np.array(results[baseline_method]["Tf"])
     Tfs = [np.array(results[method]["Tf"]) for method in methods]
     og_idxs = [np.arange(len(Tf_baseline)) for Tf in Tfs]
+    # Tf_baseline = Tf_baseline[idx]
+    # Tfs = [Tf[idx] for Tf in Tfs]
+    # og_idxs = [og_idx[idx] for og_idx in og_idxs]
+
+    include_infeasibles = True
 
     # get indices where all methods are succesfull and feasible
     idx = np.array(results[baseline_method]["t_comp_solver"]) >= 0
-    if not include_infeasibles:
-        idx = np.logical_and(idx, np.array(results[baseline_method]["corridor_infeasibilities_detected"] == False))
+    # idx = np.logical_and(idx, results[baseline_method]["corridor_infeasibilities_detected"] == False)
     for Tf, method in zip(Tfs, methods):
         idx = np.logical_and(idx, Tf >= 0)
-        if not include_infeasibles:
-            idx = np.logical_and(idx, np.array(results[method]["corridor_infeasibilities_detected"] == False))
-    Tf_baseline = Tf_baseline[idx]
-    Tfs = [Tf[idx] for Tf in Tfs]
-    og_idxs = [og_idx[idx] for og_idx in og_idxs]
+        idx = np.logical_and(idx, np.array(results[method]["t_comp_solver"]) >= 0)
+
+    idx_feasibles = [idx.copy() for _ in range(len(methods))]
+    idx_infeasibles = [idx.copy() for _ in range(len(methods))]
+    for i, method in enumerate(methods):
+        idx_feasibles[i] = np.logical_and(idx_feasibles[i], np.array(results[method]["corridor_infeasibilities_detected"] == False))
+        idx_infeasibles[i] = np.logical_and(idx_infeasibles[i], np.array(results[method]["corridor_infeasibilities_detected"] == True))
 
     # compute errors
     rel_errors = [100*(Tf - Tf_baseline) / Tf_baseline for Tf in Tfs]
     if use_abs_error:
         rel_errors = [Tf - Tf_baseline for Tf in Tfs]
+
+    # for each method, print the amount of cases in which the relative error was less than 1%
+    for i in range(len(rel_errors)):
+        idx1 = np.where(rel_errors[i] < 1)[0]
+        idx2 = np.where(rel_errors[i] < 5)[0]
+        print(f"{methods[i]}: {len(idx1)} cases with relative error < 1% ({len(idx2)} with < 5%)")
 
     # visualize
     plt.figure(figsize=(6, 4))
@@ -214,29 +226,50 @@ def optimality_comparison_violin(results, baseline_method, methods, colors,
     # for each method, show the relative error as a violin plot
     import pandas as pd
     data = pd.DataFrame()
+    data_feasible = pd.DataFrame()
+    data_infeasible = pd.DataFrame()
     for i in range(len(rel_errors)):
-        # data[f"{methods[i]}"] = rel_errors[i]
-        data[translate_method_names([methods[i]])[0]] = rel_errors[i]
-        # print(f"{f"{methods[i]}"}\t\t-\t\t{translate_method_names(methods[i])}")
+        method_str = translate_method_names([methods[i]])[0]
+        data[method_str] = rel_errors[i][idx]
+
+        feasibles = rel_errors[i][idx].copy()
+        feasibles[~idx_feasibles[i]] = np.nan
+        data_feasible[method_str] = feasibles.copy()
+
+        infeasibles = rel_errors[i][idx].copy()
+        infeasibles[~idx_infeasibles[i]] = np.nan
+        data_infeasible[method_str] = infeasibles.copy()
     
     # show boxplots
-    # sns.violinplot(data=data, width=0.5, palette=colors)
     sns.boxplot(data=data, linewidth=.5, width=0.5, palette=colors, 
                 showfliers=False, boxprops={'alpha': 0.4})
-    sns.stripplot(data=data, palette=colors, dodge=False)
+    # p = ['k']*len(methods)
+    p = colors
+    sns.stripplot(data=data, palette=p, dodge=False, linewidth=0.5)
+    # sns.stripplot(data=data, palette=p, dodge=False, marker='o', s = 3, alpha=0.5, linewidth=0.5)
+    # sns.stripplot(data=data_feasible, palette=p, dodge=False, marker='o', s = 3, alpha=0.5, linewidth=0.5)
+    # sns.stripplot(data=data_infeasible, palette=['k']*len(methods), dodge=False, marker="x", s = 3, alpha=0.3, linewidth=0.5)
     plt.axhline(0, color='k', linestyle='-', lw=0.5)
     
     if use_abs_error:
         plt.ylabel("Absolute suboptimality [s]")
     else:
-        plt.ylabel("Relative error\non $t_{\mathrm{move}}$ [\%]")
-    plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = len(methods), frameon=False)
-
-    # plt.yticks([1.0e-2, 1.0e-1, 1.0e0, 1.0e1, 1.0e2])
-
+        plt.ylabel("Relative error on $t_{\mathrm{move}}$ [\%]")
+    plt.ylim([-35, 80])
     # rotate xticks 90 degrees
-    plt.xticks(rotation=90)
+    plt.xticks(rotation=30)
+
+    # create label handles for both marker types
+    # handles = [
+    #     plt.Line2D([0], [0], marker='o', color='w', linewidth=0.5, markeredgecolor='k', label='Feasible', markerfacecolor='white', markersize=5, alpha=0.5),
+    #     plt.Line2D([0], [0], marker='x', color='w', linewidth=0.5, markeredgecolor='k', label='Infeasible', markerfacecolor='white', markersize=5, alpha=0.3)
+    # ]
+    # labels = ['Collision-free', 'Collision detected'] 
+    # plt.subplots_adjust(0.2, 0.3, 0.95, 0.9)
+    # plt.gcf().legend(handles=handles, labels=labels, bbox_to_anchor=(0.9, 0.1), ncol = 2, frameon=False)
+
     plt.tight_layout()
+    # plt.show()
 
 
 def show_relative_difference_density(results, baseline_method, other_method, colors, idx_map, use_abs_error=False):
@@ -380,7 +413,7 @@ def show_histogram_densities(results, methods, colors):
         axes[0].set_xlim(right=85)
 
 def show_computation_time_boxplots(results, methods, colors):
-    plt.figure(figsize=(6, 4))
+    plt.figure(figsize=(6, 3))
     import pandas as pd
     data = pd.DataFrame()
     max_t_comp = 0
@@ -392,14 +425,23 @@ def show_computation_time_boxplots(results, methods, colors):
     # sns.violinplot(data=data, width=0.5, palette=colors)
     sns.boxplot(data=data, linewidth=.5, width=0.5, palette=colors, 
                 showfliers=False, boxprops={'alpha': 0.4})
-    sns.stripplot(data=data, palette=colors, dodge=False)
+    sns.stripplot(data=data, palette=colors, dodge=False, linewidth=0.5)
     # plt.axhline(6.46, color='k', linestyle='-', lw=0.5)
+
+    # print out slowest arena cases
+    # find the n highest t_comp_solver values for results["ARENA-FATROP"]
+    n = 10
+    idx = np.argsort(results["ARENA-FATROP"]["t_comp_solver"])[-n:]
+    print("Slowest ARENA-FATROP cases:")
+    for i in idx:
+        print(f"[{i:3d}] {results['ARENA-FATROP']['t_comp_solver'][i]:.2f} ms\t-\t{results['ARENA-FATROP']['Tf'][i]:.4f}s\t-\t({results['OCP-30-FATROP']['Tf'][i]:.4f}s)")
     
     plt.ylabel("$t_{\mathrm{solver}}$ [ms]")
     
     plt.ylim([0, 1.1*max_t_comp])
     # rotate xticks 90 degrees
-    plt.xticks(rotation=90)
+    plt.grid(axis='y')
+    plt.xticks(rotation=0)
     plt.tight_layout()
 
 def plot_densities(data, colors, labels, xlabel, ylabel):
@@ -515,6 +557,9 @@ def compare_travel_time_plus_total_comp_time(results, baseline_method, other_met
     print(idx)
 
 def get_row_value_string(value, column):
+    if isinstance(value, str):
+        return value
+    
     if column == "\# infeasible cases" or column == "\# solver failures":
         string = f"{value}"
         return "-" if string == "0.00" else string
@@ -542,8 +587,8 @@ def create_latex_table(results, corridor_evaluation=False):
         failures = np.logical_or(failures, np.array(results[method]["t_comp_total"]) < 0)
         failures = np.logical_or(failures, np.array(results[method]["Tf"]) < 0)
 
-        # if method == "vp-sto-5" or method == "vp-sto-10" or method == "vp-sto-15":
-        #     failures = np.logical_or(failures, np.array(results[method]["corridor_infeasibilities_detected"]) == True)
+        if method == "VP-STO-5" or method == "VP-STO-10" or method == "VP-STO-15":
+            failures = np.logical_or(failures, np.array(results[method]["corridor_infeasibilities_detected"]) == True)
 
     
     for method in results.keys():
@@ -567,7 +612,7 @@ def create_latex_table(results, corridor_evaluation=False):
                  "avg $t_\mathrm{total}$ [ms]",
                  "max $t_\mathrm{total}$ [ms]", 
                  "avg $t_\mathrm{move}$ [s]", 
-                 "total $t_\mathrm{move}$ [min]",
+                 "$\\varepsilon_\mathrm{move}$ [\%]",
                  "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]",
                  "\# infeasible cases",
                  "\# solver failures"]
@@ -582,50 +627,51 @@ def create_latex_table(results, corridor_evaluation=False):
     
     for method in methods:
     # for method in data.keys():
+        rel_errors = [(t1 - t2)/t2*100 for t1, t2 in zip(data[method]["Tf"][~failures], data["OCP-30-FATROP"]["Tf"][~failures])]
         table[method] = {
             "avg $t_\mathrm{solver}$ [ms]": np.mean(data[method]["t_solver"][~failures]),
             "max $t_\mathrm{solver}$ [ms]": np.max(data[method]["t_solver"][~failures]),
             "avg $t_\mathrm{total}$ [ms]": np.mean(data[method]["t_total"][~failures]),
             "max $t_\mathrm{total}$ [ms]": np.max(data[method]["t_total"][~failures]),
             "avg $t_\mathrm{move}$ [s]": np.mean(data[method]["Tf"][~failures]),
-            "total $t_\mathrm{move}$ [min]": np.sum(data[method]["Tf"][~failures]/60.0),
+            "$\\varepsilon_\mathrm{move}$ [\%]": f"${np.median(rel_errors):.1f} \pm {np.std(rel_errors):.1f}$" if method != "OCP-30-FATROP" else "-",
             "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]": 0.001*np.mean(data[method]["t_total"][~failures]) + np.mean(data[method]["Tf"][~failures]),
             "\# infeasible cases": np.sum(data[method]["infeasible"][~failures]),
             "\# solver failures": np.sum(data[method]["t_solver"] < 0),
         }
 
+    table_str = ""
+
     # print the table
-    print("\n")
+    table_str += "\n"
     if corridor_evaluation:
-        print("\t\\begin{tabular}{r|cc|c}")
+        table_str += "\t\\begin{tabular}{r|cc|c}" + "\n"
     else:
-        # print("\t\\begin{tabular}{r|cccc|c}")
-        print("\t\\begin{tabular}{r|ccc|ccc}")
-    print("\t\\toprule")
+        table_str += "\t\\begin{tabular}{r|ccc|ccc}" + "\n"
+    table_str += "\t\\toprule" + "\n"
     
     # print header (method names)
     method_names = list(table.keys())
     if corridor_evaluation:
-        print("\t\t& \\multicolumn{2}{c|}{$\\bm{C}$} & $\\bm{C}^+$ \\\\")
-    print("\t\t" + " & ".join([""] + translate_method_names(method_names)) + " \\\\")
-    print(f"\t\t\\midrule")
+        table_str += "\t\t& \\multicolumn{2}{c|}{$\\bm{C}$} & $\\bm{C}^+$ \\\\" + "\n"
+    table_str += "\t\t" + " & ".join([""] + translate_method_names(method_names)) + " \\\\" + "\n"
+    table_str += f"\t\t\\midrule" + "\n"
 
     # print rows
     for r in range(len(row_names)):
         row_name = row_names[r]
-        row_values = [table[method][row_name] for method in table.keys()]
-        min_idx = np.argmin(
-            row_values[:-2] if not corridor_evaluation else row_values
-        )
-        # row_value_strings = [(f"{table[method][row_name]:.2f}" 
-        #         if row_name != "avg $t_\mathrm{move}$ [s]" and row_name != "avg $t_\mathrm{total} + t_\mathrm{move}$ [s]"
-        #         else f"{table[method][row_name]:.3f}")
-        #         if row_name != "\# infeasible cases" and row_name != "\# solver failures" 
-        #         else f"{table[method][row_name]}"
-        #         if table[method][row_name] < 1000 else f"{table[method][row_name]:.2e}"
-        #         for method in table.keys()]
         row_value_strings = [get_row_value_string(table[method][row_name], row_name) for method in table.keys()]
-        row_value_strings[min_idx] = "\\textbf{" + row_value_strings[min_idx] + "}"
+
+        if row_name != "$\\varepsilon_\mathrm{move}$ [\%]":
+            row_values = [table[method][row_name] for method in table.keys()]
+            min_idx = np.argmin(
+                row_values[:-2] if not corridor_evaluation else row_values
+            )
+            row_value_strings[min_idx] = "\\textbf{" + row_value_strings[min_idx] + "}"
+        
+        for i, s in enumerate(row_value_strings):
+            if "+" in s:
+                row_value_strings[i] = "(" + s + ")"
 
         for i in range(len(row_value_strings)):
             if row_value_strings[i] == "0.00":
@@ -633,13 +679,19 @@ def create_latex_table(results, corridor_evaluation=False):
 
         row = [row_name] + row_value_strings
         if r in [3, 5, 6]:
-            print("\t\t" + f" & ".join(row) + " \\\\ [1em]")
+            table_str += "\t\t" + f" & ".join(row) + " \\\\ [1em]" + "\n"
         else:
-            print("\t\t" + f" & ".join(row) + " \\\\")
-    print("\t\t\\bottomrule")
+            table_str += "\t\t" + f" & ".join(row) + " \\\\" + "\n"
+    table_str += "\t\t\\bottomrule" + "\n"
 
-    print("\t\\end{tabular}")
-    print("\n")
+    table_str += "\t\\end{tabular}" + "\n"
+    table_str += "\n"
+
+    print(table_str)
+
+    # write table to txt file
+    with open("python-benchmark/figures/" + benchmark_name + "/table.txt", "w") as f:
+        f.write(table_str)
 
 def filter_results_for_fair_comparison(results):
     filtered_results = {}
@@ -648,12 +700,15 @@ def filter_results_for_fair_comparison(results):
     failures = np.array([False]*len(results["OCP-30-FATROP"]["t_comp_solver"]))
 
     # print out indices where t_comp_solver < 0 for OCP-30-FATROP
-    print(np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0))
+    # print(np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0))
 
     for method in results.keys():
         failures = np.logical_or(failures, np.array(results[method]["t_comp_solver"]) < 0)
         failures = np.logical_or(failures, np.array(results[method]["t_comp_total"]) < 0)
         failures = np.logical_or(failures, np.array(results[method]["Tf"]) < 0)
+
+    print(f"failures:")
+    print([i for i in range(len(failures)) if failures[i]])
 
     for method in results.keys():
         filtered_results[method] = {}
@@ -689,19 +744,21 @@ def translate_method_names(method_names):
         if method == "ARENA":
             translation.append("PMP-I")
         elif method == "ARENA-FATROP":
-            translation.append("PMP")
+            translation.append("PMP (ours)")
         elif method == "OCP-30":
-            translation.append("OCP")
+            translation.append("OCP-I")
         elif method == "OCP-30-FATROP":
-            translation.append("OCP-F")
+            translation.append("OCP")
         elif method == "OCP-30-EXTENDED-FATROP":
-            translation.append("OCP-F")
+            translation.append("OCP")
         elif method == "vp-sto-5":
             translation.append("VP-STO-5")
         elif method == "vp-sto-10":
             translation.append("VP-STO-10")
         elif method == "vp-sto-15":
             translation.append("VP-STO-15")
+        elif method == "OmgTools":
+            translation.append("OMG-tools")
         else:
             translation.append(method)
 
@@ -732,7 +789,7 @@ def visualize_avg_moving_time(results, methods, colors):
     plt.tight_layout()
 
     if SAVE_FIGURES:
-        plt.savefig("python-benchmark/figures/avg_moving_time_bars.png", dpi=300)
+        plt.savefig("python-benchmark/figures/avg_moving_time_bars.png", dpi=600)
 
 def visualize_avg_solver_and_total_time(results, methods, colors):
     t_solvers = [np.mean(np.array(results["ARENA-FATROP"]["t_comp_solver"])),
@@ -762,7 +819,7 @@ def visualize_avg_solver_and_total_time(results, methods, colors):
     plt.tight_layout()
 
     if SAVE_FIGURES:
-        plt.savefig("python-benchmark/figures/avg_solver_time_bars.png", dpi=300)
+        plt.savefig("python-benchmark/figures/avg_solver_time_bars.png", dpi=600)
 
     # create horizontal bar plot for total time
     plt.figure(figsize=(6,3))
@@ -780,19 +837,19 @@ def visualize_avg_solver_and_total_time(results, methods, colors):
     plt.tight_layout()
 
     if SAVE_FIGURES:
-        plt.savefig("python-benchmark/figures/avg_total_time_bars.png", dpi=300)
+        plt.savefig("python-benchmark/figures/avg_total_time_bars.png", dpi=600)
 
     # plt.show()
 
 
 # print out all infeasible cases
-# for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTools", "vp-sto-5", "vp-sto-10", "vp-sto-15"]:
-#     infeasibles = []
-#     if method in results.keys():
-#         for i in range(len(results[method]["corridor_infeasibilities_detected"])):
-#             if results[method]["corridor_infeasibilities_detected"][i]:
-#                 infeasibles.append(i)
-#     print(f"{method} infeasible cases ({len(infeasibles)}): {infeasibles}")
+for method in ["ARENA", "ARENA-FATROP", "OCP-30", "OCP-30-FATROP", "P2P", "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"]:
+    infeasibles = []
+    if method in results.keys():
+        for i in range(len(results[method]["corridor_infeasibilities_detected"])):
+            if results[method]["corridor_infeasibilities_detected"][i]:
+                infeasibles.append(i)
+    print(f"{method} infeasible cases ({len(infeasibles)}): {infeasibles}")
 
 import matplotlib.pyplot as plt
 
@@ -802,20 +859,20 @@ optimality_comparison_extended_new_new(filtered_results, "OCP-30-FATROP",
                                    ["P2P", "OmgTools", "ARENA", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
                                    ["orange", "black", "royalblue", "red", "firebrick", "darkred"], idx_map)
 if SAVE_FIGURES:
-    plt.savefig("python-benchmark/figures/optimality_comparison.png", dpi=300)
-    plt.savefig("python-benchmark/figures/optimality_comparison.pdf")
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/optimality_comparison.png", dpi=600)
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/optimality_comparison.pdf")
 
 show_histogram_densities(filtered_results, ["ARENA-FATROP", "OCP-30-FATROP", "OmgTools"], ["royalblue", "red", "black"])
 if SAVE_FIGURES:
-    plt.savefig("python-benchmark/figures/densities.png", dpi=300)
-    plt.savefig("python-benchmark/figures/densities.pdf")
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/densities.png", dpi=600)
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/densities.pdf")
 show_computation_time_boxplots(filtered_results, ["OmgTools", "OCP-30-FATROP", "ARENA-FATROP"], ["black", "red", "royalblue"])
 if SAVE_FIGURES:
-    plt.savefig("python-benchmark/figures/densities_boxes.png", dpi=300)
-    plt.savefig("python-benchmark/figures/densities_boxes.pdf")
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/densities_boxes.png", dpi=600)
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/densities_boxes.pdf")
 
 create_latex_table(results)
-create_latex_table(results, True)
+# create_latex_table(results, True)
 
 ## CORRIDOR EVALUATION
 # optimality_comparison_extended_new_new(filtered_results, "OCP-30-EXTENDED-FATROP",
@@ -831,19 +888,8 @@ create_latex_table(results, True)
 # show_relative_difference_density(filtered_results, "OCP-30-EXTENDED-FATROP",
 #     "OCP-30-FATROP", ["red"], idx_map)
 if SAVE_FIGURES:
-    plt.savefig("python-benchmark/figures/relative-reduction-corridor-extension.png", dpi=300)
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/relative-reduction-corridor-extension.png", dpi=600)
 
-# visualize_avg_moving_time(filtered_results, 
-#                           ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
-#                            "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
-#                            ["royalblue", "royalblue", "red", "orange", "black",
-#                             "gold", "goldenrod", "darkgoldenrod"])
-# visualize_avg_solver_and_total_time(filtered_results, ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", "OmgTools"], ["royalblue", "royalblue", "red", "orange", "black"])
-# visualize_avg_moving_time(filtered_feasible_results, 
-#                           ["ARENA-FATROP", "ARENA", "OCP-30-FATROP", "P2P", 
-#                            "OmgTools", "VP-STO-5", "VP-STO-10", "VP-STO-15"], 
-#                            ["royalblue", "royalblue", "red", "orange", "black",
-#                             "gold", "goldenrod", "darkgoldenrod"])
 optimality_comparison_violin(filtered_results, "OCP-30-FATROP",
                                 ["OmgTools", "VP-STO-5", "VP-STO-10", 
                                  "VP-STO-15", "ARENA-FATROP"], 
@@ -851,11 +897,6 @@ optimality_comparison_violin(filtered_results, "OCP-30-FATROP",
                                  "royalblue"], idx_map, use_abs_error=False,
                                  include_infeasibles=False)
 if SAVE_FIGURES:
-    plt.savefig("python-benchmark/figures/optimality_comparison_violin.png", dpi=300)
-# optimality_comparison_violin(filtered_results, "OCP-30-FATROP",
-#                                 ["OmgTools", "VP-STO-5", "VP-STO-10", 
-#                                  "VP-STO-15", "ARENA-FATROP"], 
-#                                 ["darkgray", "gold", "goldenrod", "darkgoldenrod",
-#                                  "royalblue"], idx_map, use_abs_error=False,
-#                                  include_infeasibles=True)
+    plt.savefig(f"python-benchmark/figures/{benchmark_name}/optimality_comparison_violin.png", dpi=600)
+
 # plt.show()

@@ -34,8 +34,8 @@ def show_environment(env, obstacle_color='firebrick', **kwargs):
             elif occupancy[i][j] == 5:
                 color = obstacle_color
             else:
-                # color = 'white'
-                color = None
+                color = 'white'
+                # color = None
 
             # check if user set the obstacles_only option
             obstacles_only = kwargs.get("obstacles_only", False)
@@ -186,7 +186,13 @@ def show_trajectory(trajectory, color, with_trace=False, width=0, height=0,
         except:
             print("No footprint to plot")
 
-    if show_markers and with_line:
+    dashed = kwargs.get("dashed", False)
+    if dashed:
+        h = plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
+                trajectory["py"][start_index:nb_samples_to_show], '--', color=color, 
+                markersize=1, linewidth=linewidth, zorder=3)
+        handles_to_clear.append(h)
+    elif show_markers and with_line:
         h = plt.plot(trajectory["px"][start_index:nb_samples_to_show], 
                 trajectory["py"][start_index:nb_samples_to_show], 'o-', color=color, 
                 markersize=1, linewidth=linewidth, zorder=3)

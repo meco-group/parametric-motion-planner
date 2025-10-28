@@ -75,6 +75,7 @@ def visualize_output(env, params, corridors, planner_methods,
                            
     # plot trajectory
     for i in range(len(trajectories)):
+        print((planner_methods[i]!=2))
         show_trajectory(trajectories[i], colors[i], 
                         with_trace=(i == 2), 
                         width=params["veh_width"], 
@@ -83,9 +84,10 @@ def visualize_output(env, params, corridors, planner_methods,
                         nb_samples_to_show=-1,
                         virtual_initial_footprint=False,
                         virtual_final_footprint=False,
-                        show_markers=True,
+                        show_markers=(i != 2),
                         linewidth=1,
-                        with_line=(i != 1))
+                        with_line=(i != 1),
+                        dashed=(planner_methods[i]=="OCP"))
 
 
     movable_waypoint = (parametrizations[2]["waypoints"][6]["x"],
@@ -168,7 +170,7 @@ def visualize_output(env, params, corridors, planner_methods,
     # plt.show()
     
 
-    plt.savefig(fig_folder + 'changes_to_parametrization.png', dpi=300)
+    plt.savefig(fig_folder + 'changes_to_parametrization.png', dpi=600)
     plt.savefig(fig_folder + 'changes_to_parametrization.pdf')
 
 # Create objects

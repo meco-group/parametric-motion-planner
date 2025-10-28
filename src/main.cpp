@@ -1327,6 +1327,53 @@ void TestDeadlockScenario5(){
     }
 }
 
+void SolveRandomProblemsForIllustration(){
+    Parameters params = Parameters();
+    Environment env = Environment(10, 12, 0.12, 0.12);
+    std::vector<int> xx = {0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 8, 8, 9, 9, 9, 9, 10, 10, 11};
+    std::vector<int> yy = {3, 6, 9, 3, 5, 3, 4, 5, 3, 5, 8, 6, 8, 0, 1, 7, 4, 6, 8, 1, 4, 6, 7, 9, 0, 2, 4, 9, 3, 5, 3};
+    for (int i = 0; i < xx.size(); i++){
+        env.AddObstacle(Point2D<int>(xx[i], yy[i]));
+    }
+
+    MotionPlanner mp = MotionPlanner(params, env);
+    mp.SetStart(Point2D<double>(0.0724476, 0.634078));
+    mp.SetDest(Point2D<double>(1.32, 1.115));
+
+    std::vector<std::vector<double>> ppx;
+    std::vector<std::vector<double>> ppy;
+    int nb_trajs = 5000;
+    int nb_tries = 2*nb_trajs;
+    int counter = 0;
+    int nb_failures = 0;
+    while (counter < nb_trajs && nb_failures < nb_tries){
+        try{
+            mp.Plan();
+            ppx.push_back(std::vector<double>(mp.GetLastSolution().NbSamples()));
+            ppy.push_back(std::vector<double>(mp.GetLastSolution().NbSamples()));
+            for (int i = 0; i < mp.GetLastSolution().NbSamples(); i++){
+                ppx[counter].at(i) = mp.GetLastSolution().Px().at(i);
+                ppy[counter].at(i) = mp.GetLastSolution().Py().at(i);
+            }
+            counter++;
+        } catch (std::exception e){
+            std::cout << "Failure: " << e.what() << std::endl;
+            nb_failures++;
+        }
+    }
+    
+    json results;
+    results["ppx"] = ppx;
+    results["ppy"] = ppy;
+    std::ofstream file("output/random_problem_solutions.json");
+    if (file.is_open()){
+        file << results.dump(4);
+        file.close();
+    } else {
+        std::cerr << "Could not open file for writing." << std::endl;
+    }
+}
+
 int main(int argc, char *argv[]){
     int nb_runs = 1;
     if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
@@ -1351,5 +1398,6 @@ int main(int argc, char *argv[]){
     // TestDeadlockScenario2();
     // TestDeadlockScenario3();
     // TestDeadlockScenario4();
-    TestDeadlockScenario5();
+    // TestDeadlockScenario5();
+    SolveRandomProblemsForIllustration();
 }

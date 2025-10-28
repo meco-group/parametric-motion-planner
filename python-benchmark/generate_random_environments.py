@@ -79,6 +79,18 @@ assert len(xx) == len(yy)
 for x, y in zip(xx, yy):
     env.DeleteCell(pmp.Point2Di(x, y))
 
+# UNSTRUCTURED
+env = pmp.Environment(1+2+2+11+2, 2+1+3+1+2+1+3+3+1+2+1, 0.12, 0.12)
+start = pmp.Point2Dd(0, 0)
+dest = pmp.Point2Dd(0, 0)
+p = pmp.Parameters(2.0, 6.0, 0.115, 0.115, 0.001)
+mp = pmp.MotionPlanner(pmp.PlannerMethod.OCP, p, env)
+counter = 0
+max_normal_corridors = -1
+max_extended_corridors = -1
+
+
+
 min_allowed_distance = 5*0.12
 
 while counter < N:
@@ -88,7 +100,7 @@ while counter < N:
     params = pmp.Parameters(v_max, a_max, 0.115, 0.115, 0.001)
 
     # randomize obstacles
-    # env.AddRandomObstacles(0.25)
+    env.AddRandomObstacles(0.2)
 
     # randomize start and destination points
     good_points_found = False
@@ -146,6 +158,8 @@ print(f"Max extended corridors: {max_extended_corridors}")
 # file_appendix = "_large_double_more_obstacles_25"
 # file_appendix = "_structured_1"
 # file_appendix = "_structured_3_large"
+# file_appendix = "_unstructured_10"
+# file_appendix = "_unstructured_20"
 file_appendix = "_none"
         
 with open('python-benchmark/files/random_environments' + file_appendix + '.json', 'w') as f:

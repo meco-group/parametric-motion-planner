@@ -1612,6 +1612,14 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 
 		// update objective term
 		obj += t_x_(0, w) + t_x_(1, w) + t_x_(2, w);
+
+		// // add random weights to the timings
+		// obj += rand()/(RAND_MAX+1.0)*t_x_(0, w);
+		// obj += rand()/(RAND_MAX+1.0)*t_x_(1, w);
+		// obj += rand()/(RAND_MAX+1.0)*t_x_(2, w);
+		// obj += rand()/(RAND_MAX+1.0)*t_y_(0, w);
+		// obj += rand()/(RAND_MAX+1.0)*t_y_(1, w);
+		// obj += rand()/(RAND_MAX+1.0)*t_y_(2, w);
 	}
 
 	// Add terminal velocity constraint
