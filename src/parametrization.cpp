@@ -1634,7 +1634,9 @@ void Parametrization::PrepareSingleOptiInstance(int nbCorridors,
 	//////////////////////////////////
 	/// Finish problem formulation ///
 	//////////////////////////////////
-	opti_.minimize(obj);
+	MX opti_x_sum = 0;
+	for (int i = 0; i < opti_.x().size1(); i++){ opti_x_sum += opti_.x()(i);}
+	opti_.minimize(obj + 1e-12*opti_x_sum);
 	opti_.solver(solver_name_, opts_casadi, opts_solver);
 
 	// Create function object

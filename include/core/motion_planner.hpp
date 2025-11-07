@@ -259,8 +259,8 @@ class MotionPlanner{
         PlannerLogger logger_ = PlannerLogger();
 
         // other attributes
-        // std::string solver_name_ = "ipopt";
-        std::string solver_name_ = "fatrop";
+        std::string solver_name_ = "ipopt";
+        // std::string solver_name_ = "fatrop";
         Dict opts_casadi_;
         Dict opts_solver_;
         int print_level_ = 0;
