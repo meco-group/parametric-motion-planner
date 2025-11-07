@@ -104,7 +104,8 @@ class MotionPlanner{
         void SetPrintLevel(int print_level) { print_level_ = print_level;};
         void SetMaxIter(int max_iter) { max_iter_ = max_iter;};
         void SetOCPNumberOfPointsPerCorridor(int nb_points_per_corridor){ 
-            nb_points_per_corridor_ = nb_points_per_corridor;};
+            nb_points_per_corridor_ = nb_points_per_corridor;
+            ocp_solver_.SetNbPointsPerCorridor(nb_points_per_corridor_);};
         void SetSuboptimalityEliminationFeature(bool set){ 
             eliminate_suboptimalities_ = set;};
         void SetSolver(std::string solver_name, 

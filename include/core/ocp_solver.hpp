@@ -35,6 +35,7 @@ class OCPSolver{
         double GetLatestSolverTime() const { return latest_solver_time_;};
         int GetLatestSuccessStatus() const { return latest_success_status_;};
         int GetNbPointsPerCorridor() const { return nb_points_per_corridor_;};
+        void SetNbPointsPerCorridor(int n){ nb_points_per_corridor_ = n;};
         
     private:
         void PrepareSingleOptiInstance(int nbCorridors,
