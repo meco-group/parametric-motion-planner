@@ -146,6 +146,10 @@ true_setpoint_vx = get_data(df, columns_name_to_index, 'true-setpoint-vx')
 actual_vy = get_data(df, columns_name_to_index, 'actual-vy')
 true_setpoint_vy = get_data(df, columns_name_to_index, 'true-setpoint-vy')
 
+print(max(abs(actual_vx)))
+print(max(abs(actual_vy)))
+exit()
+
 pz = get_data(df, columns_name_to_index, 'pz')
 pa = get_data(df, columns_name_to_index, 'pa')
 pb = get_data(df, columns_name_to_index, 'pb')
@@ -224,11 +228,11 @@ def plot_actual_with_colorbar(time, actual, setpoint, name, ylabel, start_time=0
 tracking_error_in_plane_while_moving = np.sqrt((actual_px[4428:4710]-true_setpoint_px[4428:4710])**2 + (actual_py[4428:4710]-true_setpoint_py[4428:4710])**2)
 
 plot_actual_with_colorbar(time, actual_px, true_setpoint_px, 'px', 'x position [mm]', 44000, 47200)
-plt.savefig('experimental-validation/figures/x_position_tracking_error.png', dpi=600)
+# plt.savefig('experimental-validation/figures/x_position_tracking_error.png', dpi=600)
 plot_actual_with_colorbar(time, actual_py, true_setpoint_py, 'py', 'y position [mm]', 44000, 47200)
-plt.savefig('experimental-validation/figures/y_position_tracking_error.png', dpi=600)
+# plt.savefig('experimental-validation/figures/y_position_tracking_error.png', dpi=600)
 plot_actual_with_colorbar(time, pz, 0*pz+3, 'py', 'z position [mm]', 44000, 47200)
-plt.savefig('experimental-validation/figures/z_position_tracking_error.png', dpi=600)
+# plt.savefig('experimental-validation/figures/z_position_tracking_error.png', dpi=600)
 
 from matplotlib.collections import LineCollection
 actual_px = 0.001*actual_px
@@ -248,7 +252,7 @@ plt.ylabel('y [m]')
 # set xticks to step in 0.24m
 plt.xticks(np.arange(0, plt.xlim()[1]+0.01, 0.24))
 
-plt.savefig('experimental-validation/figures/position_tracking_error.png', dpi=600)
+# plt.savefig('experimental-validation/figures/position_tracking_error.png', dpi=600)
 
 plt.show()
 

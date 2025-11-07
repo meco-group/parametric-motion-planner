@@ -84,8 +84,8 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h,
     # time_a = time.time()
     multiframeproblem=MultiFrameProblem(vehicle, environment, 
                                         n_frames=len(rooms))
-    multiframeproblem.set_options({'solver_options': 
-        {'ipopt': {'ipopt.linear_solver': 'ma27', 'ipopt.print_level':0}}}) # hsl solvers required
+    # multiframeproblem.set_options({'solver_options': 
+    #     {'ipopt': {'ipopt.linear_solver': 'ma27', 'ipopt.print_level':0}}}) # hsl solvers required
     # multiframeproblem.set_options({'solver_options':
     #                                {'ipopt': {'ipopt.print_level': 5}}})
     multiframeproblem.init()
@@ -158,12 +158,12 @@ def omg_example(corridors, start, goal, v_max, a_max, veh_w, veh_h,
     return solver_time[-1], travel_time
 
 
-# corridors = [(0, 1, 3, 5), (0, 2, 3, 4), (1, 2, 2, 4), (1, 3, 2, 3), 
-#              (2, 3, 1, 3), (2, 4, 1, 2), (3, 4, 0, 2), (3, 5, 0, 1)]
-# start = [0.5, 4.5]
-# destination = [4.5, 0.5]
+corridors = [(0, 1, 3, 5), (0, 2, 3, 4), (1, 2, 2, 4), (1, 3, 2, 3), 
+             (2, 3, 1, 3), (2, 4, 1, 2), (3, 4, 0, 2), (3, 5, 0, 1)]
+start = [0.5, 4.5]
+destination = [4.5, 0.5]
 
-# traj = omg_example(corridors, start, destination, 2.0, 6.0, 0.115, 0.115)
+traj = omg_example(corridors, start, destination, 2.0, 6.0, 0.115, 0.115)
 
 # problematic example:
 # corridors = [(0, 1, 0, 2), (0, 3, 1, 2), (2, 3, 1, 5), (2, 5, 4, 5),

@@ -11,6 +11,8 @@ sys.path.append('python-benchmark/')
 
 import parametric_motion_planner_module as pmp
 
+SAVE_FIGS = False
+
 def latexify():
     params = {#'backend': 'ps',
               'axes.labelsize': 15,
@@ -310,10 +312,10 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
     # plt.gca().spines['left'].set_visible(False)
     # plt.gca().spines['right'].set_visible(False)
     
-    if fig_nb in filtered_list:
+    if fig_nb in filtered_list and SAVE_FIGS:
         plt.savefig(fig_folder[:-1] + f'/filtered/traj_{fig_nb:03d}.png', dpi=600)
         plt.savefig(fig_folder[:-1] + f'/filtered/traj_{fig_nb:03d}.pdf')
-    if fig_nb in suboptimal_list:
+    if fig_nb in suboptimal_list and SAVE_FIGS:
         show_waypoints(parametrization)
         plt.ylim(suboptimal_zoomboxes[fig_nb][2:])
         plt.xlim(suboptimal_zoomboxes[fig_nb][:2])
@@ -322,7 +324,8 @@ def visualize_output(env, params, corridors, planner_methods, trajectories, fig_
         plt.savefig(fig_folder[:-1] + f'_suboptimal/traj_{fig_nb:03d}.pdf')
         plt.show()
 
-    plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=100)
+    if SAVE_FIGS:
+        plt.savefig(fig_folder + f'traj_{fig_nb:03d}.png', dpi=100)
     travel_times = [traj["t"][-1] if len(traj["t"]) > 0 else -1 for traj in trajectories]
     travel_times[-1] = round(travel_times[-1]*100)/100
     for i in range(len(trajectories)):
@@ -380,8 +383,119 @@ def make_legend():
     
     # plt.show()
     benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
-    plt.savefig(f'python-benchmark/benchmark_environments/{benchmark_name}/figures/legend.png', dpi=600, bbox_inches='tight')
+    if SAVE_FIGS:
+        plt.savefig(f'python-benchmark/benchmark_environments/{benchmark_name}/figures/legend.png', dpi=600, bbox_inches='tight')
 
+def visualize_position_setpoints(planner_methods, trajectories, fig_nb):
+    benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
+    fig_folder = f'python-benchmark/benchmark_environments/{benchmark_name}/figures/'
+    
+    filtered_list = []
+    if benchmark_name == "structured_3_large":
+        filtered_list = [31, 39, 86, 32]
+
+    elif benchmark_name == "unstructured_10":
+        filtered_list = [40, 87, 16, 70]
+
+    if fig_nb not in filtered_list:
+        return
+
+    first_arena_idx = 0
+    while planner_methods[first_arena_idx] != "ARENA":
+        first_arena_idx += 1
+
+        if first_arena_idx >= len(planner_methods):
+            first_arena_idx = None
+            break
+
+    colors = []
+    planner_names = []
+    zorders = []
+    for i in range(len(trajectories)):
+        if planner_methods[i] == "P2P":
+            colors.append('orange')
+            planner_names.append("P2P")
+            zorders.append(0)
+        elif planner_methods[i] == "OCP":
+            colors.append('r')
+            planner_names.append("OCP")
+            zorders.append(5)
+        elif planner_methods[i] == "ARENA":
+            zorders.append(6)
+            colors.append('b')
+            planner_names.append("PMP")
+        elif planner_methods[i] == "OMG":
+            colors.append('k')
+            planner_names.append("OMG-tools")
+            zorders.append(4)
+        else:
+            if "15" in planner_methods[i]:
+                colors.append('darkgoldenrod')
+                planner_names.append("VP-STO-15")
+                zorders.append(3)
+            elif "10" in planner_methods[i]:
+                colors.append('goldenrod')
+                planner_names.append("VP-STO-10")
+                zorders.append(2)
+            elif "5" in planner_methods[i]:
+                colors.append('gold')
+                planner_names.append("VP-STO-5")
+                zorders.append(1)
+
+    plt.figure(figsize=(6,4))
+    plt.subplot(2,1,1)
+    max_tf = 0
+    for i in range(len(trajectories)):
+        plt.plot(trajectories[i]["t"], trajectories[i]["px"], '-', color=colors[i], linewidth=1.5, label=planner_names[i], zorder=zorders[i])
+        max_tf = max(max_tf, trajectories[i]["t"][-1])
+        plt.axvline(x=trajectories[i]["t"][-1], color=colors[i], linestyle='-', linewidth=0.5, alpha=1, zorder=zorders[i])
+
+    plt.xlabel("Time [s]")
+    plt.ylabel("$p^x(t)$ [m]")
+    plt.xlim(0, max_tf)
+
+    plt.subplot(2,1,2)
+    for i in range(len(trajectories)):
+        plt.plot(trajectories[i]["t"], trajectories[i]["py"], '-', color=colors[i], linewidth=1.5, label=planner_names[i], zorder=zorders[i])
+        # show vertical line at tf
+        plt.axvline(x=trajectories[i]["t"][-1], color=colors[i], linestyle='-', linewidth=0.5, alpha=1, zorder=zorders[i])
+    plt.xlabel("Time [s]")
+    plt.ylabel("$p^y(t)$ [m]")
+    plt.xlim(0, max_tf)
+    plt.tight_layout()
+
+    plt.subplots_adjust(bottom=0.3)
+    lw = 2
+    handles = []
+    labels = []
+    # OCP
+    handles.append(plt.Line2D([0], [0], linestyle='-', color='r', linewidth=lw))
+    labels.append("OCP")
+    # VP-STO-5
+    handles.append(plt.Line2D([0], [0], color='gold', linewidth=lw))
+    labels.append("VP-STO-5")
+    # OMG
+    handles.append(plt.Line2D([0], [0], linestyle='-', color='k', linewidth=lw))
+    labels.append("OMG-tools")
+    # VP-STO-10
+    handles.append(plt.Line2D([0], [0], color='goldenrod', linewidth=lw))
+    labels.append("VP-STO-10")
+    # ARENA
+    handles.append(plt.Line2D([0], [0], color='b', linewidth=lw))
+    labels.append("PMP")
+    # VP-STO-15
+    handles.append(plt.Line2D([0], [0], color='darkgoldenrod', linewidth=lw))
+    labels.append("VP-STO-15")
+    plt.legend(handles, labels, loc='upper center',
+                ncol=3, frameon=False, handletextpad=0.5,
+                columnspacing=1.0, labelspacing=0.2,
+                bbox_to_anchor=(0.5, -0.45))
+
+    if SAVE_FIGS or True:
+        plt.savefig(fig_folder + f'filtered/pos_setpoints_{fig_nb:03d}.png', dpi=600)
+        plt.savefig(fig_folder + f'filtered/pos_setpoints_{fig_nb:03d}.pdf')
+    plt.close()
+    
 
 ###############################################################################
 ###############################################################################
@@ -409,9 +523,9 @@ for f in files:
     except ValueError:
         print(f"File {f} does not have a valid digit, skipping...")
 
-# indices_to_check = range(N)
+indices_to_check = range(N)
 # indices_to_check = [31, 39, 86, 32, 40, 87, 16, 70]
-indices_to_check = []
+# indices_to_check = []
 
 for i in indices_to_check:
     print(f"{100.0*i/(N-1):.2f}% completion")
@@ -474,5 +588,7 @@ for i in indices_to_check:
         if os.path.exists(file_name):
             print(f"File {file_name} already exists, skipping...")
             continue
-    visualize_output(env, params, corridors, planner_methods_list, 
-                     trajectories_list, i, data[arena_idx]["parametrization"])
+    # visualize_output(env, params, corridors, planner_methods_list, 
+    #                  trajectories_list, i, data[arena_idx]["parametrization"])
+    visualize_position_setpoints(planner_methods_list, 
+                                 trajectories_list, i)

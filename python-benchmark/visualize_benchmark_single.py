@@ -56,7 +56,7 @@ def visualize_output(env, params, corridors, planner_methods,
     # plt.scatter(pts_x, pts_y)
     
     set_env_plot_limits(env)
-    plt.savefig(fig_folder + 'traj.png', dpi=300)
+    # plt.savefig(fig_folder + 'traj.png', dpi=300)
 
     ### plot positions ###
     fig, axs = plt.subplots(2, 1)
@@ -97,7 +97,7 @@ def visualize_output(env, params, corridors, planner_methods,
     axs[1].set_xlabel('t')
     plt.suptitle('Position')
 
-    plt.savefig(fig_folder + 'positions.png', dpi=300)
+    # plt.savefig(fig_folder + 'positions.png', dpi=300)
 
 
     ### plot velocity ###
@@ -143,7 +143,7 @@ def visualize_output(env, params, corridors, planner_methods,
         pass
     axs[1].set_ylim([-1.1*params["v_max"], 1.1*params["v_max"]])
     
-    plt.savefig(fig_folder + 'velocities.png', dpi=300)
+    # plt.savefig(fig_folder + 'velocities.png', dpi=300)
 
 
 
@@ -192,7 +192,7 @@ def visualize_output(env, params, corridors, planner_methods,
 
 
 
-    plt.savefig(fig_folder + 'controls.png', dpi=300)
+    # plt.savefig(fig_folder + 'controls.png', dpi=300)
 
     ### plot computation time and moving time ###
     fig, ax1 = plt.subplots()
@@ -259,7 +259,7 @@ def visualize_output(env, params, corridors, planner_methods,
     handles = handles1 + handles2
     labels = labels1 + labels2
     plt.legend(handles, labels)
-    plt.savefig(fig_folder + '/timings.png', dpi=300)
+    # plt.savefig(fig_folder + '/timings.png', dpi=300)
 
     plt.show()
 

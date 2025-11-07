@@ -17,7 +17,8 @@ def print_stats(Tf, t_comp_total, t_comp_solver):
 # file_name_appendix = "_double"
 # file_name_appendix = "_large"
 # file_name_appendix = "_large_double"
-file_name_appendix = "_large_double_more_obstacles_10"
+# file_name_appendix = "_large_double_more_obstacles_10"
+file_name_appendix = "_" + json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
 envs, params, starts, dests, local_env, local_param = extract_data(file_name_appendix)
 
 # decide which environment to run
@@ -25,11 +26,11 @@ envs, params, starts, dests, local_env, local_param = extract_data(file_name_app
 # 6-corridor environments: 14, 56, 104, 439
 # 5-corridor environemnts: 79, 164, 172, 182, 236, 241, 260, 446, 469
 # OCP failures: 62, 83, 96, 169, 348, 475, 494
-benchmark_idx = 260
+benchmark_idx = 63
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(pmp.PlannerMethod.ARENA, local_param, local_env)
-motion_planner.SetSolver("fatrop", False)
+motion_planner.SetSolver("ipopt", False)
 # motion_planner.SetOptimizationApproach("original")
 # motion_planner.SetOptimizationApproach("new formulation")
 
@@ -52,10 +53,10 @@ local_env.CopyObstacles(envs[benchmark_idx])
 
 # Run the planner
 try:
-    motion_planner.SetMethod(pmp.PlannerMethod.OCP)
-    motion_planner.SetCorridorExtendedMode(True)
+    # motion_planner.SetMethod(pmp.PlannerMethod.OCP)
+    # motion_planner.SetCorridorExtendedMode(True)
     motion_planner.Plan()
-    motion_planner.SetCorridorExtendedMode(False)
+    # motion_planner.SetCorridorExtendedMode(False)
 except Exception as e:
     print(f"Exception: {e}")
 

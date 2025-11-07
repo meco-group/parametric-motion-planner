@@ -1374,6 +1374,50 @@ void SolveRandomProblemsForIllustration(){
     }
 }
 
+void SolveReviewersProblem(){
+    Environment env = Environment(5, 5, 0.12, 0.12);
+    std::vector<int> xx = {1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4};
+    std::vector<int> yy = {0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3};
+    for (int i = 0; i < xx.size(); i++){
+        env.AddObstacle(Point2D<int>(xx[i], yy[i]));
+    }
+
+    Parameters params = Parameters();
+    MotionPlanner mp = MotionPlanner(params, env);
+
+    Point2D<int> start_cell = Point2D<int>(0, 0);
+    Point2D<int> dest_cell = Point2D<int>(4, 4);
+    mp.SetStart(start_cell.ConvertCellToWorld(env.CellWidth(), env.CellHeight()));
+    mp.SetDest(dest_cell.ConvertCellToWorld(env.CellWidth(), env.CellHeight()));
+    mp.PlanSafely();
+    mp.DumpToJson("reviewers_problem_solution_no_coupling.json");
+};
+
+void SolveReviewersDiagonalProblem(){
+    Environment env = Environment(14, 14, 0.12, 0.12);
+    std::vector<int> xx = {0, 1, 2, 3, 2, 2, 6, 6, 6, 6, 6, 9, 9, 9, 9, 9, 9};
+    std::vector<int> yy = {4, 4, 4, 4, 0, 1, 9, 10, 11, 12, 13, 0, 1, 2, 3, 4, 5};
+    for (int i = 0; i < xx.size(); i++){
+        env.AddObstacle(Point2D<int>(xx[i], yy[i]));
+    }
+
+    Parameters params = Parameters();
+    MotionPlanner mp = MotionPlanner(params, env);
+    Point2D<int> start_cell = Point2D<int>(0, 0);
+    Point2D<int> dest_cell = Point2D<int>(13, 13);
+    mp.SetStart(start_cell.ConvertCellToWorld(env.CellWidth(), env.CellHeight()));
+    mp.SetDest(dest_cell.ConvertCellToWorld(env.CellWidth(), env.CellHeight()));
+    mp.SetSolver("ipopt");
+    mp.SetMethod(OCP);
+
+    for (int i = 0; i < 8; i++){
+        mp.SetMaxNbCorridorGrowingIterations(i);
+        mp.PlanSafely();
+        mp.DumpToJson("reviewers_problem_solution_diagonal_ocp_" + std::to_string(i) + ".json");
+    }
+
+}
+
 int main(int argc, char *argv[]){
     int nb_runs = 1;
     if (argc == 3 && std::strcmp(argv[1], "nb_runs") == 0){
@@ -1399,5 +1443,7 @@ int main(int argc, char *argv[]){
     // TestDeadlockScenario3();
     // TestDeadlockScenario4();
     // TestDeadlockScenario5();
-    SolveRandomProblemsForIllustration();
+    // SolveRandomProblemsForIllustration();
+    // SolveReviewersProblem();
+    SolveReviewersDiagonalProblem();
 }

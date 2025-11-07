@@ -14,13 +14,14 @@ def latexify():
               'font.family': 'serif',
               'figure.figsize': [7,5],
             #   'text.latex.preamble': [r'\usepackage{bm}'],
+            #   'text.latex.preamble': r'\usepackage{mathptmx}',
               }
  
     plt.rcParams.update(params)
  
 latexify()
 
-SAVE_FIGURES = True
+SAVE_FIGURES = False
 
 # with open('python-benchmark/files/results.json', 'r') as f:
 # with open('python-benchmark/files/results_cell.json', 'r') as f:
@@ -33,6 +34,22 @@ SAVE_FIGURES = True
 benchmark_name = json.loads(open('python-benchmark/benchmark_settings.json').read())["benchmark_name"]
 with open(f'python-benchmark/files/results_{benchmark_name}.json', 'r') as f:
     results = json.load(f)
+
+# # load omg_tools_preparation_{benchmark_name}.json
+# with open(f'python-benchmark/files/omg_tools_preparation_{benchmark_name}.json', 'r') as f:
+#     omg_tools_preparation = json.load(f)
+
+# arena_results = results["ARENA-FATROP"]
+# # count how many instances have solver time = 0 and print "Tf" for those instances
+# count = 0
+# for i in range(len(arena_results["t_comp_solver"])):
+#     if arena_results["t_comp_solver"][i] == 0 and arena_results["t_comp_total"][i] > 0:
+#         count += 1
+#         nb_corridors = len(omg_tools_preparation["corridors"][i])
+#         print(f"Instance {i} has solver time 0 with Tf = {arena_results['Tf'][i]} and t_total = {arena_results['t_comp_total'][i]} nb_corridors = {nb_corridors}")
+
+# print(f"Total instances with solver time 0: {count}")
+# exit()
 
 def optimality_comparison_extended_new_new(results, baseline_method, methods, colors, idx_map, use_abs_error=False):
     Tf_baseline = np.array(results[baseline_method]["Tf"])
@@ -100,6 +117,7 @@ def optimality_comparison_extended_new_new(results, baseline_method, methods, co
     else:
         # plt.ylabel("Relative\nsuboptimality [\%]")
         plt.ylabel("Relative error\non $t_{\mathrm{move}}$ [\%]")
+        # plt.ylabel("$\epsilon_{\mathrm{move}}$ [\%]")
     # plt.gcf().legend(loc='lower center', ncol = 3, frameon=False)
     plt.gcf().legend(bbox_to_anchor=(0.98, 0.18), ncol = len(methods), frameon=False)
 
@@ -254,7 +272,8 @@ def optimality_comparison_violin(results, baseline_method, methods, colors,
     if use_abs_error:
         plt.ylabel("Absolute suboptimality [s]")
     else:
-        plt.ylabel("Relative error on $t_{\mathrm{move}}$ [\%]")
+        # plt.ylabel("Relative error on $t_{\mathrm{move}}$ [\%]")
+        plt.ylabel("$\\varepsilon_{\mathrm{move}}$ [\%]")
     plt.ylim([-35, 80])
     # rotate xticks 90 degrees
     plt.xticks(rotation=30)
@@ -896,7 +915,7 @@ optimality_comparison_violin(filtered_results, "OCP-30-FATROP",
                                 ["black", "gold", "goldenrod", "darkgoldenrod",
                                  "royalblue"], idx_map, use_abs_error=False,
                                  include_infeasibles=False)
-if SAVE_FIGURES:
+if SAVE_FIGURES or True:
     plt.savefig(f"python-benchmark/figures/{benchmark_name}/optimality_comparison_violin.png", dpi=600)
 
 # plt.show()

@@ -27,8 +27,8 @@ STORE_BENCHMARK_RESULTS = False#True
 CONSTRAIN_VP_STO_TO_CORRIDORS = False
 RESET_ALL_ENTRIES_OF_EXECUTE_METHODS = False
 
-# envs_indices_to_check = range(len(envs))
-envs_indices_to_check = [74]
+envs_indices_to_check = range(len(envs))
+# envs_indices_to_check = [74]
 
 # List all methods to benchmark
 methods = [pmp.PlannerMethod.OCP,
@@ -43,7 +43,10 @@ methods = [pmp.PlannerMethod.OCP,
            pmp.PlannerMethod.OCP,
            None,
            None,
-           None]
+           None,
+           pmp.PlannerMethod.OCP,
+           pmp.PlannerMethod.OCP,
+           pmp.PlannerMethod.OCP]
 method_names = ["OCP-30",
                 "OCP-5", 
                 "OCP-10", 
@@ -56,18 +59,23 @@ method_names = ["OCP-30",
                 "OCP-30-EXTENDED-FATROP",
                 "VP-STO-5",
                 "VP-STO-10",
-                "VP-STO-15"]
-default_selection = [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-arena_selection = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-extended_selection = [0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0]
-vp_sto_selection = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]
+                "VP-STO-15",
+                "OCP-40-FATROP",
+                "OCP-60-FATROP",
+                "OCP-80-FATROP"]
+
+default_selection = [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]
+arena_selection = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+extended_selection = [0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0]
+vp_sto_selection = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0]
 assert len(methods) == len(method_names)
 
 # my_selection = default_selection
 # my_selection = arena_selection
 # my_selection = extended_selection
 # my_selection = vp_sto_selection
-my_selection = [0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0]
+# my_selection = [0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0]
+my_selection = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1]
 
 # Create motion planner
 motion_planner = pmp.MotionPlanner(methods[1], local_param, local_env)
@@ -154,11 +162,12 @@ for method, method_name in zip(methods, method_names):
             motion_planner.SetMethod(method)
 
         # Set the correct number of points per corridor for the OCP method
-        if method_name.startswith("OCP") and not method_name.endswith("FATROP"):
+        if method_name.startswith("OCP") :#and not method_name.endswith("FATROP"):
             method_name_split = method_name.split("-")
-            assert len(method_name_split) == 2
+            # assert len(method_name_split) == 2
             n = int(method_name_split[1])
             motion_planner.SetOCPNumberOfPointsPerCorridor(n)
+            motion_planner.SetSolver("fatrop", True)
 
         # check if we want extended approach or not
         if "EXTENDED" in method_name:
@@ -277,3 +286,75 @@ for method, method_name in zip(methods, method_names):
     # import json
     # with open('python-benchmark/files/results' + file_name_appendix + '.json', 'w') as f:
     #     json.dump(results, f, indent=4)
+
+import numpy as np             
+def filter_results_for_fair_comparison(results):
+    filtered_results = {}
+
+    # start by keeping all results
+    failures = np.array([False]*len(results["OCP-30-FATROP"]["t_comp_solver"]))
+
+    # print out indices where t_comp_solver < 0 for OCP-30-FATROP
+    # print(np.where(np.array(results['OCP-30-FATROP']['t_comp_solver']) < 0))
+
+    for method in results.keys():
+        failures = np.logical_or(failures, np.array(results[method]["t_comp_solver"]) < 0)
+        failures = np.logical_or(failures, np.array(results[method]["t_comp_total"]) < 0)
+        failures = np.logical_or(failures, np.array(results[method]["Tf"]) < 0)
+
+    print(f"failures:")
+    print([i for i in range(len(failures)) if failures[i]])
+
+    for method in results.keys():
+        filtered_results[method] = {}
+        filtered_results[method]["t_comp_solver"] = np.array(results[method]["t_comp_solver"])[~failures]
+        filtered_results[method]["t_comp_total"] = np.array(results[method]["t_comp_total"])[~failures]
+        filtered_results[method]["Tf"] = np.array(results[method]["Tf"])[~failures]
+        filtered_results[method]["corridor_infeasibilities_detected"] = np.array(results[method]["corridor_infeasibilities_detected"])[~failures]
+
+    # create a int-inr dictoniary showing filtered_results_idx->original_results_idx
+    idx_map = {}
+    for i in range(len(failures)):
+        if not failures[i]:
+            idx_map[len(idx_map)] = i
+
+    filtered_feasible_results = {}
+    infeasibles = np.array(results["OCP-30-FATROP"]["corridor_infeasibilities_detected"]) == True
+    for method in results.keys():
+        infeasibles = np.logical_or(infeasibles, np.array(results[method]["corridor_infeasibilities_detected"]) == True)
+
+    for method in results.keys():
+        filtered_feasible_results[method] = {}
+        filtered_feasible_results[method]["t_comp_solver"] = np.array(results[method]["t_comp_solver"])[~infeasibles]
+        filtered_feasible_results[method]["t_comp_total"] = np.array(results[method]["t_comp_total"])[~infeasibles]
+        filtered_feasible_results[method]["Tf"] = np.array(results[method]["Tf"])[~infeasibles]
+        filtered_feasible_results[method]["corridor_infeasibilities_detected"] = np.array(results[method]["corridor_infeasibilities_detected"])[~infeasibles]
+
+    return filtered_results, idx_map, filtered_feasible_results
+
+results = filter_results_for_fair_comparison(results)[0]
+
+# print average t_solver and number of corridor infeasibilities detected for OCP-XX-FATROP
+methods = ["OCP-30-FATROP", "OCP-40-FATROP", "OCP-60-FATROP", "OCP-80-FATROP"]
+for method in methods:
+    total_solver_time = 0
+    total_infeasibilities = 0
+    infeasible_idxs = []
+    count = 0
+    for i in range(len(results[method]["t_comp_solver"])):
+        good_result = True
+        for m in methods:
+            if results[m]["t_comp_solver"][i] is None or results[m]["t_comp_solver"][i] < 0 or results[m]["t_comp_total"][i] is None or results[m]["t_comp_total"][i] < 0:
+                good_result = False
+        if results["ARENA-FATROP"]["t_comp_solver"][i] is None or results["ARENA-FATROP"]["t_comp_solver"][i] < 0 or results["ARENA-FATROP"]["t_comp_total"][i] is None or results["ARENA-FATROP"]["t_comp_total"][i] < 0:
+            good_result = False
+
+            
+        if good_result:
+            total_solver_time += results[method]["t_comp_solver"][i]
+            count += 1
+            if results[method]["corridor_infeasibilities_detected"][i]:
+                total_infeasibilities += 1
+                infeasible_idxs.append(i)
+    avg_solver_time = total_solver_time / count if count > 0 else 0
+    print(f"Method {method}: Average solver time = {avg_solver_time:.2f} ms, Corridor infeasibilities detected = {total_infeasibilities} ({infeasible_idxs})")

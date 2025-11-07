@@ -1,6 +1,23 @@
 import matplotlib.pyplot as plt
 from visualization_helpers import *
 
+def latexify():
+    params = {#'backend': 'ps',
+              'axes.labelsize': 15,
+              'axes.titlesize': 15,
+              'legend.fontsize': 15,
+              'xtick.labelsize': 15,
+              'ytick.labelsize': 15,
+              'text.usetex': True,
+              'font.family': 'serif',
+              'figure.figsize': [7,5],
+              'text.latex.preamble': r'\usepackage{bm}',
+              }
+ 
+    plt.rcParams.update(params)
+ 
+latexify()
+
 def visualize_output(env, params, corridors, planner_methods, 
                      trajectories, parametrizations=[], **kwargs):
     assert len(planner_methods) == len(trajectories)
@@ -29,7 +46,7 @@ def visualize_output(env, params, corridors, planner_methods,
             colors.append('k')
 
     ### plot trajectory ###
-    plt.figure()
+    plt.figure(figsize=(4,4))
 
     # show environment
     show_environment(env)
@@ -43,15 +60,21 @@ def visualize_output(env, params, corridors, planner_methods,
                            env["cell_height"], with_numbering=True)
         
     # plot waypoints
-    for i in range(len(trajectories)):
-        if planner_methods[i] == "ARENA":
-            show_waypoints(parametrizations[i])
+    # for i in range(len(trajectories)):
+    #     if planner_methods[i] == "ARENA":
+    #         show_waypoints(parametrizations[i])
+        
+    # plot start and dest
+    plt.plot(corridors["start"]["x"], corridors["start"]["y"], 'ko', markersize=8)
+    plt.plot(corridors["dest"]["x"], corridors["dest"]["y"], 'ko', markersize=8)
                            
     # plot trajectory
-    for i in range(len(trajectories)):
-        show_trajectory(trajectories[i], colors[i], 
-                        planner_methods[i] == "ARENA", params["veh_width"], 
-                        params["veh_height"], i == 0)
+    if kwargs["figname_appendix"] == 7:
+        for i in range(len(trajectories)):
+            print(f"method: {planner_methods[i]}, Tf: {trajectories[i]['Tf']}")
+            show_trajectory(trajectories[i], colors[i], 
+                            planner_methods[i] == "ARENA", params["veh_width"], 
+                            params["veh_height"], i == 0)
 
  
     # pts = [0.511041, 0.172393, 0.511041, 0.177022, 0.54149, 0.1785, 0.84088, 0.178954, 0.953821, 0.155781, 1.01849, 0.1815, 1.24629, 0.181509, 1.25851, 0.30149, 1.25851, 0.30149, 1.29906, 0.3015, 1.29906, 0.3015, 1.29937, 0.336515]
@@ -60,7 +83,13 @@ def visualize_output(env, params, corridors, planner_methods,
     # plt.scatter(pts_x, pts_y)
     
     set_env_plot_limits(env)
-    plt.savefig(fig_folder + 'traj.png', dpi=300)
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    if "figname_appendix" in kwargs:
+        plt.savefig(fig_folder + 'traj_' + str(kwargs["figname_appendix"]) + '.png', dpi=600)
+    else:
+        plt.savefig(fig_folder + 'traj.png', dpi=600)
 
     ### plot positions ###
     fig, axs = plt.subplots(2, 1)
@@ -255,30 +284,37 @@ def visualize_output(env, params, corridors, planner_methods,
 
 
 # try:
-files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
+# files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
 # files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
 # files = ["output/solution_ocp.json"]
 # files = ["output/solution_arena.json"]
+# files = ["output/reviewers_problem_solution.json", "output/reviewers_problem_solution_no_coupling.json",]
+# files = ["output/reviewers_problem_solution_diagonal_1.json"]
+# fffiles = [files]
 
-envs_list = []
-params_list = []
-corridors_list = []
-planner_methods_list = []
-trajectories_list = []
-parametrizations_list = []
-for output_file in files:
-    env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
-    envs_list.append(env)
-    params_list.append(params)
-    corridors_list.append(corridors)
-    planner_methods_list.append(planner_method)
-    trajectories_list.append(trajectory)
-    parametrizations_list.append(parametrization)
+fffiles = [["output/reviewers_problem_solution_diagonal_" + str(i) + ".json"] for i in range(8)]
+# fffiles[-1].append("output/reviewers_problem_solution_diagonal_ocp_7.json")
+for idx, files in enumerate(fffiles):
+    envs_list = []
+    params_list = []
+    corridors_list = []
+    planner_methods_list = []
+    trajectories_list = []
+    parametrizations_list = []
+    for output_file in files:
+        env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
+        envs_list.append(env)
+        params_list.append(params)
+        corridors_list.append(corridors)
+        planner_methods_list.append(planner_method)
+        trajectories_list.append(trajectory)
+        parametrizations_list.append(parametrization)
 
-visualize_output(envs_list[0], params_list[0], corridors_list[2], 
-                planner_methods_list, trajectories_list, 
-                parametrizations_list, ocp_corridors=corridors_list[1],
-                show_original_path=False, hatch='//')
-# except:
-#     print("Error in visualize_output")
-#     pass
+    # visualize_output(envs_list[0], params_list[0], corridors_list[min(len(files)-1,2)], 
+    #                 planner_methods_list, trajectories_list, 
+    #                 parametrizations_list, ocp_corridors=corridors_list[1],
+    #                 show_original_path=False, hatch='//')
+    visualize_output(envs_list[0], params_list[0], corridors_list[min(len(files)-1,2)], 
+                    planner_methods_list, trajectories_list, 
+                    parametrizations_list, figname_appendix=idx)
+    plt.close()
