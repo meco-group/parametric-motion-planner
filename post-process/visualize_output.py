@@ -283,38 +283,23 @@ def visualize_output(env, params, corridors, planner_methods,
     plt.savefig(fig_folder + '/timings.png', dpi=300)
 
 
-# try:
-# files = ["output/solution_p2p.json", "output/solution_ocp.json", "output/solution_arena.json"]
-# files = ["build/output/solution_arena.json", "build/output/solution_ocp.json"]
-# files = ["output/solution_ocp.json"]
-# files = ["output/solution_arena.json"]
-# files = ["output/reviewers_problem_solution.json", "output/reviewers_problem_solution_no_coupling.json",]
-# files = ["output/reviewers_problem_solution_diagonal_1.json"]
-# fffiles = [files]
-
-fffiles = [["output/reviewers_problem_solution_diagonal_" + str(i) + ".json"] for i in range(8)]
-# fffiles[-1].append("output/reviewers_problem_solution_diagonal_ocp_7.json")
-for idx, files in enumerate(fffiles):
-    envs_list = []
-    params_list = []
-    corridors_list = []
-    planner_methods_list = []
-    trajectories_list = []
-    parametrizations_list = []
-    for output_file in files:
-        env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
-        envs_list.append(env)
-        params_list.append(params)
-        corridors_list.append(corridors)
-        planner_methods_list.append(planner_method)
-        trajectories_list.append(trajectory)
-        parametrizations_list.append(parametrization)
-
-    # visualize_output(envs_list[0], params_list[0], corridors_list[min(len(files)-1,2)], 
-    #                 planner_methods_list, trajectories_list, 
-    #                 parametrizations_list, ocp_corridors=corridors_list[1],
-    #                 show_original_path=False, hatch='//')
-    visualize_output(envs_list[0], params_list[0], corridors_list[min(len(files)-1,2)], 
-                    planner_methods_list, trajectories_list, 
-                    parametrizations_list, figname_appendix=idx)
-    plt.close()
+files = ['output/example_problem.json']
+envs_list = []
+params_list = []
+corridors_list = []
+planner_methods_list = []
+trajectories_list = []
+parametrizations_list = []
+for output_file in files:
+    env, params, corridors, planner_method, trajectory, parametrization = load_data(output_file)
+    envs_list.append(env)
+    params_list.append(params)
+    corridors_list.append(corridors)
+    planner_methods_list.append(planner_method)
+    trajectories_list.append(trajectory)
+    parametrizations_list.append(parametrization)
+    
+visualize_output(envs_list[0], params_list[0], corridors_list[min(len(files)-1,2)], 
+                planner_methods_list, trajectories_list, 
+                parametrizations_list)
+plt.close()
