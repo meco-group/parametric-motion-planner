@@ -1,9 +1,0 @@
-In animation_deadlock, we see agents 2 and 3 waiting for agents 0 and 1 
-respectively, before suddenly finding themselves waiting for each other.
-This results in deadlock.
-
-We can detect this situation and tell one of the agents to abort it's current
-task and move to the closest unclaimed destination.
-
-Note: if that also leads to a collision, we need to pick a different agent or 
-destination to make a change. That logic is not yet implemented.
