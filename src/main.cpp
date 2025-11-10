@@ -38,6 +38,16 @@ int main(int argc, char *argv[]){
         mp.SetRandomDest();
     }
     mp.PlanSafely();
-    mp.DumpToJson("example_problem.json");
-    std::cout << "stored output in output/example_problem.json" << std::endl;
+    mp.DumpToJson("example_problem_pmp.json");
+    std::cout << "stored output in output/example_problem_pmp.json" << std::endl;
+
+    // Do the same using OCP solution
+    mp.SetMethod(OCP);
+    mp.PlanSafely();
+    mp.DumpToJson("example_problem_ocp.json");
+    std::cout << "stored output in output/example_problem_ocp.json" << std::endl;
+
+
+    std::cout << "visualize results by running the file" << std::endl;
+    std::cout << "post-process/visualize_output.py" << std::endl;
 }

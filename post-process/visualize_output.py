@@ -1,30 +1,31 @@
 import matplotlib.pyplot as plt
 from visualization_helpers import *
+from pathlib import Path
 
-def latexify():
-    params = {#'backend': 'ps',
-              'axes.labelsize': 15,
-              'axes.titlesize': 15,
-              'legend.fontsize': 15,
-              'xtick.labelsize': 15,
-              'ytick.labelsize': 15,
-              'text.usetex': True,
-              'font.family': 'serif',
-              'figure.figsize': [7,5],
-              'text.latex.preamble': r'\usepackage{bm}',
-              }
+# def latexify():
+#     params = {#'backend': 'ps',
+#               'axes.labelsize': 15,
+#               'axes.titlesize': 15,
+#               'legend.fontsize': 15,
+#               'xtick.labelsize': 15,
+#               'ytick.labelsize': 15,
+#               'text.usetex': True,
+#               'font.family': 'serif',
+#               'figure.figsize': [7,5],
+#               'text.latex.preamble': r'\usepackage{bm}',
+#               }
  
-    plt.rcParams.update(params)
+#     plt.rcParams.update(params)
  
-latexify()
+# latexify()
 
 def visualize_output(env, params, corridors, planner_methods, 
                      trajectories, parametrizations=[], **kwargs):
     assert len(planner_methods) == len(trajectories)
     assert len(parametrizations) == len(trajectories)
 
-    # fig_folder = 'post-process/figures/'
-    fig_folder = '../post-process/figures/'
+    path_to_this = Path(__file__).resolve().parent
+    fig_folder = str(path_to_this.parent / 'figures' / '')
 
     first_arena_idx = 0
     while planner_methods[first_arena_idx] != "ARENA":
@@ -69,18 +70,10 @@ def visualize_output(env, params, corridors, planner_methods,
     plt.plot(corridors["dest"]["x"], corridors["dest"]["y"], 'ko', markersize=8)
                            
     # plot trajectory
-    if kwargs["figname_appendix"] == 7:
-        for i in range(len(trajectories)):
-            print(f"method: {planner_methods[i]}, Tf: {trajectories[i]['Tf']}")
-            show_trajectory(trajectories[i], colors[i], 
-                            planner_methods[i] == "ARENA", params["veh_width"], 
-                            params["veh_height"], i == 0)
-
- 
-    # pts = [0.511041, 0.172393, 0.511041, 0.177022, 0.54149, 0.1785, 0.84088, 0.178954, 0.953821, 0.155781, 1.01849, 0.1815, 1.24629, 0.181509, 1.25851, 0.30149, 1.25851, 0.30149, 1.29906, 0.3015, 1.29906, 0.3015, 1.29937, 0.336515]
-    # pts_x = [pts[2*i] for i in range(len(pts)//2)]
-    # pts_y = [pts[2*i+1] for i in range(len(pts)//2)]
-    # plt.scatter(pts_x, pts_y)
+    for i in range(len(trajectories)):
+        show_trajectory(trajectories[i], colors[i], 
+                        planner_methods[i] == "ARENA", params["veh_width"], 
+                        params["veh_height"], i == 0)
     
     set_env_plot_limits(env)
     plt.xticks([])
@@ -215,15 +208,7 @@ def visualize_output(env, params, corridors, planner_methods,
 
     plt.savefig(fig_folder + 'controls.png', dpi=300)
 
-    ### plot computation time and moving time ###
-    fig, ax1 = plt.subplots()
-    color_moving_time = 'chocolate'
-    color_solver_time = 'royalblue'
-
-    # Bar width
-    bar_width = 0.4
-
-    # Plot Tf on ax1
+    ### print computation time and moving time for each method ###
     methods = []
     x = []
     tfs = []
@@ -237,53 +222,15 @@ def visualize_output(env, params, corridors, planner_methods,
         solver_times.append(trajectories[i]['solver_time'])
         total_computation_times.append(trajectories[i]['total_computation_time'])
         non_solver_times.append(total_computation_times[i] - solver_times[i])
-    
-    ax1.bar([i - bar_width/2 for i in x], tfs, bar_width, 
-            label='Moving Time [s]', color=color_moving_time)
-    
-    # add bar value on top of each bar
-    for i in range(len(x)):
-        ax1.text(x[i] - bar_width/2, tfs[i] + 0.0, f'{tfs[i]:.3f}', 
-                 ha='center', va='bottom', color='black')
 
-    ax1.set_ylabel('Moving Time [s]', color=color_moving_time)
-    ax1.tick_params(axis='y', labelcolor=color_moving_time)
-    ax1.spines['left'].set_color(color_moving_time)
+    print("\nComparison of results:")
+    print(f"{'Method':<10} {'Moving Time [s]':<20} {'Solver Time [ms]':<20} {'Non-Solver Time [ms]':<25} {'Total Computation Time [ms]':<30}")
+    for i in range(len(methods)):
+        print(f"{methods[i]:<10} {tfs[i]:<20.3f} {solver_times[i]:<20.2f} {non_solver_times[i]:<25.2f} {total_computation_times[i]:<30.2f}")
 
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(methods)
-    handles1, labels1 = ax1.get_legend_handles_labels()
-
-
-    # Plot solver_time and total_computation_time on ax2
-    ax2 = ax1.twinx()
-    ax2.bar([i + bar_width/2 for i in x], solver_times, bar_width, 
-            label='Solver Time [ms]', color=color_solver_time)
-    ax2.bar([i + bar_width/2 for i in x], non_solver_times, bar_width,
-            bottom=solver_times, label='Non-Solver Time [ms]', color=color_solver_time, alpha=0.5)
-
-    # add bar value on top of each bar
-    for i in range(len(x)):
-        ax2.text(x[i] + bar_width/2, solver_times[i] + 0.0, f'{solver_times[i]:.2f}', 
-                 ha='center', va='bottom', color='black')
-        ax2.text(x[i] + bar_width/2, total_computation_times[i] + 13, f'{total_computation_times[i]:.2f}', 
-                 ha='center', va='top', color='black')
-
-    ax2.set_ylabel('Computation Time [ms]', color=color_solver_time)
-    ax2.tick_params(axis='y', labelcolor=color_solver_time)
-    ax2.spines['right'].set_color(color_solver_time)
-
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(methods)
-
-    handles2, labels2 = ax2.get_legend_handles_labels()
-    handles = handles1 + handles2
-    labels = labels1 + labels2
-    plt.legend(handles, labels)
-    plt.savefig(fig_folder + '/timings.png', dpi=300)
-
-
-files = ['output/example_problem.json']
+path_to_this = Path(__file__).resolve().parent
+path_to_output_files = path_to_this.parent / 'build' / 'output'
+files = [str(path_to_output_files) + '/example_problem_ocp.json', str(path_to_output_files) + '/example_problem_pmp.json']
 envs_list = []
 params_list = []
 corridors_list = []
@@ -302,4 +249,5 @@ for output_file in files:
 visualize_output(envs_list[0], params_list[0], corridors_list[min(len(files)-1,2)], 
                 planner_methods_list, trajectories_list, 
                 parametrizations_list)
+plt.show()
 plt.close()
