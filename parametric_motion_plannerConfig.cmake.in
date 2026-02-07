@@ -1,0 +1,9 @@
+@PACKAGE_INIT@
+
+include(CMakeFindPackageHandleStandardArgs)
+
+find_package(CasADi REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}Targets.cmake")
+
+# Add any other necessary commands or definitions here.
